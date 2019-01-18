@@ -835,9 +835,7 @@ class Deleter(Dialog):
 					if firstwrite:
 						firstwrite = False
 					else:
-						print("preceding sep")
 						handle.write(">\n")#quite important but inefficient. I should get to the eventfile parser soon.
-					print("Wrting:\n",">\n".join([i for i in logchunks if i != None]),sep="")
 					handle.write(">\n".join([i for i in logchunks if i != None]))
 	#---FILE UPDATE END; LOOP END---#
 			if not fail:
