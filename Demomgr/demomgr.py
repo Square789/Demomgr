@@ -39,7 +39,7 @@ _DEF = {	"cfgfolder":".demomgr", #Values. Is important. No changerooni.
 								"evtblocksz":65536
 							},
 			"eventbackupfolder":"_eventbackup",
-			"WELCOME":"Hi and Thank You for using DemoManager!\n\nA config file has been created in a folder next to the script.\n\nThis script is able to delete files if you tell it to.\nI in no way guarantee that this script is safe or 100% reliable and will not take any responsibility for lost data, damaged drives and/or destroyed hopes and dreams. If something goes wrong, data recovery tools are a thing.",
+			"WELCOME":"Hi and Thank You for using DemoManager!\n\nA config file has been created in a folder next to the script.\n\nThis script is able to delete files if you tell it to.\nI in no way guarantee that this script is safe or 100% reliable and will not take any responsibility for lost data, damaged drives and/or destroyed hopes and dreams. If something goes wrong, data recovery tools are a thing.\nI would like to stress that this program is likely to produce problems with the _events.txt files once modifying the file system, so be sure to create backups of that file if you want to keep it for whatever reason.",
 			"eventfile":"_events.txt",#If this name should for whatever reason change at some point, change this variable
 			"dateformat":"%d.%m.%Y  %H:%M:%S",
 			"eventfile_filenameformat":" \\(\".+\" at",#regex
@@ -52,6 +52,7 @@ _DEF = {	"cfgfolder":".demomgr", #Values. Is important. No changerooni.
 			"statusbardefault":"Ready.",
 			"tf2exepath":"steamapps/common/team fortress 2/hl2.exe",
 			"tf2headpath":"steamapps/common/team fortress 2/tf/",
+			"tf2launchargs":["-steam", "-game", "tf"],
 			"steamconfigpath1":"userdata/",
 			"steamconfigpath2":"config/localconfig.vdf",
 			"launchoptionskey":"[\"UserLocalConfigStore\"][\"Software\"][\"Valve\"][\"Steam\"][\"Apps\"][\"440\"][\"LaunchOptions\"]",
@@ -262,7 +263,7 @@ class FirstRunDialog(Dialog):
 	def buttonbox(self):
 		pass#Override buttonbox thing, I'll make my own damn buttons!
 
-class LaunchTF2(Dialog): #TODO : More error messages/warnings
+class LaunchTF2(Dialog): #TODO : More error messages/warnings; put shortdemopath generator into own function, this function will take care of errstates 3 and 1
 	def __init__(self, parent, options):
 
 		self.results = {}
@@ -271,54 +272,65 @@ class LaunchTF2(Dialog): #TODO : More error messages/warnings
 		self.steamdir = tk.StringVar()
 		self.steamdir.set(options["steamdir"])
 
-		try:
-			self.shortdemopath = os.path.relpath(options["demopath"], os.path.join(options["steamdir"],_DEF["tf2headpath"]))
-		except ValueError:
-			tk_msg.showwarning("demoMgr - Error", "Steam directory not on same drive as target directory.")
-			return
-			
+		self.errstates = [False, False, False, False, False] #0:Invalid steamdir, 1: Steamdir on bad drive, 2: VDF missing, 3:Demo outside /tf/, 4:No launchoptions
+
 		self.playdemoarg = tk.StringVar()
-		self.playdemoarg.set("+playdemo " + self.shortdemopath)
 
 		self.userselectvar = tk.StringVar()
-		self.userselectvar.set(self.getusers()[0])
+		try:
+			self.userselectvar.set(self.getusers()[0])
+		except: pass
 
 		self.launchoptionsvar = tk.StringVar()
+
+		self.shortdemopath = ""
+		self.__constructshortdemopath()
+
+		self.__showerrs()
 
 		Dialog.__init__(self, parent, "Play demo / Launch TF2...")
 
 	def body(self, master):
 		'''Ugly UI setup'''
-		self.steamdirframe= tk.LabelFrame(master, text="Steam install path", padx = 10, pady=8)
-		self.steamdirentry = tk.Entry(self.steamdirframe, state="readonly", textvariable = self.steamdir)
-		self.steamdirbtn = tk.Button(self.steamdirframe, command=self.askfordir, text="Select Steam install path")
+		steamdirframe= tk.LabelFrame(master, text="Steam install path", padx = 10, pady=8)
+		self.steamdirentry = tk.Entry(steamdirframe, state="readonly", textvariable = self.steamdir)
+		self.steamdirbtn = tk.Button(steamdirframe, command=self.askfordir, text="Select Steam install path")
+		self.error_steamdir_invalid = tk.Label(steamdirframe, fg="#AA0000", text="Steam dir is malformed or nonexistent! Please select the root folder called \"Steam\".")
+		self.warning_steamdir_mislocated = tk.Label(steamdirframe, fg="#AA0000", text="The queried demo and the Steam directory are on seperate drives.")
 
-		self.userselectframe = tk.LabelFrame(master, text="Select user profile if needed", padx = 10, pady=8)
+		userselectframe = tk.LabelFrame(master, text="Select user profile if needed", padx = 10, pady=8)
+		self.info_launchoptions_not_found = tk.Label(userselectframe, fg = "#222222", text="Launch configuration not found, it likely does not exist.")
+		self.userselectspinbox = tk.Spinbox(userselectframe, textvariable = self.userselectvar, values=self.getusers(), state="readonly")#Once changed, observer callback will be triggered by self.userselectvar
 
-		self.userselectspinbox = tk.Spinbox(self.userselectframe, textvariable = self.userselectvar, values=self.getusers(), state="readonly")#Once changed, observer callback will be triggered by self.userselectvar
-
-		self.launchoptionsframe = tk.LabelFrame(master, text="Launch options:", padx = 10, pady=8)
-		self.launchoptionswarning = tk.Label(self.launchoptionsframe, fg="#AA0000", text="Please install the vdf module in order to launch TF2 with your default settings. (Run cmd in admin mode; type \"python -m pip install vdf\")")
-		self.launchlabel1 = tk.Label(self.launchoptionsframe, text="[...]/hl2.exe -steam -game tf")
-		self.launchoptionsentry = tk.Entry(self.launchoptionsframe, textvariable=self.launchoptionsvar)
-		self.launchlabelentry = tk.Entry(self.launchoptionsframe, state="readonly", textvariable = self.playdemoarg)
+		launchoptionsframe = tk.LabelFrame(master, text="Launch options:", padx = 10, pady=8)
+		self.warning_launchoptions = tk.Label(launchoptionsframe, fg="#AA0000", text="Please install the vdf module in order to launch TF2 with your default settings. (Run cmd in admin mode; type \"python -m pip install vdf\")")#WARNLBL
+		self.launchlabel1 = tk.Label(launchoptionsframe, text="[...]/hl2.exe -steam -game tf")
+		self.launchoptionsentry = tk.Entry(launchoptionsframe, textvariable=self.launchoptionsvar)
+		pluslabel = tk.Label(launchoptionsframe, text="+")
+		self.launchlabelentry = tk.Entry(launchoptionsframe, state="readonly", textvariable = self.playdemoarg)
+		self.warning_not_in_tf_dir = tk.Label(launchoptionsframe, fg="#AA0000", text="The demo can not be played as it is not in Team Fortress\' file system (/tf/)")
 
 		self.launchlabelentry.config(width = len(self.playdemoarg.get()) + 2)
 
 		#pack start
 		self.steamdirentry.pack(fill=tk.BOTH,expand=1)
 		self.steamdirbtn.pack(fill=tk.BOTH,expand=1)
-		self.steamdirframe.pack(fill=tk.BOTH, expand=1)
+		self.error_steamdir_invalid.pack(fill=tk.BOTH,expand=1)
+		self.warning_steamdir_mislocated.pack(fill=tk.BOTH,expand=1)
+		steamdirframe.pack(fill=tk.BOTH, expand=1)
 
 		self.userselectspinbox.pack(fill=tk.BOTH,expand=1)
-		self.userselectframe.pack(fill=tk.BOTH, expand=1)
+		self.info_launchoptions_not_found.pack(fill=tk.BOTH, expand=1)
+		userselectframe.pack(fill=tk.BOTH, expand=1)
 
-		self.launchoptionswarning.pack(side=tk.TOP,expand=0)
-		self.launchoptionswarning.pack()
+		self.warning_launchoptions.pack(side=tk.TOP,expand=0)
+		self.warning_launchoptions.pack()
 		self.launchlabel1.pack(side=tk.LEFT,fill=tk.Y,expand=0)
 		self.launchoptionsentry.pack(side=tk.LEFT,fill=tk.BOTH,expand=1)
+		pluslabel.pack(side=tk.LEFT,fill=tk.BOTH,expand=0)
 		self.launchlabelentry.pack(side=tk.LEFT,fill=tk.BOTH,expand=0)
-		self.launchoptionsframe.pack(fill=tk.BOTH,expand=1)
+		self.warning_not_in_tf_dir.pack(side=tk.BOTTOM, fill=tk.BOTH,expand=1)
+		launchoptionsframe.pack(fill=tk.BOTH,expand=1)
 
 		self.btconfirm = tk.Button(master, text = "Launch!", command = lambda: self.done(1))
 		self.btcancel = tk.Button(master, text="Cancel", command = lambda: self.done(0))
@@ -329,52 +341,89 @@ class LaunchTF2(Dialog): #TODO : More error messages/warnings
 
 		self.userselectvar.trace("w", self.userchange)#If applied before, method would be triggered and UI elements would be accessed that do not exist yet.
 
+	def __showerrs(self):
+		'''Update all error labels after looking at conditions'''
+		if self.errstates[0]:
+			print(0)
+		if self.errstates[1]:
+			print(1)
+		if self.errstates[2]:
+			print(2)
+		if self.errstates[3]:
+			print(3)
+		if self.errstates[4]:
+			print(4)
+		print("=========")
+
 	def getusers(self):
-		'''Executed once by body() and used to insert value into self.userselectvar'''
+		'''Executed once by body(), by askfordir(),  and used to insert value into self.userselectvar'''
 		toget = os.path.join(self.steamdir.get(), _DEF["steamconfigpath1"])
 		if not os.path.exists(toget):
-			tk_msg.showerror("DemoMgr - Error","Steam directory malformed / does not exist.")
-			self.destroy()
+			self.errstates[0] = True
+			return []
+		self.errstates[0] = False
 		return os.listdir(toget)
 
-	def getlaunchoptions(self):
+	def __getlaunchoptions(self):
 		try:
 			import vdf
-			h = open(os.path.join(os.path.join(os.path.join(self.steamdir.get(), _DEF["steamconfigpath1"]), self.userselectvar.get()), _DEF["steamconfigpath2"]) )
-			launchopt = vdf.load(h)
-			h.close()
+			self.errstates[2] = False
+			with open(os.path.join(os.path.join(os.path.join(self.steamdir.get(), _DEF["steamconfigpath1"]), self.userselectvar.get()), _DEF["steamconfigpath2"]) ) as h:
+				launchopt = vdf.load(h)
 			launchopt = eval("launchopt" + _DEF["launchoptionskey"])
-			self.launchoptionswarning.config(text="")
+			self.errstates[4] = False
 			return launchopt
 		except ModuleNotFoundError:
-			self.launchoptionswarning.config(text="Please install the vdf (Valve Data Format) module in order to launch TF2 with your default settings. (Run cmd in admin mode; run \"python -m pip install vdf\")")
+			self.errstates[2] = True
+			self.errstates[4] = False
+			return ""
+		except KeyError:
+			self.errstates[4] = True
 			return ""
 		except FileNotFoundError:
+			self.errstates[4] = True
 			return ""
 
-	def userchange(self, *_):#Triggered by User selection spinbox -> self.userselectvar
-		launchopt = self.getlaunchoptions()
-		self.launchoptionsentry.delete(0, tk.END)
-		self.launchoptionsentry.insert(tk.END, launchopt)
-
-	def askfordir(self):
+	def askfordir(self):#Triggered by user clicking on the Dir choosing btn
 		sel = tk_fid.askdirectory()
 		if sel == "":
 			return
 		self.steamdir.set(sel)
-		self.steamdirentry.config(state=tk.ACTIVE)
-		self.steamdirentry.set(self.steamdir.get())
-		self.steamdirentry.config(state="readonly")
-		self.shortdemopath = os.path.relpath(self.demopath, os.path.join(self.steamdir.get(),_DEF["tf2headpath"]))
-		self.playdemoarg.set("+playdemo " + self.shortdemopath)
+		#self.steamdirentry.config(state=tk.ACTIVE)
+		#self.steamdirentry.set(self.steamdir.get())
+		#self.steamdirentry.config(state="readonly")
+		self.userselectspinbox.config(values = self.getusers())
+		try:
+			self.userselectvar.set(self.getusers()[0])
+		except: pass
+		self.__constructshortdemopath()
 		self.launchlabelentry.config(width = len(self.playdemoarg.get()) + 2)
+		self.__showerrs()
+
+	def userchange(self, *_):#Triggered by User selection spinbox -> self.userselectvar
+		launchopt = self.__getlaunchoptions()
+		self.launchoptionsvar.set(launchopt)
+		#self.__showerrs()
+
+	def __constructshortdemopath(self):
+		try:
+			self.shortdemopath = os.path.relpath(self.demopath, os.path.join(self.steamdir.get(),_DEF["tf2headpath"]))
+			self.errstates[1] = False
+		except ValueError:
+			self.shortdemopath = ""
+			self.errstates[1] = True
+		if ".." in self.shortdemopath:
+			self.errstates[3] = True
+		else:
+			self.errstates[3] = False
+		self.playdemoarg.set("playdemo " + self.shortdemopath)
 
 	def done(self, param):
 		if param:
 			executable = os.path.join(self.steamdir.get(), _DEF["tf2exepath"])
-			launchopt = self.launchoptionsentry.get()
+			launchopt = self.launchoptionsvar.get()
 			launchopt = launchopt.split(" ")
-			launchoptions = [executable, "-steam", "-game", "tf"] + launchopt
+			launchoptions = [executable] + _DEF["tf2launchargs"] + launchopt
 			launchoptions.append("+playdemo")
 			launchoptions.append(self.shortdemopath)
 			subprocess.Popen(launchoptions) #Launch tf2; -steam param may cause conflicts when steam is not open but what do I know?
