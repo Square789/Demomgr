@@ -18,7 +18,6 @@ ROW = "row"
 BORDERWIDTH = 2
 ENTRYHEIGHT = 16
 
-_MENUBTN = "Menu" #May need to be changed to "Menu"/"App"
 _RIGHTCLICKBTN = 3
 
 class idLabel(Label):#Labels are a subclass that hold some additional values regarding their column
@@ -122,7 +121,7 @@ The list broadcasts the Virtual event "<<MultiframeSelect>>" to its parent whene
 				return self.__setindex(event, button, currow, fromclick)
 			def _handler2(event, self=self, button=_RIGHTCLICKBTN, currow=i, fromclick=True):
 				return self.__setindex(event, button, currow, fromclick)
-			self.frames[i][1].bind("<KeyPress-" + _MENUBTN +">", _handler0) #https://infohost.nmt.edu/tcc/help/pubs/tkinter/web/extra-args.html
+			self.frames[i][1].bind("<KeyPress-App>", _handler0) #https://infohost.nmt.edu/tcc/help/pubs/tkinter/web/extra-args.html
 			self.frames[i][1].bind("<<ListboxSelect>>", _handler1)
 			self.frames[i][1].bind("<Button-" + str(_RIGHTCLICKBTN) + ">", _handler2)
 			self.frames[i][1].config(yscrollcommand=self.__scrollalllistbox)

@@ -17,12 +17,10 @@ import datetime
 import subprocess
 import json
 import shutil
+
 sys.path.append(os.getcwd())
-try:
-	import multiframe_list as mfl
-except ModuleNotFoundError:
-	tk_msg.showerror("demomgr - Error","Please place the \"multiframe_list.py\"-file next to the script.")
-	quit()
+import multiframe_list as mfl
+import handle_events as hdl_ev
 
 __version__ = 0.1
 __author__ = "Square789"
@@ -220,7 +218,6 @@ def assignbookmarkdata(files, bookmarkdata):
 
 def formatbookmarkdata(filelist, bookmarkdata):
 	'''Converts bookmarkdata into a list of strings: "X Bookmarks, Y Killstreaks". needs filelist to assign bookmarkdata to '''
-
 	assignedlogs = assignbookmarkdata(filelist, bookmarkdata)
 
 	listout = ["" for i in assignedlogs]
@@ -263,10 +260,12 @@ class FirstRunDialog(Dialog):
 	def buttonbox(self):
 		pass#Override buttonbox thing, I'll make my own damn buttons!
 
-class LaunchTF2(Dialog): #TODO : More error messages/warnings; put shortdemopath generator into own function, this function will take care of errstates 3 and 1
+class LaunchTF2(Dialog):
 	def __init__(self, parent, options):
 
-		self.results = {}
+		self.result_ = {}
+
+		self.parent = parent
 
 		self.demopath = options["demopath"]
 		self.steamdir = tk.StringVar()
@@ -286,9 +285,9 @@ class LaunchTF2(Dialog): #TODO : More error messages/warnings; put shortdemopath
 		self.shortdemopath = ""
 		self.__constructshortdemopath()
 
-		self.__showerrs()
 
-		Dialog.__init__(self, parent, "Play demo / Launch TF2...")
+		Dialog.__init__(self, self.parent, "Play demo / Launch TF2...")
+
 
 	def body(self, master):
 		'''Ugly UI setup'''
@@ -303,11 +302,13 @@ class LaunchTF2(Dialog): #TODO : More error messages/warnings; put shortdemopath
 		self.userselectspinbox = tk.Spinbox(userselectframe, textvariable = self.userselectvar, values=self.getusers(), state="readonly")#Once changed, observer callback will be triggered by self.userselectvar
 
 		launchoptionsframe = tk.LabelFrame(master, text="Launch options:", padx = 10, pady=8)
-		self.warning_launchoptions = tk.Label(launchoptionsframe, fg="#AA0000", text="Please install the vdf module in order to launch TF2 with your default settings. (Run cmd in admin mode; type \"python -m pip install vdf\")")#WARNLBL
-		self.launchlabel1 = tk.Label(launchoptionsframe, text="[...]/hl2.exe -steam -game tf")
-		self.launchoptionsentry = tk.Entry(launchoptionsframe, textvariable=self.launchoptionsvar)
-		pluslabel = tk.Label(launchoptionsframe, text="+")
-		self.launchlabelentry = tk.Entry(launchoptionsframe, state="readonly", textvariable = self.playdemoarg)
+		launchoptwidgetframe = tk.Frame(launchoptionsframe, bd=4, relief = tk.RAISED, padx = 5, pady = 4)
+		self.warning_vdfmodule = tk.Label(launchoptwidgetframe, fg="#AA0000", text="Please install the vdf module in order to launch TF2 with your default settings. (Run cmd in admin mode; type \"python -m pip install vdf\")")#WARNLBL
+		self.launchlabel1 = tk.Label(launchoptwidgetframe, text="[...]/hl2.exe -steam -game tf")
+		self.launchoptionsentry = tk.Entry(launchoptwidgetframe, textvariable=self.launchoptionsvar)
+		pluslabel = tk.Label(launchoptwidgetframe, text="+")
+		self.launchlabelentry = tk.Entry(launchoptwidgetframe, state="readonly", textvariable = self.playdemoarg)
+
 		self.warning_not_in_tf_dir = tk.Label(launchoptionsframe, fg="#AA0000", text="The demo can not be played as it is not in Team Fortress\' file system (/tf/)")
 
 		self.launchlabelentry.config(width = len(self.playdemoarg.get()) + 2)
@@ -323,13 +324,14 @@ class LaunchTF2(Dialog): #TODO : More error messages/warnings; put shortdemopath
 		self.info_launchoptions_not_found.pack(fill=tk.BOTH, expand=1)
 		userselectframe.pack(fill=tk.BOTH, expand=1)
 
-		self.warning_launchoptions.pack(side=tk.TOP,expand=0)
-		self.warning_launchoptions.pack()
+		self.warning_vdfmodule.pack(side=tk.TOP,expand=0)
 		self.launchlabel1.pack(side=tk.LEFT,fill=tk.Y,expand=0)
 		self.launchoptionsentry.pack(side=tk.LEFT,fill=tk.BOTH,expand=1)
 		pluslabel.pack(side=tk.LEFT,fill=tk.BOTH,expand=0)
 		self.launchlabelentry.pack(side=tk.LEFT,fill=tk.BOTH,expand=0)
-		self.warning_not_in_tf_dir.pack(side=tk.BOTTOM, fill=tk.BOTH,expand=1)
+		launchoptwidgetframe.pack(side=tk.TOP, expand = 1, fill = tk.BOTH)
+
+		self.warning_not_in_tf_dir.pack(side=tk.BOTTOM, anchor = tk.S, fill=tk.BOTH,expand=1)
 		launchoptionsframe.pack(fill=tk.BOTH,expand=1)
 
 		self.btconfirm = tk.Button(master, text = "Launch!", command = lambda: self.done(1))
@@ -339,21 +341,31 @@ class LaunchTF2(Dialog): #TODO : More error messages/warnings; put shortdemopath
 		self.btcancel.pack(side=tk.LEFT, expand =1, fill = tk.X, anchor = tk.S)
 		self.userchange()
 
+		self.__showerrs()
 		self.userselectvar.trace("w", self.userchange)#If applied before, method would be triggered and UI elements would be accessed that do not exist yet.
 
-	def __showerrs(self):
+	def __showerrs(self):#NOTE: Can't figure out what flag pack_propagate sets
 		'''Update all error labels after looking at conditions'''
 		if self.errstates[0]:
-			print(0)
+			self.error_steamdir_invalid.pack(fill=tk.BOTH,expand=1)
+		else:
+			self.error_steamdir_invalid.pack_forget()
 		if self.errstates[1]:
-			print(1)
+			self.warning_steamdir_mislocated.pack(fill=tk.BOTH,expand=1)
+		else:
+			self.warning_steamdir_mislocated.pack_forget()
 		if self.errstates[2]:
-			print(2)
+			self.warning_vdfmodule.pack(side=tk.TOP,expand=0)
+		else:
+			self.warning_vdfmodule.pack_forget()
 		if self.errstates[3]:
-			print(3)
+			self.warning_not_in_tf_dir.pack(side=tk.BOTTOM, anchor = tk.S, fill=tk.BOTH,expand=1)
+		else:
+			self.warning_not_in_tf_dir.pack_forget()
 		if self.errstates[4]:
-			print(4)
-		print("=========")
+			self.info_launchoptions_not_found.pack(fill=tk.BOTH, expand=1)
+		else:
+			self.info_launchoptions_not_found.pack_forget()
 
 	def getusers(self):
 		'''Executed once by body(), by askfordir(),  and used to insert value into self.userselectvar'''
@@ -389,13 +401,10 @@ class LaunchTF2(Dialog): #TODO : More error messages/warnings; put shortdemopath
 		if sel == "":
 			return
 		self.steamdir.set(sel)
-		#self.steamdirentry.config(state=tk.ACTIVE)
-		#self.steamdirentry.set(self.steamdir.get())
-		#self.steamdirentry.config(state="readonly")
 		self.userselectspinbox.config(values = self.getusers())
 		try:
 			self.userselectvar.set(self.getusers()[0])
-		except: pass
+		except: self.userselectvar.set("")# will trigger self.userchange
 		self.__constructshortdemopath()
 		self.launchlabelentry.config(width = len(self.playdemoarg.get()) + 2)
 		self.__showerrs()
@@ -403,7 +412,7 @@ class LaunchTF2(Dialog): #TODO : More error messages/warnings; put shortdemopath
 	def userchange(self, *_):#Triggered by User selection spinbox -> self.userselectvar
 		launchopt = self.__getlaunchoptions()
 		self.launchoptionsvar.set(launchopt)
-		#self.__showerrs()
+		self.__showerrs()
 
 	def __constructshortdemopath(self):
 		try:
@@ -412,6 +421,7 @@ class LaunchTF2(Dialog): #TODO : More error messages/warnings; put shortdemopath
 		except ValueError:
 			self.shortdemopath = ""
 			self.errstates[1] = True
+			self.errstates[3] = True
 		if ".." in self.shortdemopath:
 			self.errstates[3] = True
 		else:
@@ -426,8 +436,12 @@ class LaunchTF2(Dialog): #TODO : More error messages/warnings; put shortdemopath
 			launchoptions = [executable] + _DEF["tf2launchargs"] + launchopt
 			launchoptions.append("+playdemo")
 			launchoptions.append(self.shortdemopath)
-			subprocess.Popen(launchoptions) #Launch tf2; -steam param may cause conflicts when steam is not open but what do I know?
-			self.results = {"steampath":self.steamdir.get()}
+			try:
+				subprocess.Popen(launchoptions) #Launch tf2; -steam param may cause conflicts when steam is not open but what do I know?
+				self.result_ = {"success":True,"steampath":self.steamdir.get()}
+			except FileNotFoundError:
+				self.result_ = {"success":False,"steampath":self.steamdir.get()}
+				tk_msg.showerror("Demomgr - Error", "hl2 executable not found.", parent = self)
 		self.destroy()
 
 	def buttonbox(self):
@@ -793,7 +807,7 @@ class Deleter(Dialog):
 		with open( os.path.join(self.demodir, _DEF["eventfile"]), "w") as eventhandle:
 			eventhandle.write(newevent)'''
 
-		evtpath = os.path.join(self.demodir, _DEF["eventfile"]) #NOTE: Potentially create Class designed for event reading as this is too cluttered, but that's for later
+		evtpath = os.path.join(self.demodir, _DEF["eventfile"]) #TODO: Implement classes from handle_events
 		evttmppath = os.path.join(self.demodir, "."+_DEF["eventfile"])
 		if os.path.exists(evttmppath):
 			os.remove(evttmppath)
@@ -1030,7 +1044,7 @@ class Mainapp():
 		self.mainframe = tk.Frame(self.root, padx=5, pady=3)
 		self.mainframe.pack(expand = 1, fill = tk.BOTH, side=tk.TOP, anchor = tk.NW)
 			#Start execution
-		startupres = self.startup()
+		startupres = self.__startup()
 		if startupres["res"] == -1:
 			tk_msg.showerror("demomgr - Error","The following error occurred during startup: " + startupres["msg"])
 		elif startupres["res"] == 1:
@@ -1048,7 +1062,7 @@ class Mainapp():
 			self.spinboxvar.set(self.cfg["demopaths"][0])	#spbxv; This will call self.reloadgui, so the frames are filled.
 		self.root.deiconify()#end startup; show UI
 
-	def startup(self):
+	def __startup(self):
 		'''Will go through a startup routine, then return a value whether startup was successful, this is first launch etc.'''
 		try:
 			self.cfg = self.getcfg()
@@ -1139,14 +1153,6 @@ class Mainapp():
 		self.demoinfbox.pack(fill=tk.BOTH, expand = 1)
 		self.demoinfframe.pack(fill=tk.BOTH, expand = 1)
 
-
-	# def startwooh(self, w):
-		# threading.Thread(target=self.wooh).start()
-
-	# def wooh(self):
-		# import winsound
-		# winsound.PlaySound("wooh.wav", winsound.SND_FILENAME)
-
 	def __deldem(self):
 		'''Opens dialog offering demo deletion'''
 		if self.curdir == "":
@@ -1167,14 +1173,14 @@ class Mainapp():
 		if os.path.splitext(path)[1] != ".dem":
 			return
 		dialog_ = LaunchTF2(self.mainframe, {"demopath":path ,"steamdir":self.cfg["steampath"]} )
-		if "steampath" in dialog_.results:
-			if dialog_.results["steampath"] != self.cfg["steampath"]:
-				self.cfg["steampath"] = dialog_.results["steampath"]
+		if "steampath" in dialog_.result_:
+			if dialog_.result_["steampath"] != self.cfg["steampath"]:
+				self.cfg["steampath"] = dialog_.result_["steampath"]
 				self.writecfg(self.cfg)
 				self.cfg = self.getcfg()
 
 	def __updatedemowindow(self, event):
-		'''Renew contents of demo window'''
+		'''Renew contents of demo information window'''
 		if self.listbox.getindex() == None:
 			return
 		if not self.cfg["previewdemos"]:
