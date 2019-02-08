@@ -20,7 +20,7 @@ import shutil
 
 sys.path.append(os.getcwd())
 import multiframe_list as mfl
-import handle_events as hdl_ev
+import handle_events as handle_ev
 
 __version__ = 0.1
 __author__ = "Square789"
@@ -779,144 +779,45 @@ class Deleter(Dialog):
 			self.appendtextbox("\nDeleted " + os.path.join(self.demodir, i) )
 	#-----------------------------------#
 		
-		self.appendtextbox("\n\nUpdating " + _DEF["eventfile"] + "..." )
-		'''
-		with open( os.path.join(self.demodir, _DEF["eventfile"]), "r") as eventhandle:
-			rawevent = eventhandle.read()
-		logchunks = rawevent.split(">\n")
-		del rawevent
-		evtnames = []
-		for i, j in enumerate(logchunks): #get names of each logchunk
-			regres = re.search(_DEF["eventfile_filenameformat"], j)
-			if regres:
-				evtnames.append(regres[0][3:-4] + ".dem")
-			else:
-				evtnames.append(None)
-		newevent = logchunks
-		if self.eventfileupdate == "selectivemove":
-			newevent = []
-			for i, j in enumerate(self.selected): #only transfer logchunks to newevent whose files are still present
-				if not j:
-					if self.files[i] in evtnames:
-						newevent.append( logchunks[evtnames.index( self.files[i] ) ] )
-		elif self.eventfileupdate == "passive":
-			for i, j in enumerate(self.selected):
-				if j:
-					newevent.pop(evtnames.index(self.files[i]))#actually, this only works for 1 entry and then fails due to accessing the -nth element
-		newevent = ">\n".join(newevent)
-		with open( os.path.join(self.demodir, _DEF["eventfile"]), "w") as eventhandle:
-			eventhandle.write(newevent)'''
+		self.appendtextbox("\n\nUpdating " + _DEF["eventfile"] + "..." )#NOTE: Replace some lists with sets, failsafe for empty/nonexistent _events.txt file
 
-		evtpath = os.path.join(self.demodir, _DEF["eventfile"]) #TODO: Implement classes from handle_events
-		evttmppath = os.path.join(self.demodir, "."+_DEF["eventfile"])
-		if os.path.exists(evttmppath):
-			os.remove(evttmppath)
+		evtpath = os.path.join(self.demodir, _DEF["eventfile"])
+		tmpevtpath = os.path.join(self.demodir, "."+_DEF["eventfile"])
 
-		lastchunk = ""
-		logchunks = []
-		raw = ""
-		rawread = ""
-		regres = None
-		handlepos = 0
-		done = False
-		firstwrite = True
-		fail = True
-		if self.eventfileupdate == "passive": #NOTE: Not tested with n>1 files; IS unstable; massive spaghetti code
-			while not done:
-				with open(evtpath, "r") as handle:
-					handle.seek(handlepos)
-					rawread	= handle.read(self.cfg["evtblocksz"])
-					handlepos = handle.tell()
-				if (rawread == ""):
-					done = True; fail = False
-				raw = lastchunk + rawread
-				if (len(raw) < self.cfg["evtblocksz"]):
-					done = True; fail = False
-				logchunks = raw.split(">\n")
-				lastchunk = logchunks.pop(-1)
-				if len(lastchunk) == self.cfg["evtblocksz"]:
-					continue#This WILL take up more space than blocksz but who cares, it's not like you have 100MB of bookmarks in one demo or so
-	#-----READ END; UPDATE FILE-----#
-				lognames = []
-				for i in logchunks:
-					regres = re.search(_DEF["eventfile_filenameformat"], i)
-					if regres: lognames.append(regres[0][3:-4] + ".dem")
-					else: lognames.append(None)
-				for i, j in enumerate(self.selected):#self.filestodel contains json, does not work
-					if j:
-						if self.files[i] in lognames:
-							logchunks[lognames.index(self.files[i])] = None
-				with open(evttmppath, "a") as handle:
-					if firstwrite:
-						firstwrite = False
-					else:
-						handle.write(">\n")
-					handle.write(">\n".join([i for i in logchunks if i != None]))
-	#---FILE UPDATE END; LOOP END---#
-			if not fail:
-	#---UPDATE FILE W/ LASTCHUNK----#
-				lastname = ""
-				regres = re.search(_DEF["eventfile_filenameformat"], lastchunk)
-				if regres:lastname = regres[0][3:-4] + ".dem"
-				else: lastname = None
-				for i, j in enumerate(self.selected):
-					if j:
-						if self.files[i] == lastname:
-							lastchunk = None
-				if lastchunk != None:
-					with open(evttmppath, "a") as handle:
-						handle.write(lastchunk)
+		reader = handle_ev.EventReader(evtpath)
+		writer = handle_ev.EventWriter(tmpevtpath, clearfile = True)
+
+		if self.eventfileupdate == "passive":
+			while True:
+				outchunk = next(reader)
+				regres = re.search(_DEF["eventfile_filenameformat"], outchunk.content)
+				if regres: curchunkname = regres[0][3:-4] + ".dem"
+				else: curchunkname = ""
+				if not curchunkname in self.filestodel:#Dilemma: should i create a new list of okay files or basically waste twice the time going through all the .json files?
+					writer.writechunk(outchunk)
+				if outchunk.message["last"]: break
 
 		elif self.eventfileupdate == "selectivemove":
 			okayfiles = [j for i, j in enumerate(self.files) if not self.selected[i]]
-			while not done:
-				with open(evtpath, "r") as handle:
-					handle.seek(handlepos)
-					rawread	= handle.read(self.cfg["evtblocksz"])
-					handlepos = handle.tell()
-				if (rawread == ""):
-					done = True; fail = False
-				raw = lastchunk + rawread
-				if (len(raw) < self.cfg["evtblocksz"]):
-					done = True; fail = False
-				logchunks = raw.split(">\n")
-				lastchunk = logchunks.pop(-1)
-				if len(lastchunk) == self.cfg["evtblocksz"]:
-					continue#This WILL take up more space than blocksz but who cares, it's not like you have 100MB of bookmarks in one demo or so
-	#-----READ END; UPDATE FILE-----#
-				lognames = []
-				for i in logchunks:
-					regres = re.search(_DEF["eventfile_filenameformat"], i)
-					if regres: lognames.append(regres[0][3:-4] + ".dem")
-					else: lognames.append(None)
-				for i, j in enumerate(lognames):
-					if j in okayfiles:
-						pass
-					else:
-						logchunks[i] = None
-				with open(evttmppath, "a") as handle:
-					if firstwrite:
-						firstwrite = False
-					else:
-						handle.write(">\n")#quite important but inefficient. I should get to the eventfile parser soon.
-					handle.write(">\n".join([i for i in logchunks if i != None]))
-	#---FILE UPDATE END; LOOP END---#
-			if not fail:
-	#---UPDATE FILE W/ LASTCHUNK----#
-				lastname = ""
-				regres = re.search(_DEF["eventfile_filenameformat"], lastchunk)
-				if regres:lastname = regres[0][3:-4] + ".dem"
-				else: lastname = None
-				if lastname in okayfiles:
-					pass
-				else:
-					lastchunk = None
-				if lastchunk != None:
-					with open(evttmppath, "a") as handle:
-						handle.write(">\n"+lastchunk)
+			while True:
+				chunkexists = False
+				outchunk = next(reader)
+				regres = re.search(_DEF["eventfile_filenameformat"], outchunk.content)
+				if regres: curchunkname = regres[0][3:-4] + ".dem"
+				else: curchunkname = ""
+				for i, j in enumerate(okayfiles):
+					if j == curchunkname:
+						chunkexists = True
+						okayfiles.pop(i)
+						break#
+				if chunkexists:
+					writer.writechunk(outchunk)
+				if outchunk.message["last"]: break
+		reader.destroy()
+		writer.destroy()
 
 		os.remove(evtpath)
-		os.rename(evttmppath, evtpath)
+		os.rename(tmpevtpath, evtpath)
 		self.appendtextbox(" Done!")
 
 		self.result_["state"] = 1
