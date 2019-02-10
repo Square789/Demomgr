@@ -53,7 +53,7 @@ _DEF = {	"cfgfolder":".demomgr", #Values. Is important. No changerooni.
 			"tf2launchargs":["-steam", "-game", "tf"],
 			"steamconfigpath1":"userdata/",
 			"steamconfigpath2":"config/localconfig.vdf",
-			"launchoptionskey":"[\"UserLocalConfigStore\"][\"Software\"][\"Valve\"][\"Steam\"][\"Apps\"][\"440\"][\"LaunchOptions\"]",
+			"launchoptionskey":"[\"UserLocalConfigStore\"][\"Software\"][\"valve\"][\"Steam\"][\"Apps\"][\"440\"][\"LaunchOptions\"]",
 			"errlogfile":"err.log"
 		}
 
@@ -233,7 +233,7 @@ class FirstRunDialog(Dialog):
 	def __init__(self, parent = None):
 		if not parent:
 			parent = tk._default_root
-		Dialog.__init__(self, parent, "Welcome!")
+		super().__init__(parent, "Welcome!")
 
 	def destroy(self):
 		Dialog.destroy(self)
@@ -286,7 +286,7 @@ class LaunchTF2(Dialog):
 		self.__constructshortdemopath()
 
 
-		Dialog.__init__(self, self.parent, "Play demo / Launch TF2...")
+		super().__init__( self.parent, "Play demo / Launch TF2...")
 
 
 	def body(self, master):
@@ -433,9 +433,7 @@ class LaunchTF2(Dialog):
 			executable = os.path.join(self.steamdir.get(), _DEF["tf2exepath"])
 			launchopt = self.launchoptionsvar.get()
 			launchopt = launchopt.split(" ")
-			launchoptions = [executable] + _DEF["tf2launchargs"] + launchopt
-			launchoptions.append("+playdemo")
-			launchoptions.append(self.shortdemopath)
+			launchoptions = [executable] + _DEF["tf2launchargs"] + launchopt + ["+playdemo", self.shortdemopath]
 			try:
 				subprocess.Popen(launchoptions) #Launch tf2; -steam param may cause conflicts when steam is not open but what do I know?
 				self.result_ = {"success":True,"steampath":self.steamdir.get()}
@@ -466,6 +464,7 @@ class DeleteDemos(Dialog):
 		self.keepevents_var = tk.BooleanVar()
 		self.deluselessjson_var = tk.BooleanVar()
 		self.selall_var = tk.BooleanVar()
+		self.onlyprocifsel_var = tk.BooleanVar()
 
 		self.combobox_var = tk.StringVar()
 
@@ -483,7 +482,7 @@ class DeleteDemos(Dialog):
 					"Filesize above":{"id":6, "cond":None} #condition dict
 					}
 		
-		Dialog.__init__(self, parent, "Delete...")
+		super().__init__(parent, "Delete...")
 
 	def body(self, master):
 		'''UI'''
@@ -493,38 +492,43 @@ class DeleteDemos(Dialog):
 		cancelbutton = tk.Button(master, text= "Cancel", command = lambda: self.done(0) )
 
 		self.listbox = mfl.Multiframe(master, columns = 5, names= ["","Name","Date created","Info","Filesize"], sort = 0, formatters = [None, None, formatdate, None, convertunit], widths = [2, None, 18, 25, 15])
-		self.listbox.setdata( ([self.o(i) for i in self.selected], self.files, self.dates, formatbookmarkdata(self.files, self.bookmarkdata), self.filesizes) , mfl.COLUMN)
+		self.listbox.setdata(([self.o(i) for i in self.selected], self.files, self.dates, formatbookmarkdata(self.files, self.bookmarkdata), self.filesizes) , mfl.COLUMN)
 		self.listbox.format()
 
 		self.demoinflabel = tk.Label(master, text="", justify=tk.LEFT, anchor=tk.W, font = ("Consolas", 8) )
 
 		self.listbox.frames[0][2].pack_propagate(False) #looks weird, is sloppy, will probably lead to problems at some point. change parent to master if problems occur and comment out this line
-		self.selall_checkbtn = ttk.Checkbutton(self.listbox.frames[0][2], variable=self.selall_var, text="", command = self.selall) # ''
+		selall_checkbtn = ttk.Checkbutton(self.listbox.frames[0][2], variable=self.selall_var, text="", command = self.selall) # ''
 
-		self.optframe = tk.LabelFrame(master, text="Options...", pady=3, padx=8)
-		self.keepevents_checkbtn = ttk.Checkbutton(self.optframe, variable = self.keepevents_var, text = "Make backup of " + _DEF["eventfile"])
-		self.deljson_checkbtn = ttk.Checkbutton(self.optframe, variable = self.deluselessjson_var, text = "Delete orphaned json files")
+		optframe = tk.LabelFrame(master, text="Options...", pady=3, padx=8)
+		keepevents_checkbtn = ttk.Checkbutton(optframe, variable = self.keepevents_var, text = "Make backup of " + _DEF["eventfile"])
+		deljson_checkbtn = ttk.Checkbutton(optframe, variable = self.deluselessjson_var, text = "Delete orphaned json files")
 
-		self.condframe = tk.LabelFrame(master, text="Demo selector [Incomplete feature]", pady=3, padx=8)
-		self.condbox = ttk.Combobox(self.condframe, state = "readonly", values = [i for i in self.CND]) #CND keys are values.
+		condframe = tk.LabelFrame(master, text="Demo selector [Incomplete feature]", pady=3, padx=8)
+		condcheckbtnframe = tk.Frame(condframe)
+		self.condbox = ttk.Combobox(condframe, state = "readonly", values = [i for i in self.CND]) #CND keys are values.
 		self.condbox.set(next(iter(self.CND)))#dunno what this does, stole it from stackoverflow, seems to work.
-		self.condvalbox = tk.Entry(self.condframe) #
-		self.applybtn = tk.Button(self.condframe, text="Apply selection", command = self.applycond)
-		selifnobookmarks_checkbox = ttk.Checkbutton(self.condframe, text="Select when no information on condition is found", variable = self.selifnobookmarkdata_var)
+		self.condvalbox = tk.Entry(condframe) #
+		self.applybtn = tk.Button(condframe, text="Apply selection", command = self.applycond)
+		selifnobookmarks_checkbox = ttk.Checkbutton(condcheckbtnframe, text="Select when no information on condition is found", variable = self.selifnobookmarkdata_var)
+		onlyprocifsel_checkbox = ttk.Checkbutton(condcheckbtnframe, text="Only process files when they are already selected.", variable = self.onlyprocifsel_var)
 
-		selifnobookmarks_checkbox.pack(anchor = tk.SW, side=tk.BOTTOM)
+		onlyprocifsel_checkbox.pack(side=tk.LEFT)
+		selifnobookmarks_checkbox.pack(side=tk.LEFT)
+		condcheckbtnframe.pack(side=tk.BOTTOM, expand=1, fill=tk.X)
+
 		self.applybtn.pack(side=tk.RIGHT)
-		tk.Label(self.condframe).pack(side=tk.RIGHT)
+		tk.Label(condframe).pack(side=tk.RIGHT)
 		self.condvalbox.pack(side=tk.RIGHT, fill=tk.X, expand=1)
-		tk.Label(self.condframe).pack(side=tk.RIGHT)
+		tk.Label(condframe).pack(side=tk.RIGHT)
 		self.condbox.pack(side=tk.RIGHT, fill=tk.X, expand=1)
-		self.condframe.pack(fill=tk.BOTH)
+		condframe.pack(fill=tk.BOTH)
 
-		self.deljson_checkbtn.pack(side=tk.LEFT)
-		self.keepevents_checkbtn.pack(side=tk.LEFT)
-		self.optframe.pack(fill=tk.BOTH)
+		deljson_checkbtn.pack(side=tk.LEFT)
+		keepevents_checkbtn.pack(side=tk.LEFT)
+		optframe.pack(fill=tk.BOTH)
 
-		self.selall_checkbtn.pack(side=tk.LEFT, anchor=tk.W)
+		selall_checkbtn.pack(side=tk.LEFT, anchor=tk.W)
 
 		self.listbox.pack(side=tk.TOP,fill=tk.BOTH, expand=1)
 
@@ -544,7 +548,7 @@ class DeleteDemos(Dialog):
 
 		if self.cfg["previewdemos"]:
 			hdrinf = demheaderreader(os.path.join(self.curdir, self.listbox.getcell(1,index)) )
-			self.demoinflabel.config(text=( "Hostname: " + hdrinf["hostname"] + "| ClientID: " + hdrinf["clientid"] + "| Map name: " + hdrinf["map_name"]) )
+			self.demoinflabel.config(text=("Hostname: " + hdrinf["hostname"] + "| ClientID: " + hdrinf["clientid"] + "| Map name: " + hdrinf["map_name"]) )
 		
 		if self.listbox.getrowindex() != 0: return
 		if index == None: return
@@ -555,14 +559,16 @@ class DeleteDemos(Dialog):
 			self.selall_var.set(1)
 		self.listbox.setcell(0, index, self.o(self.selected[index]))
 
-	def setitem(self, index, value, ignorecheckbox = False): #value: bool
+	def setitem(self, index, value, lazyui = False, only_proc_if_selected = False): #value: bool
+		if only_proc_if_selected and (not self.selected[index]):
+			return
 		self.selected[index] = value
-		if not ignorecheckbox:
+		if not lazyui:
 			if False in self.selected: #~ laggy
 				self.selall_var.set(0)
 			else:
 				self.selall_var.set(1)
-		self.listbox.setcell(0, index, self.o(self.selected[index]))
+			self.listbox.setcolumn(0, [self.o(i) for i in self.selected])#do not refresh ui. this is done while looping over the elements, then a final refresh is performed.
 
 	def o(self, _in):
 		return " " if not _in else " X"
@@ -570,6 +576,7 @@ class DeleteDemos(Dialog):
 	def applycond(self):
 		'''Apply user-entered condition to the files. True spaghetti code.'''
 		conditionname = self.condbox.get()
+		procifselected = self.onlyprocifsel_var.get()#Assigning to local namespace, i have no idea if this makes it go faster
 		if conditionname == "": #empty value of stringvar
 			return
 		conditionvalue = self.condvalbox.get()#is good, unless empty string
@@ -581,18 +588,18 @@ class DeleteDemos(Dialog):
 			selifnoinfo = self.selifnobookmarkdata_var.get()
 			for i, j in enumerate(self.files):
 				if self.dates[i] < conditionvalue:
-					self.setitem(i, True, True)
+					self.setitem(i, True, True, procifselected)
 				else:
-					self.setitem(i, False, True)
+					self.setitem(i, False, True, procifselected)
 
 		elif conditionid == 1: #Date after
 			conditionvalue = int(conditionvalue)
 			selifnoinfo = self.selifnobookmarkdata_var.get()
 			for i, j in enumerate(self.files):
 				if self.dates[i] > conditionvalue:
-					self.setitem(i, True, True)
+					self.setitem(i, True, True, procifselected)
 				else:
-					self.setitem(i, False, True)
+					self.setitem(i, False, True, procifselected)
 
 		elif conditionid == 2: #No killstreak above condval
 			conditionvalue = int(conditionvalue)
@@ -600,14 +607,14 @@ class DeleteDemos(Dialog):
 			assigneddata = assignbookmarkdata(self.files, self.bookmarkdata)
 			for i, j in enumerate(self.files):
 				if assigneddata[i][0] == "":
-					self.setitem(i, bool(selifnoinfo), True)
+					self.setitem(i, bool(selifnoinfo), True, procifselected)
 					continue
 				for k in assigneddata[i][1]:
 					if k[0] >= conditionvalue:
-						self.setitem(i, True, True)
+						self.setitem(i, True, True, procifselected)
 						break
 				else:
-					self.setitem(i, False, True)
+					self.setitem(i, False, True, procifselected)
 
 		elif conditionid == 3: #Less than condval killstreaks
 			conditionvalue = int(conditionvalue)
@@ -615,12 +622,12 @@ class DeleteDemos(Dialog):
 			assigneddata = assignbookmarkdata(self.files, self.bookmarkdata)
 			for i, j in enumerate(self.files):
 				if assigneddata[i][0] == "":
-					self.setitem(i, bool(selifnoinfo), True)
+					self.setitem(i, bool(selifnoinfo), True, procifselected)
 					continue
 				if len(assigneddata[i][1]) < conditionvalue:
-					self.setitem(i, True, True)
+					self.setitem(i, True, True, procifselected)
 				else:
-					self.setitem(i, False, True)
+					self.setitem(i, False, True, procifselected)
 
 		elif conditionid == 4: #Less than condval bookmarks
 			conditionvalue = int(conditionvalue)
@@ -628,37 +635,37 @@ class DeleteDemos(Dialog):
 			assigneddata = assignbookmarkdata(self.files, self.bookmarkdata)
 			for i, j in enumerate(self.files):
 				if assigneddata[i][0] == "":
-					self.setitem(i, bool(selifnoinfo), True)
+					self.setitem(i, bool(selifnoinfo), True, procifselected)
 					continue
 				if len(assigneddata[i][2]) < conditionvalue:
-					self.setitem(i, True, True)
+					self.setitem(i, True, True, procifselected)
 				else:
-					self.setitem(i, False, True)
+					self.setitem(i, False, True, procifselected)
 
 		elif conditionid == 5: # Filesize less than condval
 			conditionvalue = int(conditionvalue)
 			for i, j in enumerate(self.files):
 				if self.filesizes[i] < conditionvalue:
-					self.setitem(i, True, True)
+					self.setitem(i, True, True, procifselected)
 				else:
-					self.setitem(i, False, True)
+					self.setitem(i, False, True, procifselected)
 
 		elif conditionid == 6: #Filesize more than condval
 			conditionvalue = int(conditionvalue)
 			for i, j in enumerate(self.files):
 				if self.filesizes[i] > conditionvalue:
-					self.setitem(i, True, True)
+					self.setitem(i, True, True, procifselected)
 				else:
-					self.setitem(i, False, True)
+					self.setitem(i, False, True, procifselected)
 
 		if len(self.selected) != 0: #set select all checkbox
-			self.setitem(0, self.selected[0], False)
+			self.setitem(0, self.selected[0], False, False)
 
 	def getheaders(self, path): #Soon (TM); this function isn't called anywhere.
 		result = []
 		files = [i for i in os.listdir(path) if os.path.splitext(i)[1] == ".dem"]
 		for i in files:
-			result.append( (i, demheaderreader(i) ) )
+			result.append((i, demheaderreader(i) ) )
 		return result
 
 	def selall(self):
@@ -715,7 +722,7 @@ class Deleter(Dialog):
 
 		self.result_ = {"state":0} #exit state. set to 1 if successful
 
-		Dialog.__init__(self, parent, "Delete...")
+		super().__init__(parent, "Delete...")
 
 	def buttonbox(self):
 		pass
@@ -761,8 +768,8 @@ class Deleter(Dialog):
 	def delete(self): #Black magic, I tell ya
 		if self.keepeventsfile: #---Backup _events file
 			backupfolder = os.path.join(os.getcwd(), _DEF["cfgfolder"], _DEF["eventbackupfolder"])
-			if not os.path.exists( backupfolder ):
-				os.makedirs( backupfolder )
+			if not os.path.exists(backupfolder):
+				os.makedirs(backupfolder)
 			i = 0
 			while True:
 				if os.path.exists( os.path.join(backupfolder, os.path.splitext(_DEF["eventfile"])[0] + str(i) + ".txt" )  ): #enumerate files: _events0.txt; _events1.txt; _events2.txt ...
@@ -779,46 +786,47 @@ class Deleter(Dialog):
 			self.appendtextbox("\nDeleted " + os.path.join(self.demodir, i) )
 	#-----------------------------------#
 		
-		self.appendtextbox("\n\nUpdating " + _DEF["eventfile"] + "..." )#NOTE: Replace some lists with sets, failsafe for empty/nonexistent _events.txt file
+		self.appendtextbox("\n\nUpdating " + _DEF["eventfile"] + "..." )#NOTE: Replace some lists with sets?
 
 		evtpath = os.path.join(self.demodir, _DEF["eventfile"])
 		tmpevtpath = os.path.join(self.demodir, "."+_DEF["eventfile"])
 
-		reader = handle_ev.EventReader(evtpath)
-		writer = handle_ev.EventWriter(tmpevtpath, clearfile = True)
+		if os.path.exists(evtpath):
+			reader = handle_ev.EventReader(evtpath)
+			writer = handle_ev.EventWriter(tmpevtpath, clearfile = True)
 
-		if self.eventfileupdate == "passive":
-			while True:
-				outchunk = next(reader)
-				regres = re.search(_DEF["eventfile_filenameformat"], outchunk.content)
-				if regres: curchunkname = regres[0][3:-4] + ".dem"
-				else: curchunkname = ""
-				if not curchunkname in self.filestodel:#Dilemma: should i create a new list of okay files or basically waste twice the time going through all the .json files?
-					writer.writechunk(outchunk)
-				if outchunk.message["last"]: break
+			if self.eventfileupdate == "passive":
+				while True:
+					outchunk = next(reader)
+					regres = re.search(_DEF["eventfile_filenameformat"], outchunk.content)
+					if regres: curchunkname = regres[0][3:-4] + ".dem"
+					else: curchunkname = ""
+					if not curchunkname in self.filestodel:#Dilemma: should i create a new list of okay files or basically waste twice the time going through all the .json files?
+						writer.writechunk(outchunk)
+					if outchunk.message["last"]: break
 
-		elif self.eventfileupdate == "selectivemove":
-			okayfiles = [j for i, j in enumerate(self.files) if not self.selected[i]]
-			while True:
-				chunkexists = False
-				outchunk = next(reader)
-				regres = re.search(_DEF["eventfile_filenameformat"], outchunk.content)
-				if regres: curchunkname = regres[0][3:-4] + ".dem"
-				else: curchunkname = ""
-				for i, j in enumerate(okayfiles):
-					if j == curchunkname:
+			elif self.eventfileupdate == "selectivemove":#Requires to have entire dir/actual files present; pro:
+				okayfiles = set([j for i, j in enumerate(self.files) if not self.selected[i]])
+				while True:
+					chunkexists = False
+					outchunk = next(reader)
+					regres = re.search(_DEF["eventfile_filenameformat"], outchunk.content)
+					if regres: curchunkname = regres[0][3:-4] + ".dem"
+					else: curchunkname = ""
+					if curchunkname in okayfiles:
+						okayfiles.remove(curchunkname)
 						chunkexists = True
-						okayfiles.pop(i)
-						break#
-				if chunkexists:
-					writer.writechunk(outchunk)
-				if outchunk.message["last"]: break
-		reader.destroy()
-		writer.destroy()
+					if chunkexists:
+						writer.writechunk(outchunk)
+					if outchunk.message["last"]: break
+			reader.destroy()
+			writer.destroy()
 
-		os.remove(evtpath)
-		os.rename(tmpevtpath, evtpath)
-		self.appendtextbox(" Done!")
+			os.remove(evtpath)
+			os.rename(tmpevtpath, evtpath)
+			self.appendtextbox(" Done!")
+		else:
+			self.appendtextbox(" Event file not found, skipping.")
 
 		self.result_["state"] = 1
 
@@ -848,7 +856,7 @@ class Settings(Dialog):
 		self.datagrabbtns = ( (_DEF["eventfile"], 1), (".json files", 2), ("None", 0) )
 		self.blockszvals = dict( [ (convertunit(i,"B") , i) for i in [2**pw for pw in range(12, 28)]] )
 
-		Dialog.__init__(self, parent, "Settings")
+		super().__init__( parent, "Settings")
 
 
 	def destroy(self):
@@ -1300,7 +1308,6 @@ class Mainapp():
 		localcfg.update(json.load(handle))#in case i add a new key or so
 		handle.close()
 		return localcfg
-
 
 if __name__ == "__main__":
 	mainapp = Mainapp(values = _DEF) #TODO: log potential errors to .demomgr/err.log
