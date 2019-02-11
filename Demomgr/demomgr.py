@@ -183,29 +183,13 @@ def convertlogchunks(logchunk):
 
 def readevents(handle, blocksz):
 	'''This function reads an events.txt file as it's written by the source engine, returns (filename, ( (killstreakpeak, tick)... ), ( (bookmarkname, tick)... ) )'''
-	lastchunk = ""
+	reader = handle_ev.EventReader(handle, blocksz=blocksz)
 	out = []
-	logchunks = []
-	raw = ""
-	rawread = ""
-	done = False
-	fail = True #Useless var, Am too lazy to revert the code all the way down in MainApp().fetchdata
-	while not done:
-		rawread = handle.read(blocksz)
-		if (rawread == ""):
-			done = True; fail = False
-		raw = lastchunk + rawread
-		if (len(raw) < blocksz):
-			done = True; fail = False
-		logchunks = raw.split(">\n")
-		lastchunk = logchunks.pop(-1)
-		if len(lastchunk) == blocksz:
-			continue#This WILL take up more space than blocksz but who cares, it's not like you have 100MB of bookmarks in one demo or so
-		for i in logchunks:
-			out.append(convertlogchunks(i))
-	if not fail:
-		out.append(convertlogchunks(lastchunk))
-	return out, fail
+	while True:
+		curchunk = next(reader)
+		out.append(convertlogchunks(curchunk.content))
+		if curchunk.message["last"]: break
+	return out, False
 
 def assignbookmarkdata(files, bookmarkdata):
 	"""Takes a list of files and the bookmarkdata; returns a list that contains the parallel bookmarkdata; ("", [], []) if no match found."""
@@ -792,7 +776,7 @@ class Deleter(Dialog):
 		tmpevtpath = os.path.join(self.demodir, "."+_DEF["eventfile"])
 
 		if os.path.exists(evtpath):
-			reader = handle_ev.EventReader(evtpath)
+			reader = handle_ev.EventReader(evtpath, blocksz = self.cfg["evtblocksz"])
 			writer = handle_ev.EventWriter(tmpevtpath, clearfile = True)
 
 			if self.eventfileupdate == "passive":
