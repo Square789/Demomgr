@@ -189,7 +189,7 @@ def readevents(handle, blocksz):
 		curchunk = next(reader)
 		out.append(convertlogchunks(curchunk.content))
 		if curchunk.message["last"]: break
-	return out, False
+	return out
 
 def assignbookmarkdata(files, bookmarkdata):
 	"""Takes a list of files and the bookmarkdata; returns a list that contains the parallel bookmarkdata; ("", [], []) if no match found."""
@@ -1155,7 +1155,6 @@ class Mainapp():
 
 	def fetchdata(self):
 		'''Get data from all the demos in current folder; return in format that can be directly put into listbox'''
-		readfailed = False
 		if self.curdir == "":
 			return ((),(),(),())
 		self.setstatusbar("Reading demo information from " + self.curdir)
@@ -1173,7 +1172,7 @@ class Mainapp():
 			except FileNotFoundError:
 				self.setstatusbar("\"" + self.values["eventfile"] +"\" has not been found.",1500)
 				return ((files, ["" for i in files], datescreated, sizes))
-			self.bookmarkdata, readfailed = readevents(h, self.cfg["evtblocksz"])
+			self.bookmarkdata = readevents(h, self.cfg["evtblocksz"])
 			h.close()
 		elif datamode == 2: #.json
 			jsonfiles = [i for i in os.listdir(self.curdir) if os.path.splitext(i)[1] == ".json" and os.path.exists(os.path.join(self.curdir, os.path.splitext(i)[0] + ".dem"))]
