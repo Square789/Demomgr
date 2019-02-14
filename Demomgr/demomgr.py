@@ -1074,7 +1074,8 @@ class Mainapp():
 
 	def __updatedemowindow(self, event):
 		'''Renew contents of demo information window'''
-		if self.listbox.getindex() == None:
+		index = self.listbox.getindex()
+		if index == None:
 			return
 		if not self.cfg["previewdemos"]:
 			self.demoinflabel.config(text="Preview window")
@@ -1084,14 +1085,24 @@ class Mainapp():
 			self.demoinfbox.config(state=tk.DISABLED)
 			return
 		try:
-			demname, deminfo = self.__readdemohdr()
-			demmarks = self.__readbookmarks()[1]
-			if demname == None:
-				demname = "?"
-			if deminfo == None:
-				deminfo = "Information could not be retrieved :("
-			if demmarks == None:
+			demname = self.listbox.getcell(0, index)	#Get headerinf
+			outdict = demheaderreader(os.path.join(self.curdir, demname))
+			deminfo = "\n".join([str(k) + " : " + str(outdict[k]) for k in outdict])
+			del outdict #End headerinf
+			entry = None	#Get bookmarks
+			for i in self.bookmarkdata:
+				if i[0] == demname:
+					entry = i
+					break
+			if entry == None:
 				demmarks = "\n\nNo bookmark information found."
+			else:
+				demmarks = "\n\n"
+				for i in entry[1]:
+					demmarks += (str(i[0]) + " streak at " + str(i[1]) +"\n")
+				demmarks += "\n"
+				for i in entry[2]:
+					demmarks += ("\"" + str(i[0]) + "\" bookmark at " + str(i[1]) +"\n")#End bookmarks
 		except BaseException:
 			demname = "?"
 			deminfo = "Error reading demo; file is likely corrupted :("
@@ -1142,37 +1153,6 @@ class Mainapp():
 		self.listbox.format()
 		self.__updatedemowindow(None)
 
-	def __readdemohdr(self):
-		'''Reads demoheader based on current user selection'''
-		filename = self.listbox.getrows(self.listbox.getindex())[0][0]
-		path = os.path.join(self.curdir, filename)
-		if not os.path.splitext(path)[1] == ".dem":
-			return None, None
-		outdict = demheaderreader(path)
-		formatout = [str(k) + " : " + str(outdict[k]) for k in outdict]
-		formatout = "\n".join(formatout)
-		return filename, formatout
-
-	def __readbookmarks(self):
-		'''Returns the bookmarks and killstreaks for the currently selected entry.'''
-		index = self.listbox.getindex()
-		selname = self.listbox.getcell(0, index)
-		if not os.path.splitext(os.path.join(self.curdir, selname))[1] == ".dem":
-			return None, None
-		filenames = [i[0] for i in self.bookmarkdata]
-		try:
-			entry = self.bookmarkdata[filenames.index(selname)]
-		except ValueError:
-			return None, None
-		if entry != ("",[],[]):
-			msgstr = "\n\n"
-			for i in entry[1]:
-				msgstr += (str(i[0]) + " streak at " + str(i[1]) +"\n")
-			msgstr += "\n"
-			for i in entry[2]:
-				msgstr += ("\"" + str(i[0]) + "\" bookmark at " + str(i[1]) +"\n")
-			return entry[0], msgstr
-
 	def fetchdata(self):
 		'''Get data from all the demos in current folder; return in format that can be directly put into listbox'''
 		readfailed = False
@@ -1195,7 +1175,6 @@ class Mainapp():
 				return ((files, ["" for i in files], datescreated, sizes))
 			self.bookmarkdata, readfailed = readevents(h, self.cfg["evtblocksz"])
 			h.close()
-			#end
 		elif datamode == 2: #.json
 			jsonfiles = [i for i in os.listdir(self.curdir) if os.path.splitext(i)[1] == ".json" and os.path.exists(os.path.join(self.curdir, os.path.splitext(i)[0] + ".dem"))]
 			worklist = []
@@ -1228,13 +1207,20 @@ class Mainapp():
 		listout = formatbookmarkdata(files, self.bookmarkdata) #format the bookmarkdata into something that can be directly fed into listbox
 
 		data = ( files, listout, datescreated, sizes )
-		self.setstatusbar("Processed data from " + str( len(files) ) + " files in " + str(round(time.time() - starttime, 4)) + " seconds." + (" However, an error occured; data may be unreliable."*readfailed), (1500 + (3000*readfailed) ) )
+		self.setstatusbar("Processed data from " + str( len(files) ) + " files in " + str(round(time.time() - starttime, 4)) + " seconds.", 3000)
 		return data
 
 	def __filter(self):
 		'''Filters the listbox on conditions in self.filterentry_var'''
-		raw = self.filterentry_var.get()
-		#TODO: Parse raw, create new image of listbox data, setdata() of mfl
+		try:
+			raw = self.filterentry_var.get()
+			raw = raw.split(",")
+			raw = [i.strip() for i in raw]
+			conddict = dict( [(i.split(":")[0], i.split(":")[1]) for i in raw] )
+		except BaseException:
+			self.setstatusbar("Invalid filter parameter format",3000)
+			return
+		#TODO: Parse raw to criteria, create new image of listbox data, setdata() of mfl
 
 	def spinboxsel(self, *args):
 		'''Observer callback to self.spinboxvar; is called whenever self.spinboxvar (so the combobox) is updated. Also implicitly called from self.rempath'''
