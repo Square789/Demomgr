@@ -3,12 +3,12 @@ Demomgr is a light python script designed to keep track of, cleanup and play dem
 
 ### Current features:
 * List Demos, their filesize, creation date and the amount of Killstreaks/Bookmarks
- * View demo header information
+  * View demo header information
 * Read Killstreak/Bookmark information from both .json files and the \_events.txt file
 * Sort and filter demos by multiple criteria
 * Play or delete demos from within the program
 * Cleanup entire folders by multiple criteria
- * Removes unneccessary entries from \_events.txt and also deletes useless .json files
+  * Removes unneccessary entries from \_events.txt and also deletes useless .json files
 
 The script works (tested on Python 3.6.6) with nearly the entire standard library
 
