@@ -203,11 +203,9 @@ class Multiframe(Frame):
 				self.length = ln
 		if self.currentindex == None: return
 		if self.currentindex > self.length - 1:
-			self.currentindex = self.length - 1#also do for clear and removerow
-			self.master.event_generate("<<MultiframeSelect>>", when = "tail")
+			self.currentindex = self.length - 1
 		if self.currentindex < 0:
 			self.currentindex = None
-			self.master.event_generate("<<MultiframeSelect>>", when = "tail")
 
 	def setcolumn(self, index, data, overrideval = False, modshdat = True):
 		'''This function will set the contents of the column at index to data, data being a list/tuple of values. overrideval: No validation. Use with care!'''
@@ -242,9 +240,7 @@ class Multiframe(Frame):
 		self.length -= 1
 		if self.currentindex > (self.length - 1):
 			self.currentindex = self.length - 1
-			self.master.event_generate("<<MultiframeSelect>>", when = "tail")
 		if self.currentindex < 0:
-			self.master.event_generate("<<MultiframeSelect>>", when = "tail")
 			self.currentindex = None
 
 	def clear(self):
