@@ -1,3 +1,4 @@
+'''ONLY TESTED ON WINDOWS 7 64 bit, Tcl v8.5'''
 from tkinter import *
 from operator import itemgetter
 from math import floor
@@ -35,20 +36,21 @@ class idLabel(Label):#Labels are a subclass that hold some additional values reg
 
 class Multiframe(Frame):
 	'''Instantiates a multiframe tkinter based list
-parameters:
-master - parent object, should be default tkinter root or a tkinter.Frame object
+	parameters:
+	master - parent object, should be default tkinter root or a tkinter.Frame object
 
-keyword arguments:
-columns: Number of columns to display
-names: List titling the columns: ["Egg", "Spam"]
-sort: 0:No labels sort; 1: All labels sort; 2: specify param sorters in the argument sorters: [True, False, True]
-widths: Set columns to fixed lengths; if none will expand as normally : [None, 10, None, 20, 5]
-formatters: A list of functions that formats list data for each element in a row. This is especially useful for i. e. dates, where you want to be able to sort by a unix timestamp but still be able to have the dates in a human-readable format :[None, self.dateformat]
+	keyword arguments:
+	columns: Number of columns to display
+	names: List titling the columns: ["Egg", "Spam"]
+	sort: 0:No labels sort; 1: All labels sort; 2: specify param sorters in the argument sorters: [True, False, True]
+	widths: Set columns to fixed lengths; if none will expand as normally : [None, 10, None, 20, 5]
+	formatters: A list of functions that formats list data for each element in a row. This is especially useful for i. e. dates, where you want to be able to sort by a unix timestamp but still be able to have the dates in a human-readable format :[None, self.dateformat]
 
-shadowdata: The shadowdata is an array always kept parallel to the current state of the Multiframe-Listbox. It is used by the sorting function to sort the list automatically; if you however want to display information in another fashion than to sort it by, specify formatters and call self.format() once all input has been made.
+	shadowdata: The shadowdata is an array always kept parallel to the current state of the Multiframe-Listbox. It is used by the sorting function to sort the list automatically; if you however want to display information in another fashion than to sort it by, specify formatters and call self.format() once all input has been made.
+	shadowdata should always containt values you can directly sort.
 
-The list broadcasts the Virtual event "<<MultiframeSelect>>" to its parent whenever something is selected.
-'''
+	The list broadcasts the Virtual event "<<MultiframeSelect>>" to its parent whenever something is selected.
+	The list broadcasts the Virtual event "<<MultiframeRightclick>>" to its parent whenever a right click is performed or the context menu button is pressed.'''
 	def __init__(self, master, **options):
 
 		super().__init__(master)
@@ -199,8 +201,13 @@ The list broadcasts the Virtual event "<<MultiframeSelect>>" to its parent whene
 						self.frames[i][1].insert(END, j)
 						self.shadowdata[i].append(j)
 				self.length = ln
-			else:
-				pass
+		if self.currentindex == None: return
+		if self.currentindex > self.length - 1:
+			self.currentindex = self.length - 1#also do for clear and removerow
+			self.master.event_generate("<<MultiframeSelect>>", when = "tail")
+		if self.currentindex < 0:
+			self.currentindex = None
+			self.master.event_generate("<<MultiframeSelect>>", when = "tail")
 
 	def setcolumn(self, index, data, overrideval = False, modshdat = True):
 		'''This function will set the contents of the column at index to data, data being a list/tuple of values. overrideval: No validation. Use with care!'''
@@ -233,6 +240,12 @@ The list broadcasts the Virtual event "<<MultiframeSelect>>" to its parent whene
 			self.frames[i][1].delete(index)
 			self.shadowdata[i].pop(index)
 		self.length -= 1
+		if self.currentindex > (self.length - 1):
+			self.currentindex = self.length - 1
+			self.master.event_generate("<<MultiframeSelect>>", when = "tail")
+		if self.currentindex < 0:
+			self.master.event_generate("<<MultiframeSelect>>", when = "tail")
+			self.currentindex = None
 
 	def clear(self):
 		'''Clears the multiframe-list.'''
@@ -240,6 +253,7 @@ The list broadcasts the Virtual event "<<MultiframeSelect>>" to its parent whene
 			self.frames[i][1].delete(0,END)
 			self.shadowdata[i] = []
 		self.length = 0
+		self.currentindex = None
 
 	def getindex(self):
 		'''Returns the current index.'''
@@ -286,7 +300,7 @@ The list broadcasts the Virtual event "<<MultiframeSelect>>" to its parent whene
 		return self.frames[index][1].get(0,END)
 
 	def getcell(self, x, y):
-		'''Returns element y in row x'''
+		'''Returns element y in column x'''
 		return self.frames[x][1].get(y)
 
 	def getshadowdata(self, mode = "row"):

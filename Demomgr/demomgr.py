@@ -18,7 +18,7 @@ import subprocess
 import json
 import shutil
 
-sys.path.append(os.getcwd())
+sys.path.append(os.getcwd())#Bad idea, fix soon
 import multiframe_list as mfl
 import handle_events as handle_ev
 
@@ -54,7 +54,18 @@ _DEF = {	"cfgfolder":".demomgr", #Values. Is important. No changerooni.
 			"steamconfigpath1":"userdata/",
 			"steamconfigpath2":"config/localconfig.vdf",
 			"launchoptionskey":"[\"UserLocalConfigStore\"][\"Software\"][\"valve\"][\"Steam\"][\"Apps\"][\"440\"][\"LaunchOptions\"]",
-			"errlogfile":"err.log"
+			"errlogfile":"err.log",
+			"filterdict":	{	"name":"\"{}\" in x[\"name\"]",#These will be passed through eval for each filtering process; all keys will be prefixed with "lambda x: "
+								"killstreak_min":"len(x[\"killstreaks\"]) >= {}",
+								"bookmark_min":"len(x[\"bookmarks\"]) >= {}",
+								"bookmark_contains":"\"{}\" in [i[0] for i in x[\"bookmarks\"]]",
+								"map_name":"\"{}\" in x[\"header\"][\"map_name\"]",
+								"hostname":"\"{}\" in x[\"header\"][\"hostname\"]",
+								"clientid":"\"{}\" in x[\"header\"][\"clientid\"]",
+								#"filesize_min":"False",
+								#"filesize_max":"False",
+								"moddate":"x[\"filedata\"][\"modtime\"] >= {}" #Only accept when an entries modification date is between [moddate] and [current date]
+							}
 		}
 
 _convpref = ["y","z","a","f","p","n","µ","m","","k","M","G","T","P","E","Z","Y"] #LIST HAS TO BE OF SAME LENGTH TO LEFT AND RIGHT SIDE, STARTING AT ""
@@ -213,6 +224,29 @@ def formatbookmarkdata(filelist, bookmarkdata):
 
 	return listout
 
+class HeaderFetcher: #used in MainApp.__filter
+	'''Only read a header when the class is accessed.'''
+	def __init__(self, filepath):
+		self.filepath = filepath
+		self.header = None
+
+	def __getitem__(self, key):
+		if self.header == None:
+			self.header = demheaderreader(self.filepath)
+		return self.header[key]
+
+class FileStatFetcher: #used in MainApp.__filter
+	'''Only read a file's size and moddate when the class is accessed.'''
+	def __init__(self, filepath):
+		self.filepath = filepath
+		self.data = None
+
+	def __getitem__(self, key):
+		if self.data == None:
+			statres = os.stat(self.filepath)
+			self.data = {"filesize":statres.st_size, "modtime":statres.st_mtime}
+		return self.data[key]
+
 class FirstRunDialog(Dialog):
 	def __init__(self, parent = None):
 		if not parent:
@@ -220,7 +254,7 @@ class FirstRunDialog(Dialog):
 		super().__init__(parent, "Welcome!")
 
 	def destroy(self):
-		Dialog.destroy(self)
+		super().destroy()
 
 	def body(self, master):
 		self.txtbox = tk_scr.ScrolledText(master, wrap = tk.WORD)
@@ -430,7 +464,7 @@ class LaunchTF2(Dialog):
 		pass
 
 	def destroy(self):
-		Dialog.destroy(self)
+		super().destroy()
 
 class DeleteDemos(Dialog):
 	def __init__(self, parent, **options):
@@ -465,7 +499,7 @@ class DeleteDemos(Dialog):
 					"Filesize below":{"id":5, "cond":None},
 					"Filesize above":{"id":6, "cond":None} #condition dict
 					}
-		
+
 		super().__init__(parent, "Delete...")
 
 	def body(self, master):
@@ -525,7 +559,7 @@ class DeleteDemos(Dialog):
 		pass
 
 	def destroy(self):
-		Dialog.destroy(self)
+		super().destroy()
 
 	def procitem(self, event):
 		index = self.listbox.getindex()
@@ -815,7 +849,7 @@ class Deleter(Dialog):
 		self.result_["state"] = 1
 
 	def destroy(self):
-		Dialog.destroy(self)
+		super().destroy()
 
 	def appendtextbox(self, _inp):
 		self.textbox.config(state = tk.NORMAL)
@@ -844,7 +878,7 @@ class Settings(Dialog):
 
 
 	def destroy(self):
-		Dialog.destroy(self)
+		super().destroy()
 
 	def body(self, master):
 		'''UI'''
@@ -907,7 +941,24 @@ class Settings(Dialog):
 	def buttonbox(self):
 		pass#Override buttonbox thing, I'll make my own damn buttons!
 
-class Mainapp():
+class AboutHelp(Dialog):
+	def __init__(self, parent):
+		self.parent = parent
+
+		super().__init__(parent, "DemoMgr - About / Help")
+
+	def body(self, master):
+		mesg = tk.Message(master, text="DemoMgr Version {VER}, created by {AUTHOR}.".format(VER = __version__, AUTHOR = __author__))
+
+		mesg.pack()
+
+	def buttonbox(self):
+		pass
+
+	def destroy(self):
+		super().destroy()
+
+class MainApp():
 	def __init__(self, *args, **kwargs):#A bunch of functions nest and then request index values from self.listbox, which is probably very bad but who even reads this
 		'''Init values, variables, go through startup routine, then show main window.'''
 
@@ -977,32 +1028,34 @@ class Mainapp():
 		'''Sets up UI inside of the self.mainframe widget'''
 		self.filterentry_var = tk.StringVar()
 
-		self.widgetframe0 = tk.Frame(self.mainframe)
-		self.widgetframe1 = tk.Frame(self.mainframe)
-		self.widgetframe2 = tk.Frame(self.mainframe)
+		widgetframe0 = tk.Frame(self.mainframe)
+		widgetframe1 = tk.Frame(self.mainframe)
+		widgetframe2 = tk.Frame(self.mainframe)
 		self.listboxframe = tk.Frame(self.mainframe)
 		self.demoinfframe = tk.Frame(self.mainframe, padx=5, pady=5)
 		self.statusbar = tk.Frame(self.mainframe)
 
 		self.listbox = mfl.Multiframe(self.listboxframe, columns=4, names=["Filename","Bookmarks?","Date created","Filesize"], sort = 2, sorters=[True,False,True,True], widths = [None, 26, 16, 10], formatters = [None, None, formatdate, convertunit])
 
-		self.pathsel_spinbox = ttk.Combobox(self.widgetframe0, state = "readonly")
+		self.pathsel_spinbox = ttk.Combobox(widgetframe0, state = "readonly")
 		self.pathsel_spinbox.config(values = tuple(self.cfg["demopaths"]))
 		self.pathsel_spinbox.config(textvariable = self.spinboxvar)
 
-		self.rempathbtn = tk.Button(self.widgetframe0, text = "Remove demo path", command = self.rempath)
-		self.addpathbtn = tk.Button(self.widgetframe0, text = "Add demo path...", command = self.addpath)
-		self.settingsbtn = tk.Button(self.widgetframe0, text = "Settings...", command = self.opensettings)
+		rempathbtn = tk.Button(widgetframe0, text = "Remove demo path", command = self.rempath)
+		addpathbtn = tk.Button(widgetframe0, text = "Add demo path...", command = self.addpath)
+		settingsbtn = tk.Button(widgetframe0, text = "Settings...", command = self.opensettings)
+		abouthelpbtn = tk.Button(widgetframe0, text = "About/Help...", command = self.showabout)
 
 		self.demoinfbox = tk_scr.ScrolledText(self.demoinfframe, wrap = tk.WORD, state=tk.DISABLED, width = 40)
 		self.demoinflabel = tk.Label(self.demoinfframe, text=self.values["demlabeldefault"])
 
-		self.filterlabel = tk.Label(self.widgetframe1, text="Filter demos: [Not implemented yet]")
-		self.filterentry = tk.Entry(self.widgetframe1, textvariable=self.filterentry_var)
-		self.filterbtn = tk.Button(self.widgetframe1, text="Apply Filter", command = self.__filter)
+		filterlabel = tk.Label(widgetframe1, text="Filter demos: ")
+		filterentry = tk.Entry(widgetframe1, textvariable=self.filterentry_var)
+		filterbtn = tk.Button(widgetframe1, text="Apply Filter", command = self.__filter)
+		clearfilterbtn = tk.Button(widgetframe1, text="Clear filter", command = self.reloadgui)
 
-		self.playdemobtn = tk.Button(self.widgetframe2, text="Play demo...", command = self.__playdem)
-		self.deldemobtn = tk.Button(self.widgetframe2, text="Cleanup...", command = self.__deldem)
+		self.playdemobtn = tk.Button(widgetframe2, text="Play demo...", command = self.__playdem)
+		self.deldemobtn = tk.Button(widgetframe2, text="Cleanup...", command = self.__deldem)
 
 		self.statusbarlabel = ttk.Label(self.statusbar, text="Ready.")
 
@@ -1018,26 +1071,29 @@ class Mainapp():
 
 		#widgetframe0
 		self.pathsel_spinbox.pack(side=tk.LEFT, fill = tk.X, expand = 1)
-		self.rempathbtn.pack(side=tk.LEFT, fill = tk.X, expand = 0)
-		self.addpathbtn.pack(side=tk.LEFT, fill = tk.X, expand = 0)
-		tk.Label(self.widgetframe0, text="", width=3).pack(side=tk.LEFT) #Placeholder
-		self.settingsbtn.pack(side=tk.LEFT, fill = tk.X, expand = 0)
+		rempathbtn.pack(side=tk.LEFT, fill = tk.X, expand = 0)
+		addpathbtn.pack(side=tk.LEFT, fill = tk.X, expand = 0)
+		tk.Label(widgetframe0, text="", width=3).pack(side=tk.LEFT) #Placeholder
+		settingsbtn.pack(side=tk.LEFT, fill = tk.X, expand = 0)
+		tk.Label(widgetframe0, text="", width=3).pack(side=tk.LEFT) #Placeholder
+		abouthelpbtn.pack(side=tk.LEFT, fill = tk.X, expand = 0)
 
-		self.widgetframe0.pack(anchor = tk.N, fill = tk.X, pady = 5, padx = 3)
+		widgetframe0.pack(anchor = tk.N, fill = tk.X, pady = 5, padx = 3)
 
 		#widgetframe1
-		self.filterlabel.pack(side = tk.LEFT, fill = tk.X, expand=0)
-		self.filterentry.pack(side = tk.LEFT, fill = tk.X, expand=1)
-		self.filterbtn.pack(side = tk.LEFT, fill = tk.X, expand=0)
+		filterlabel.pack(side = tk.LEFT, fill = tk.X, expand=0)
+		filterentry.pack(side = tk.LEFT, fill = tk.X, expand=1)
+		filterbtn.pack(side = tk.LEFT, fill = tk.X, expand=0)
+		clearfilterbtn.pack(side = tk.LEFT, fill = tk.X, expand=0)
 
-		self.widgetframe1.pack(anchor = tk.N, fill = tk.X, pady = 5)
+		widgetframe1.pack(anchor = tk.N, fill = tk.X, pady = 5)
 
 		#widgetframe2
 		self.playdemobtn.pack(side = tk.LEFT, fill = tk.X, expand=0)
-		tk.Label(self.widgetframe2, text="", width=3).pack(side=tk.LEFT) #Placeholder
+		tk.Label(widgetframe2, text="", width=3).pack(side=tk.LEFT) #Placeholder
 		self.deldemobtn.pack(side = tk.LEFT, fill = tk.X, expand=0)
 
-		self.widgetframe2.pack(anchor = tk.N, fill = tk.X, pady = 5)
+		widgetframe2.pack(anchor = tk.N, fill = tk.X, pady = 5)
 
 		self.listbox.pack(fill=tk.BOTH, expand=1)
 		self.listboxframe.pack(fill=tk.BOTH, expand = 1, side = tk.LEFT)
@@ -1072,7 +1128,7 @@ class Mainapp():
 				self.writecfg(self.cfg)
 				self.cfg = self.getcfg()
 
-	def __updatedemowindow(self, event):
+	def __updatedemowindow(self, _):
 		'''Renew contents of demo information window'''
 		index = self.listbox.getindex()
 		if index == None:
@@ -1121,9 +1177,8 @@ class Mainapp():
 		clickx, clicky = self.listbox.getlastclick()
 		listboxdim = self.listbox.getdimensions()
 		listboxx, listboxy = self.listboxframe.winfo_x(), self.listboxframe.winfo_y()
-		rootx, rooty = self.mainframe.winfo_rootx(), self.mainframe.winfo_rooty() #oh lord that's a lotta positions
+		rootx, rooty = self.mainframe.winfo_rootx(), self.mainframe.winfo_rooty() #oh man that's a lotta positions
 		#get coords to create the menu on
-
 		menu = tk.Menu(self.mainframe, tearoff = 0)
 		menu.add_command(label = "Play", command = self.__playdem)
 		menu.add_command(label = "Delete", command = self.__popupmenu_del)
@@ -1144,6 +1199,7 @@ class Mainapp():
 	def setstatusbar(self, data, timeout=None):
 		'''Set statusbar text to data (str)'''
 		self.statusbarlabel.config(text=str(data))
+		self.statusbarlabel.update()
 		if timeout:
 			self.statusbarlabel.after(timeout, lambda:self.setstatusbar(self.values["statusbardefault"]))
 
@@ -1165,6 +1221,7 @@ class Mainapp():
 		datamode = self.cfg["datagrabmode"]
 		if datamode == 0:
 			data = (files, ["" for i in files], datescreated, sizes)
+			self.setstatusbar("Bookmark information disabled.", 2000)
 			return data
 		elif datamode == 1: #_events.txt
 			try:
@@ -1210,7 +1267,7 @@ class Mainapp():
 		return data
 
 	def __filter(self):
-		'''Filters the listbox on conditions in self.filterentry_var'''
+		'''Filters the listbox according to conditions in self.filterentry_var'''
 		try:
 			raw = self.filterentry_var.get()
 			raw = raw.split(",")
@@ -1219,13 +1276,46 @@ class Mainapp():
 		except BaseException:
 			self.setstatusbar("Invalid filter parameter format",3000)
 			return
-		#TODO: Parse raw to criteria, create new image of listbox data, setdata() of mfl
+		starttime = time.time()
+
+		self.setstatusbar("Constructing filters...")
+		filters = []
+		try:
+			for k in conddict: #TODO: Implement ranges?
+				filters.append(eval("lambda x: "+_DEF["filterdict"][k].format(conddict[k])))#Construct lambdas for the user-entered conditions
+		except KeyError:
+			self.setstatusbar("Invalid filtering key, please double-check.",5000)
+			return
+
+		FILES = self.fetchdata()[0] #Function will modify self.bookmarkdata
+		self.setstatusbar("Filtering list...")
+
+		asg_bmd = assignbookmarkdata(FILES, self.bookmarkdata)
+		filteredlist = []
+
+		for i, j in enumerate(FILES):
+			curdemook = True
+			curdataset = {"name":j, "killstreaks":asg_bmd[i][1], "bookmarks":asg_bmd[i][2], "header": HeaderFetcher(os.path.join(self.curdir, j)), "filedata": FileStatFetcher(os.path.join(self.curdir, j))}
+			#The Fetcher classes prevent unneccessary drive access when the user i.E. only filters by name
+			for l in filters:
+				if not l(curdataset):
+					curdemook = False
+					break
+			if curdemook:
+				filteredlist.append((curdataset["name"], str(len(curdataset["bookmarks"])) + " Bookmarks; "+ str(len(curdataset["killstreaks"])) + " Killstreaks.", curdataset["filedata"]["modtime"], curdataset["filedata"]["filesize"]))
+
+		self.listbox.setdata(filteredlist, "row")
+		self.listbox.format()
+		self.setstatusbar("Filtered " + str(len(FILES)) + " demos in " + str(round(time.time() - starttime, 3)) + " seconds.",3000)
 
 	def spinboxsel(self, *args):
 		'''Observer callback to self.spinboxvar; is called whenever self.spinboxvar (so the combobox) is updated. Also implicitly called from self.rempath'''
 		if not self.spinboxvar.get() == self.curdir:
 			self.curdir = self.spinboxvar.get()
 			self.reloadgui()
+
+	def showabout(self): #TODO: Help/About window
+		dialog_ = AboutHelp(self.mainframe)
 
 	def opensettings(self):
 		'''Opens settings, acts based on results'''
@@ -1267,17 +1357,16 @@ class Mainapp():
 	def writecfg(self, data):
 		'''Writes config specified in data to self.cfgpath'''
 		handle = open(self.cfgpath, "w")
-		handle.write(json.dumps(data, indent= 4))
+		handle.write(json.dumps(data, indent=4))
 		handle.close()
 
 	def getcfg(self):
 		'''Gets config from self.cfgpath and returns it'''
 		localcfg = self.values["defaultcfg"]
-		handle = open(self.cfgpath, "r")
-		localcfg.update(json.load(handle))#in case i add a new key or so
-		handle.close()
+		with open(self.cfgpath, "r") as handle:
+			localcfg.update(json.load(handle))#in case i add a new key or so
 		return localcfg
 
 if __name__ == "__main__":
-	mainapp = Mainapp(values = _DEF) #TODO: log potential errors to .demomgr/err.log
+	mainapp = MainApp(values = _DEF) #TODO: log potential errors to .demomgr/err.log
 	mainapp.root.mainloop()
