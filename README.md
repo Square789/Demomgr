@@ -19,16 +19,18 @@ The script works (tested on Python 3.6.6) with the standard library, installing 
 - [ ] Better Cleanup item selector
 - [ ] Remove hassle with UNIX Timestamps
 
-###Start Instructions:
-Optionally install the [vdf module](https://pypi.org/project/vdf/).
-Make sure you extract all three files into a directory where the script will have write access, and then launch `demomgr.py`.
-After accepting the license, you will be presented with an empty UI. In order to view your demos, click "Add demo path" and select the directory containing your demos.
-You can switch between directories using the Selection box at the top of the window.
+### Start Instructions:
+Optionally install the [vdf module](https://pypi.org/project/vdf/).  
+Make sure you extract all three files into a directory where the script will have write access, and then launch `demomgr.py`.  
+After accepting the license, you will be presented with an empty UI. In order to view your demos, click "Add demo path" and select the directory containing your demos.  
+You can switch between directories using the Selection box at the top of the window.  
 
 #Filter instructions:
-The filter criteria must be entered as follows:
-`<keyname>:<value>`, seperated by commas
-Example: `map_name:cp_badlands, killstreak_min:2`
+The filter criteria must be entered as follows:  
+`<keyname>:<value>`, seperated by commas.  
+
+Example: `map_name:cp_badlands, killstreak_min:2`  
+
 You can currently filter the directory you are in by the following:
  * map_name : _Name of the map the demo is playing on. (Substring)_
  * name : _Filename of the demo. (Substring)_
