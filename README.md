@@ -25,7 +25,7 @@ Make sure you extract all three files into a directory where the script will hav
 After accepting the license, you will be presented with an empty UI. In order to view your demos, click "Add demo path" and select the directory containing your demos.  
 You can switch between directories using the Selection box at the top of the window.  
 
-# Filter instructions:
+#### Filter instructions:
 The filter criteria must be entered as follows:  
 `<keyname>:<value>`, seperated by commas.  
 
