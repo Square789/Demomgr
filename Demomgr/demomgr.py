@@ -37,7 +37,7 @@ _DEF = {	"cfgfolder":".demomgr", #Values. Is important. No changerooni.
 								"evtblocksz":65536
 							},
 			"eventbackupfolder":"_eventbackup",
-			"WELCOME":"Hi and Thank You for using DemoManager!\n\nA config file has been created in a folder next to the script.\n\nThis script is able to delete files if you tell it to.\nI in no way guarantee that this script is safe or 100% reliable and will not take any responsibility for lost data, damaged drives and/or destroyed hopes and dreams. If something goes wrong, data recovery tools are a thing.\nI would like to stress that this program is likely to produce problems with the _events.txt files once modifying the file system, so be sure to create backups of that file if you want to keep it for whatever reason.",
+			"WELCOME":"Hi and Thank You for using DemoManager!\n\nA config file has been created in a folder next to the script.\n\nThis script is able to delete files if you tell it to.\nI in no way guarantee that this script is safe or 100% reliable and will not take any responsibility for lost data, damaged drives and/or destroyed hopes and dreams. If something goes wrong, data recovery tools are a thing.\nThis program is licensed via the MIT Licence, by clicking the accept button below, you confirm that you have read and accepted the license.",
 			"eventfile":"_events.txt",#If this name should for whatever reason change at some point, change this variable
 			"dateformat":"%d.%m.%Y  %H:%M:%S",
 			"eventfile_filenameformat":" \\(\".+\" at",#regex
@@ -55,17 +55,16 @@ _DEF = {	"cfgfolder":".demomgr", #Values. Is important. No changerooni.
 			"steamconfigpath2":"config/localconfig.vdf",
 			"launchoptionskey":"[\"UserLocalConfigStore\"][\"Software\"][\"valve\"][\"Steam\"][\"Apps\"][\"440\"][\"LaunchOptions\"]",
 			"errlogfile":"err.log",
-			"filterdict":	{	"name":"\"{}\" in x[\"name\"]",#These will be passed through eval for each filtering process; all keys will be prefixed with "lambda x: "
-								"killstreak_min":"len(x[\"killstreaks\"]) >= {}",
-								"bookmark_min":"len(x[\"bookmarks\"]) >= {}",
-								"bookmark_contains":"\"{}\" in [i[0] for i in x[\"bookmarks\"]]",
-								"map_name":"\"{}\" in x[\"header\"][\"map_name\"]",
-								"hostname":"\"{}\" in x[\"header\"][\"hostname\"]",
-								"clientid":"\"{}\" in x[\"header\"][\"clientid\"]",
-								#"filesize_min":"False",
-								#"filesize_max":"False",
-								"moddate":"x[\"filedata\"][\"modtime\"] >= {}" #Only accept when an entries modification date is between [moddate] and [current date]
-							}
+			"filterdict":	{	"name":"str(\"{}\") in x[\"name\"]",#These will be passed through eval for each filtering process; all keys will be prefixed with "lambda x: "
+								"killstreak_min":"len(x[\"killstreaks\"]) >= int(\"{}\")", #NOTE: ALWAYS cast to string, then convert to wanted type; 0 iq sanitization
+								"bookmark_min":"len(x[\"bookmarks\"]) >= int(\"{}\")",
+								"bookmark_contains":"str(\"{}\") in [i[0] for i in x[\"bookmarks\"]]",
+								"map_name":"str(\"{}\") in x[\"header\"][\"map_name\"]",
+								"hostname":"str(\"{}\") in x[\"header\"][\"hostname\"]",
+								"clientid":"str(\"{}\") in x[\"header\"][\"clientid\"]",
+								"moddate":"x[\"filedata\"][\"modtime\"] >= int(\"{}\")" #Only accept when an entries modification date is between [moddate] and [current date]
+							},
+			"filtertest_dummyset":{"name":"ABC123.dem", "killstreaks":((5, 1234),(6,7890)), "bookmarks":(("Nice",3333)), "header":{"dem_prot":3,"net_prot":3,"clientid":"Jon Doe","hostname":"127.0.0.1","map_name":"cp_cloak","ticknum":10000,"game_dir":"tf","playtime":100000,"framenum":99995,"tickrate":10}, "filedata":{"filesize":100000,"moddate":1500000}}
 		}
 
 _convpref = ["y","z","a","f","p","n","µ","m","","k","M","G","T","P","E","Z","Y"] #LIST HAS TO BE OF SAME LENGTH TO LEFT AND RIGHT SIDE, STARTING AT ""
@@ -127,14 +126,6 @@ def demheaderreader(path): #Code happily duplicated from https://developer.valve
 
 	return demhdr
 
-def extracttick(ticklog):
-	'''Takes the parentheses and stuff out ("XXXXXX" at 00000) and extracts that delicious tick number.'''
-	regres = re.search(_DEF["eventfile_ticklogsep"], ticklog)
-	#whatever is fed in is likely correct, so no validation
-	numlen = (len(regres[0]) - 5)
-	tick = ticklog[-numlen - 1:-1]
-	return tick
-
 def extractlogarg(logchunk):
 	'''Extracts the argument(killstreak number; bookmark name) from a logchunk'''
 	regres = re.search(_DEF["eventfile_argident"], logchunk)
@@ -151,16 +142,14 @@ def convertlogchunks(logchunk):
 		filename = filenamesearch[0][3:-4] + ".dem"
 	else:
 		return None
-
 	#if the code reached this point, file name is present
-
 	killstreaks = []
 	bookmarks = []
 
 	for i in loglines: #for each line in the feed
 		if i == "": #Line empty, likely last line.
 			continue
-		tick = extracttick(i)#Get the tick.
+		tick = i[-(len(re.search(_DEF["eventfile_ticklogsep"], i)[0]) - 5) -1: -1]#Unreadable but eh
 		searchres = i.find(_DEF["eventfile_bookmark"])
 		if searchres != -1: #Line mentions a bookmark
 			bmname = extractlogarg(i)
@@ -182,14 +171,6 @@ def convertlogchunks(logchunk):
 			if i[0]<=prv[0]:
 				streakpeaks.append(prv)
 			prv = i
-	#streakpeaks now contains the top values of recorded killstreaks.
-	# print("===FILENAME===")
-	# print(filename)
-	# print("  STREAKTOPS")
-	# print(streakpeaks)
-	# print("  BOOKMARKS")
-	# print(bookmarks)
-	# print("==============\n")
 	return (filename, streakpeaks, bookmarks) #there he is
 
 def readevents(handle, blocksz):
@@ -214,15 +195,23 @@ def assignbookmarkdata(files, bookmarkdata):
 def formatbookmarkdata(filelist, bookmarkdata):
 	'''Converts bookmarkdata into a list of strings: "X Bookmarks, Y Killstreaks". needs filelist to assign bookmarkdata to '''
 	assignedlogs = assignbookmarkdata(filelist, bookmarkdata)
-
 	listout = ["" for i in assignedlogs]
 	for i in range(len(assignedlogs)): #convert the correctly assigned logs ("", [], []) into information displaying strings
 		if assignedlogs[i] != ("",[],[]):
 			listout[i] = str(len(assignedlogs[i][2])) + " Bookmarks; " + str(len(assignedlogs[i][1])) + " Killstreaks."
 		else:
 			listout[i] = "None"
-
 	return listout
+
+def escapeinput(raw):
+	"""Adds escape char (\) in front of all occurrences of \\ and \" """
+	out = []
+	toescape = ["\"", "\\"]
+	for i in raw:
+		if i in toescape:
+			out.append("\\")
+		out.append(i)
+	return "".join(out)
 
 class HeaderFetcher: #used in MainApp.__filter
 	'''Only read a header when the class is accessed.'''
@@ -257,17 +246,17 @@ class FirstRunDialog(Dialog):
 		super().destroy()
 
 	def body(self, master):
-		self.txtbox = tk_scr.ScrolledText(master, wrap = tk.WORD)
-		self.txtbox.insert(tk.END,_DEF["WELCOME"])
-		self.txtbox.config(state = tk.DISABLED)
+		txtbox = tk_scr.ScrolledText(master, wrap = tk.WORD)
+		txtbox.insert(tk.END,_DEF["WELCOME"])
+		txtbox.config(state = tk.DISABLED)
 
-		self.txtbox.pack(expand=0, fill = tk.X)
+		txtbox.pack(expand=0, fill = tk.X)
 
-		self.btconfirm = tk.Button(master, text = "I am okay with that and I accept.", command = lambda: self.done(1))
-		self.btcancel = tk.Button(master, text="Cancel!", command = lambda: self.done(0))
+		btconfirm = tk.Button(master, text = "I am okay with that and I accept.", command = lambda: self.done(1))
+		btcancel = tk.Button(master, text="Cancel!", command = lambda: self.done(0))
 
-		self.btconfirm.pack(side = tk.LEFT, anchor = tk.W, expand=1, fill = tk.X)
-		self.btcancel.pack(side = tk.LEFT, anchor = tk.E, expand=1, fill = tk.X)
+		btconfirm.pack(side = tk.LEFT, anchor = tk.W, expand=1, fill = tk.X)
+		btcancel.pack(side = tk.LEFT, anchor = tk.E, expand=1, fill = tk.X)
 
 	def done(self, param):
 		self.withdraw()
@@ -591,7 +580,7 @@ class DeleteDemos(Dialog):
 	def o(self, _in):
 		return " " if not _in else " X"
 
-	def applycond(self):
+	def applycond(self): #TODO: OPTIMIZE WITH LAMBDAS
 		'''Apply user-entered condition to the files. True spaghetti code.'''
 		conditionname = self.condbox.get()
 		procifselected = self.onlyprocifsel_var.get()#Assigning to local namespace, i have no idea if this makes it go faster
@@ -783,7 +772,7 @@ class Deleter(Dialog):
 
 			self.closebutton.pack(side=tk.LEFT, fill=tk.X, expand=1)
 
-	def delete(self): #Black magic, I tell ya
+	def delete(self): #TODO: Add stats (time taken, files deleted, write errors encountered?)
 		if self.keepeventsfile: #---Backup _events file
 			backupfolder = os.path.join(os.getcwd(), _DEF["cfgfolder"], _DEF["eventbackupfolder"])
 			if not os.path.exists(backupfolder):
@@ -882,20 +871,20 @@ class Settings(Dialog):
 
 	def body(self, master):
 		'''UI'''
-		self.datagrab_labelframe = tk.LabelFrame(master, text="Get bookmark information via...", padx=8, pady=8)
+		datagrab_labelframe = tk.LabelFrame(master, text="Get bookmark information via...", padx=8, pady=8)
 		for i, j in self.datagrabbtns:
-			b = ttk.Radiobutton(self.datagrab_labelframe, variable = self.datagrabmode_var, text = i, value = j)
+			b = ttk.Radiobutton(datagrab_labelframe, variable = self.datagrabmode_var, text = i, value = j)
 			b.pack()
 
-		self.preview_labelframe = tk.LabelFrame(master, text="Display", padx=8, pady=8)
-		ttk.Checkbutton(self.preview_labelframe, variable = self.preview_var, text="Preview demos?").pack()
+		preview_labelframe = tk.LabelFrame(master, text="Display", padx=8, pady=8)
+		ttk.Checkbutton(preview_labelframe, variable = self.preview_var, text="Preview demos?").pack()
 
-		self.steampath_labelframe = tk.LabelFrame(master, text="Steam path", padx=8, pady=8)
-		self.steampathentry = tk.Entry(self.steampath_labelframe, state = "readonly", textvariable = self.steampath_var)
-		tk.Button(self.steampath_labelframe, text = "Change...", command = self.choosesteampath).pack(side=tk.RIGHT, fill=tk.X, expand=0)
+		steampath_labelframe = tk.LabelFrame(master, text="Steam path", padx=8, pady=8)
+		self.steampathentry = tk.Entry(steampath_labelframe, state = "readonly", textvariable = self.steampath_var)
+		tk.Button(steampath_labelframe, text = "Change...", command = self.choosesteampath).pack(side=tk.RIGHT, fill=tk.X, expand=0)
 
-		self.eventread_labelframe = tk.LabelFrame(master, text="Read _events.txt in chunks of size...", padx=8, pady=8)
-		self.blockszselector = ttk.Combobox(self.eventread_labelframe, state = "readonly", values = [k for k in self.blockszvals])
+		eventread_labelframe = tk.LabelFrame(master, text="Read _events.txt in chunks of size...", padx=8, pady=8)
+		self.blockszselector = ttk.Combobox(eventread_labelframe, state = "readonly", values = [k for k in self.blockszvals])
 
 		try:
 			self.blockszvals[convertunit(self.cfg["evtblocksz"], "B")]
@@ -903,15 +892,15 @@ class Settings(Dialog):
 		except KeyError:#If evtblocksz has been changed(probably for debug purposes)
 			self.blockszselector.set(next(iter(self.blockszvals)))
 
-		self.preview_labelframe.pack(expand=1, fill = tk.BOTH)
+		preview_labelframe.pack(expand=1, fill = tk.BOTH)
 
 		self.steampathentry.pack(side=tk.LEFT, expand=1, fill=tk.X)
-		self.steampath_labelframe.pack(expand=1, fill = tk.BOTH)
+		steampath_labelframe.pack(expand=1, fill = tk.BOTH)
 
-		self.datagrab_labelframe.pack(expand=1, fill = tk.BOTH)
+		datagrab_labelframe.pack(expand=1, fill = tk.BOTH)
 
 		self.blockszselector.pack(expand=1, fill = tk.BOTH)
-		self.eventread_labelframe.pack(expand=1, fill = tk.BOTH)
+		eventread_labelframe.pack(expand=1, fill = tk.BOTH)
 
 		self.btconfirm = tk.Button(master, text = "Ok", command = lambda: self.done(1))
 		self.btcancel = tk.Button(master, text="Cancel", command = lambda: self.done(0))
@@ -973,6 +962,8 @@ class MainApp():
 
 		self.root.wm_title("DemoMgr v "+str(__version__))
 
+		self.after_handler = self.root.after(0, lambda:None) #See self.setstatusbar
+
 		self.values = kwargs["values"]
 
 		if os.path.exists(os.path.join(os.getcwd(), self.values["iconname"])):
@@ -1031,6 +1022,7 @@ class MainApp():
 		widgetframe0 = tk.Frame(self.mainframe)
 		widgetframe1 = tk.Frame(self.mainframe)
 		widgetframe2 = tk.Frame(self.mainframe)
+		widgetframe3 = tk.Frame(self.mainframe) #Buttons here interact with the currently selected demo
 		self.listboxframe = tk.Frame(self.mainframe)
 		self.demoinfframe = tk.Frame(self.mainframe, padx=5, pady=5)
 		self.statusbar = tk.Frame(self.mainframe)
@@ -1054,8 +1046,10 @@ class MainApp():
 		filterbtn = tk.Button(widgetframe1, text="Apply Filter", command = self.__filter)
 		clearfilterbtn = tk.Button(widgetframe1, text="Clear filter", command = self.reloadgui)
 
-		self.playdemobtn = tk.Button(widgetframe2, text="Play demo...", command = self.__playdem)
-		self.deldemobtn = tk.Button(widgetframe2, text="Cleanup...", command = self.__deldem)
+		cleanupbtn = tk.Button(widgetframe2, text="Cleanup...", command = self.__cleanup)
+
+		playdemobtn = tk.Button(widgetframe3, text="Play selected demo...", command = self.__playdem)
+		deldemobtn = tk.Button(widgetframe3, text="Delete selected demo...", command = self.__deldem)
 
 		self.statusbarlabel = ttk.Label(self.statusbar, text="Ready.")
 
@@ -1066,7 +1060,7 @@ class MainApp():
 		# self.demlbl.bind("<Button-1>", self.startwooh)
 
 		#pack
-		self.statusbarlabel.pack(anchor= tk.W)
+		self.statusbarlabel.pack(anchor=tk.W)
 		self.statusbar.pack(fill=tk.X, expand=0, side=tk.BOTTOM)
 
 		#widgetframe0
@@ -1089,11 +1083,15 @@ class MainApp():
 		widgetframe1.pack(anchor = tk.N, fill = tk.X, pady = 5)
 
 		#widgetframe2
-		self.playdemobtn.pack(side = tk.LEFT, fill = tk.X, expand=0)
-		tk.Label(widgetframe2, text="", width=3).pack(side=tk.LEFT) #Placeholder
-		self.deldemobtn.pack(side = tk.LEFT, fill = tk.X, expand=0)
+		cleanupbtn.pack(side = tk.LEFT, fill = tk.X, expand=0)
 
 		widgetframe2.pack(anchor = tk.N, fill = tk.X, pady = 5)
+
+		#widgetframe3
+		playdemobtn.pack(side = tk.LEFT, fill = tk.X, expand=0)
+		tk.Label(widgetframe3, text="", width=3).pack(side=tk.LEFT) #Placeholder
+		deldemobtn.pack(side = tk.LEFT, fill = tk.X, expand=0)
+		widgetframe3.pack(anchor = tk.N, fill = tk.X, pady = 5)
 
 		self.listbox.pack(fill=tk.BOTH, expand=1)
 		self.listboxframe.pack(fill=tk.BOTH, expand = 1, side = tk.LEFT)
@@ -1102,7 +1100,7 @@ class MainApp():
 		self.demoinfbox.pack(fill=tk.BOTH, expand = 1)
 		self.demoinfframe.pack(fill=tk.BOTH, expand = 1)
 
-	def __deldem(self):
+	def __cleanup(self):
 		'''Opens dialog offering demo deletion'''
 		if self.curdir == "":
 			return
@@ -1127,6 +1125,17 @@ class MainApp():
 				self.cfg["steampath"] = dialog_.result_["steampath"]
 				self.writecfg(self.cfg)
 				self.cfg = self.getcfg()
+
+	def __deldem(self):
+		"""Deletes the currently selected demo"""
+		index = self.listbox.getindex()
+		if index == None:
+			self.setstatusbar("Please select a demo file.",1500)
+			return
+		filename = self.listbox.getcell(0, index)
+		_dialog = Deleter(self.root, {"cfg":self.cfg, "files":[filename] ,"selected": [True], "demodir":self.curdir, "keepeventsfile": False, "deluselessjson":False} )
+		if _dialog.result_["state"] == 1:
+			self.reloadgui()
 
 	def __updatedemowindow(self, _):
 		'''Renew contents of demo information window'''
@@ -1181,7 +1190,7 @@ class MainApp():
 		#get coords to create the menu on
 		menu = tk.Menu(self.mainframe, tearoff = 0)
 		menu.add_command(label = "Play", command = self.__playdem)
-		menu.add_command(label = "Delete", command = self.__popupmenu_del)
+		menu.add_command(label = "Delete", command = self.__deldem)
 		i = 0
 		offsetx = 0
 		while i != clickedlist:
@@ -1189,19 +1198,13 @@ class MainApp():
 			i += 1
 		menu.post(rootx + listboxx + offsetx + clickx, rooty + listboxy + clicky + 20) #20 is label height. I hope that won't change.
 
-	def __popupmenu_del(self):
-		index = self.listbox.getindex()
-		filename = self.listbox.getcell(0, index)
-		_dialog = Deleter(self.root, {"cfg":self.cfg, "files":[filename] ,"selected": [True], "demodir":self.curdir, "keepeventsfile": False, "deluselessjson":False} )
-		if _dialog.result_["state"] == 1:
-			self.reloadgui()
-
 	def setstatusbar(self, data, timeout=None):
 		'''Set statusbar text to data (str)'''
 		self.statusbarlabel.config(text=str(data))
 		self.statusbarlabel.update()
 		if timeout:
-			self.statusbarlabel.after(timeout, lambda:self.setstatusbar(self.values["statusbardefault"]))
+			self.statusbarlabel.after_cancel(self.after_handler)
+			self.after_handler = self.statusbarlabel.after(timeout, lambda:self.setstatusbar(self.values["statusbardefault"]))
 
 	def reloadgui(self):
 		'''Reload UI elements that need it'''
@@ -1269,23 +1272,33 @@ class MainApp():
 	def __filter(self):
 		'''Filters the listbox according to conditions in self.filterentry_var'''
 		try:
-			raw = self.filterentry_var.get()
+			raw = self.filterentry_var.get() #Get and handle input
+			#Sanitize
+			raw = escapeinput(escapeinput(raw))#1st func: Protect from escapes/injections on the eval() level; 2nd func: Protect from the int()/str() funcs in the eval code
 			raw = raw.split(",")
 			raw = [i.strip() for i in raw]
 			conddict = dict( [(i.split(":")[0], i.split(":")[1]) for i in raw] )
+			del raw
 		except BaseException:
 			self.setstatusbar("Invalid filter parameter format",3000)
 			return
 		starttime = time.time()
 
-		self.setstatusbar("Constructing filters...")
+		self.setstatusbar("Constructing filters...")#Create and check filters
 		filters = []
 		try:
 			for k in conddict: #TODO: Implement ranges?
 				filters.append(eval("lambda x: "+_DEF["filterdict"][k].format(conddict[k])))#Construct lambdas for the user-entered conditions
 		except KeyError:
-			self.setstatusbar("Invalid filtering key, please double-check.",5000)
+			self.setstatusbar("Invalid filtering key: \"" + str(k) + "\" ; please check your input.",5000)
 			return
+		dummyset = self.values["filtertest_dummyset"]
+		for i in filters: #Test filters
+			try:
+				i(dummyset)
+			except BaseException:
+				self.setstatusbar("Invalid filtering parameter; please check your input.",5000)
+				return
 
 		FILES = self.fetchdata()[0] #Function will modify self.bookmarkdata
 		self.setstatusbar("Filtering list...")
@@ -1293,7 +1306,7 @@ class MainApp():
 		asg_bmd = assignbookmarkdata(FILES, self.bookmarkdata)
 		filteredlist = []
 
-		for i, j in enumerate(FILES):
+		for i, j in enumerate(FILES): #Filter
 			curdemook = True
 			curdataset = {"name":j, "killstreaks":asg_bmd[i][1], "bookmarks":asg_bmd[i][2], "header": HeaderFetcher(os.path.join(self.curdir, j)), "filedata": FileStatFetcher(os.path.join(self.curdir, j))}
 			#The Fetcher classes prevent unneccessary drive access when the user i.E. only filters by name
