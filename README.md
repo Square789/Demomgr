@@ -28,16 +28,20 @@ You can switch between directories using the Selection box at the top of the win
 
 #### Filter instructions:
 The filter criteria must be entered as follows:  
-`<keyname>:<value>`, seperated by commas.  
+`<keyname>:<value>`, seperated by commas.
+**So far, all String filters have their negating form, prefixed by `!`.**
+**All integer filters ending in `min` can also be suffixed with `max` to create a filtering range for that attribute.**
 
-Example: `map_name:cp_badlands, killstreak_min:2`  
+Example: `!map_name:mvm, killstreak_min:2, beststreak_min:5, moddate_max:1551337886`  
 
 You can currently filter the directory you are in by the following:
  * map_name : _Name of the map the demo is playing on. (Substring)_
  * name : _Filename of the demo. (Substring)_
- * killstreak_min : (Inclusive) _Minimum amount of present killstreaks._
- * bookmark_min : (Inclusive) _Minimum amount of bookmarks recorded._
+ * killstreak_min : (Inclusive) _Minimum amount of present killstreaks._ (Integer)
+ * beststreak_min : (Inclusive) _Minimum value of the best streak recorded in demo_ (Integer)
+  * beststreak_max should not be set to a value of more than 99999.
+ * bookmark_min : (Inclusive) _Minimum amount of bookmarks recorded._ (Integer)
  * bookmark_contains : _Bookmarks containing this String (Substring)_
  * hostname : _Name of the server the demo took place on. (Usually in IPv4 format)_
  * clientid : _Steam community name of the player. (Substring)_
- * moddate : _Modified (created) after this date. (UNIX Timestamp)_
+ * moddate_min : _Modified (created) after this date. (UNIX Timestamp)_ (Integer)
