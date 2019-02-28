@@ -24,7 +24,7 @@ class Logchunk:
 	def __str__(self):
 		return self.content
 
-class EventReader(): #TODO: Create iterator/iterable(???) so this class can be comfortably used in for loops
+class EventReader():
 	'''Class designed to read a Source engine demo event log file.
 
 	handle: Must either be a file handle object or a string to a file. If a file handle, must be opened in r, w+, a+ so it can be read.
@@ -65,6 +65,13 @@ class EventReader(): #TODO: Create iterator/iterable(???) so this class can be c
 
 	def __del__(self):
 		self.destroy()
+
+	def __iter__(self):
+		self.reset()
+		while True:
+			chk = self.__next__()
+			yield chk
+			if chk.message["last"]: break
 
 	def getchunks(self, toget = 1):
 		'''Method that returns the number of specified datachunks in the file.'''

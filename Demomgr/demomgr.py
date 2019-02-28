@@ -25,46 +25,55 @@ import handle_events as handle_ev
 __version__ = 0.1
 __author__ = "Square789"
 
-_DEF = {	"cfgfolder":".demomgr", #Values. Is important. No changerooni.
-			"cfgname":"config.cfg",
-			"iconname":"demmgr.ico",
-			"defaultcfg":	{	"demopaths":[],
-								"firstrun":True,
-								"__comment":"By messing with the firstrun parameter you acknowledge that you've read the Terms of use.",
-								"datagrabmode":0,
-								"previewdemos":True,
-								"steampath":"",
-								"evtblocksz":65536
-							},
-			"eventbackupfolder":"_eventbackup",
-			"WELCOME":"Hi and Thank You for using DemoManager!\n\nA config file has been created in a folder next to the script.\n\nThis script is able to delete files if you tell it to.\nI in no way guarantee that this script is safe or 100% reliable and will not take any responsibility for lost data, damaged drives and/or destroyed hopes and dreams. If something goes wrong, data recovery tools are a thing.\nThis program is licensed via the MIT Licence, by clicking the accept button below, you confirm that you have read and accepted the license.",
-			"eventfile":"_events.txt",#If this name should for whatever reason change at some point, change this variable
-			"dateformat":"%d.%m.%Y  %H:%M:%S",
-			"eventfile_filenameformat":" \\(\".+\" at",#regex
-			"eventfile_bookmark":"Bookmark",
-			"eventfile_killstreak":"Killstreak",
-			"eventfile_ticklogsep":" at \\d+\\)",#regex
-			"eventfile_argident":" [a-zA-Z0-9]+ \\(",#regex
-			"eventreadlimit":1000,
-			"demlabeldefault":"No demo selected.",
-			"statusbardefault":"Ready.",
-			"tf2exepath":"steamapps/common/team fortress 2/hl2.exe",
-			"tf2headpath":"steamapps/common/team fortress 2/tf/",
-			"tf2launchargs":["-steam", "-game", "tf"],
-			"steamconfigpath1":"userdata/",
-			"steamconfigpath2":"config/localconfig.vdf",
-			"launchoptionskey":"[\"UserLocalConfigStore\"][\"Software\"][\"valve\"][\"Steam\"][\"Apps\"][\"440\"][\"LaunchOptions\"]",
-			"errlogfile":"err.log",
-			"filterdict":	{	"name":"str(\"{}\") in x[\"name\"]",#These will be passed through eval for each filtering process; all keys will be prefixed with "lambda x: "
-								"killstreak_min":"len(x[\"killstreaks\"]) >= int(\"{}\")", #NOTE: ALWAYS cast to string, then convert to wanted type; 0 iq sanitization
-								"bookmark_min":"len(x[\"bookmarks\"]) >= int(\"{}\")",
-								"bookmark_contains":"str(\"{}\") in [i[0] for i in x[\"bookmarks\"]]",
-								"map_name":"str(\"{}\") in x[\"header\"][\"map_name\"]",
-								"hostname":"str(\"{}\") in x[\"header\"][\"hostname\"]",
-								"clientid":"str(\"{}\") in x[\"header\"][\"clientid\"]",
-								"moddate":"x[\"filedata\"][\"modtime\"] >= int(\"{}\")" #Only accept when an entries modification date is between [moddate] and [current date]
-							},
-			"filtertest_dummyset":{"name":"ABC123.dem", "killstreaks":((5, 1234),(6,7890)), "bookmarks":(("Nice",3333)), "header":{"dem_prot":3,"net_prot":3,"clientid":"Jon Doe","hostname":"127.0.0.1","map_name":"cp_cloak","ticknum":10000,"game_dir":"tf","playtime":100000,"framenum":99995,"tickrate":10}, "filedata":{"filesize":100000,"moddate":1500000}}
+#NOTE: This program likes ("", (), ()) a lot, which will cause problems because it is hardcoded in a very bad manner
+
+_DEF = {"cfgfolder":".demomgr", #Values. Is important. No changerooni.
+		"cfgname":"config.cfg",
+		"iconname":"demmgr.ico",
+		"defaultcfg":	{	"demopaths":[],
+							"firstrun":True,
+							"__comment":"By messing with the firstrun parameter you acknowledge that you've read the Terms of use.",
+							"datagrabmode":0,
+							"previewdemos":True,
+							"steampath":"",
+							"evtblocksz":65536
+						},
+		"eventbackupfolder":"_eventbackup",
+		"WELCOME":"Hi and Thank You for using DemoManager!\n\nA config file has been created in a folder next to the script.\n\nThis script is able to delete files if you tell it to.\nI in no way guarantee that this script is safe or 100% reliable and will not take any responsibility for lost data, damaged drives and/or destroyed hopes and dreams. If something goes wrong, data recovery tools are a thing.\nThis program is licensed via the MIT Licence, by clicking the accept button below, you confirm that you have read and accepted the license.",
+		"eventfile":"_events.txt",#If this name should for whatever reason change at some point, change this variable
+		"dateformat":"%d.%m.%Y  %H:%M:%S",
+		"eventfile_filenameformat":" \\(\".+\" at",#regex
+		"eventfile_bookmark":"Bookmark",
+		"eventfile_killstreak":"Killstreak",
+		"eventfile_ticklogsep":" at \\d+\\)",#regex
+		"eventfile_argident":" [a-zA-Z0-9]+ \\(",#regex
+		"demlabeldefault":"No demo selected.",
+		"statusbardefault":"Ready.",
+		"tf2exepath":"steamapps/common/team fortress 2/hl2.exe",
+		"tf2headpath":"steamapps/common/team fortress 2/tf/",
+		"tf2launchargs":["-steam", "-game", "tf"],
+		"steamconfigpath1":"userdata/",
+		"steamconfigpath2":"config/localconfig.vdf",
+		"launchoptionskey":"[\"UserLocalConfigStore\"][\"Software\"][\"valve\"][\"Steam\"][\"Apps\"][\"440\"][\"LaunchOptions\"]",
+		"errlogfile":"err.log",
+		"filterdict":	{	"name":("\"{}\" in x[\"name\"]", str),#[0] will be passed through eval(); all keys will be prefixed with "lambda x: "; {} replaced with element [1] called with ESCAPED user input as parameter
+							"!name":("not \"{}\" in x[\"name\"]", str),
+							"killstreak_min":("len(x[\"killstreaks\"]) >= {}", int),
+							"killstreak_max":("len(x[\"killstreaks\"]) <= {}", int),
+							"bookmark_min":("len(x[\"bookmarks\"]) >= {}", int),
+							"bookmark_max":("len(x[\"bookmarks\"]) <= {}", int),
+							"bookmark_contains":("\"{}\" in \"\".join((i[0] for i in x[\"bookmarks\"]))", str),
+							"map_name":("\"{}\" in x[\"header\"][\"map_name\"]", str),
+							"hostname":("\"{}\" in x[\"header\"][\"hostname\"]", str),
+							"clientid":("\"{}\" in x[\"header\"][\"clientid\"]", str),
+							"!map_name":("not \"{}\" in x[\"header\"][\"map_name\"]", str),#Probably an easier way for this
+							"!hostname":("not \"{}\" in x[\"header\"][\"hostname\"]", str),
+							"!clientid":("not \"{}\" in x[\"header\"][\"clientid\"]", str),
+							"beststreak_min":("max((i[0] for i in x[\"killstreaks\"]), default=0) >= {}", int),
+							"beststreak_max":("max((i[0] for i in x[\"killstreaks\"]), default=99999) <= {}", int),
+							"moddate_min":("x[\"filedata\"][\"modtime\"] >= {}", int),
+							"moddate_max":("x[\"filedata\"][\"modtime\"] <= {}", int),
+						},
 		}
 
 _convpref = ["y","z","a","f","p","n","µ","m","","k","M","G","T","P","E","Z","Y"] #LIST HAS TO BE OF SAME LENGTH TO LEFT AND RIGHT SIDE, STARTING AT ""
@@ -137,11 +146,11 @@ def convertlogchunks(logchunk):
 	if loglines:
 		filenamesearch = re.search(_DEF["eventfile_filenameformat"], loglines[0])
 	else:
-		return None
+		return ("", (), ())
 	if filenamesearch:
 		filename = filenamesearch[0][3:-4] + ".dem"
 	else:
-		return None
+		return ("", (), ())
 	#if the code reached this point, file name is present
 	killstreaks = []
 	bookmarks = []
@@ -177,10 +186,9 @@ def readevents(handle, blocksz):
 	'''This function reads an events.txt file as it's written by the source engine, returns (filename, ( (killstreakpeak, tick)... ), ( (bookmarkname, tick)... ) )'''
 	reader = handle_ev.EventReader(handle, blocksz=blocksz)
 	out = []
-	while True:
-		curchunk = next(reader)
-		out.append(convertlogchunks(curchunk.content))
-		if curchunk.message["last"]: break
+	for chk in reader:
+		out.append(convertlogchunks(chk.content))
+	reader.destroy()
 	return out
 
 def assignbookmarkdata(files, bookmarkdata):
@@ -751,7 +759,7 @@ class Deleter(Dialog):
 		self.textbox.pack(side=tk.LEFT, fill=tk.BOTH, expand=1)
 
 		self.textbox.delete("0.0", tk.END)
-		self.textbox.insert(tk.END, "This operation will delete the following files:\n\n" + "\n".join(self.filestodel))
+		self.textbox.insert(tk.END, "This operation will delete the following file(s):\n\n" + "\n".join(self.filestodel))
 		self.textbox.config(state=tk.DISABLED)
 
 		#self.progbar = ttk.Progressbar(master)
@@ -812,7 +820,7 @@ class Deleter(Dialog):
 						writer.writechunk(outchunk)
 					if outchunk.message["last"]: break
 
-			elif self.eventfileupdate == "selectivemove":#Requires to have entire dir/actual files present; pro:
+			elif self.eventfileupdate == "selectivemove":#Requires to have entire dir/actual files present;
 				okayfiles = set([j for i, j in enumerate(self.files) if not self.selected[i]])
 				while True:
 					chunkexists = False
@@ -948,7 +956,7 @@ class AboutHelp(Dialog):
 		super().destroy()
 
 class MainApp():
-	def __init__(self, *args, **kwargs):#A bunch of functions nest and then request index values from self.listbox, which is probably very bad but who even reads this
+	def __init__(self, *args, **kwargs):
 		'''Init values, variables, go through startup routine, then show main window.'''
 
 		if not "values" in kwargs:
@@ -960,9 +968,15 @@ class MainApp():
 		self.root.bind("<<MultiframeSelect>>", self.__updatedemowindow)
 		self.root.bind("<<MultiframeRightclick>>", self.__popupmenu)
 
-		self.root.wm_title("DemoMgr v "+str(__version__))
+		def safestop():#NOTE:without this, the root.destroy method will produce an error on closing, due to some dark magic regarding after commands in self.setstatusbar.
+			try: self.root.destroy() #Safe destroy probably better than self.root.quit()
+			except tk.TclError: pass
 
-		self.after_handler = self.root.after(0, lambda:None) #See self.setstatusbar
+		self.root.protocol("WM_DELETE_WINDOW", safestop)
+
+		self.root.wm_title("Demomgr v "+str(__version__))
+
+		self.after_handler = self.root.after(0, lambda:1==1) #See self.setstatusbar
 
 		self.values = kwargs["values"]
 
@@ -981,11 +995,12 @@ class MainApp():
 			#Start execution
 		startupres = self.__startup()
 		if startupres["res"] == -1:
-			tk_msg.showerror("demomgr - Error","The following error occurred during startup: " + startupres["msg"])
+			tk_msg.showerror("Demomgr - Error","The following error occurred during startup: " + startupres["msg"])
+			sys.exit()
 		elif startupres["res"] == 1:
 			d = FirstRunDialog(self.mainframe)
 			if not d.result:
-				quit()
+				sys.exit()
 			self.cfg["firstrun"] = False
 			self.writecfg(self.cfg)
 
@@ -1013,6 +1028,8 @@ class MainApp():
 			except BaseException as _exception:
 				return {"res":-1, "msg":str(_exception)}
 			return {"res":1, "msg":"Firstlaunch"}
+		except json.decoder.JSONDecodeError:
+			return {"res":-1,"msg":"Config Corrupted, please delete ~/.demomgr/" + self.values["cfgname"]}
 		return {"res":0, "msg":"Success."}
 
 	def __setupgui(self):
@@ -1104,7 +1121,10 @@ class MainApp():
 		'''Opens dialog offering demo deletion'''
 		if self.curdir == "":
 			return
-		files = [i for i in os.listdir(self.curdir) if os.path.splitext(i)[1] == ".dem" and (os.path.isfile(os.path.join(self.curdir, i)))]
+		try:
+			files = [i for i in os.listdir(self.curdir) if os.path.splitext(i)[1] == ".dem" and (os.path.isfile(os.path.join(self.curdir, i)))]
+		except BaseException:
+			return
 		dialog_ = DeleteDemos(self.mainframe, **{"cfg":self.cfg, "curdir":self.curdir, "bookmarkdata":self.bookmarkdata, "files":files, "dates":[os.stat(os.path.join(self.curdir, i)).st_mtime for i in files], "filesizes":[os.stat(os.path.join(self.curdir, i)).st_size for i in files] } )
 		if dialog_.result_["state"] == 1:
 			self.reloadgui()
@@ -1200,11 +1220,11 @@ class MainApp():
 
 	def setstatusbar(self, data, timeout=None):
 		'''Set statusbar text to data (str)'''
+		self.statusbarlabel.after_cancel(self.after_handler)
 		self.statusbarlabel.config(text=str(data))
 		self.statusbarlabel.update()
 		if timeout:
-			self.statusbarlabel.after_cancel(self.after_handler)
-			self.after_handler = self.statusbarlabel.after(timeout, lambda:self.setstatusbar(self.values["statusbardefault"]))
+			self.after_handler = self.statusbarlabel.after(timeout, lambda: self.setstatusbar(_DEF["statusbardefault"]) )
 
 	def reloadgui(self):
 		'''Reload UI elements that need it'''
@@ -1218,7 +1238,11 @@ class MainApp():
 			return ((),(),(),())
 		self.setstatusbar("Reading demo information from " + self.curdir)
 		starttime = time.time()
-		files = [i for i in os.listdir(self.curdir) if (os.path.splitext(i)[1] == ".dem") and (os.path.isfile(os.path.join(self.curdir, i)))]
+		try:
+			files = [i for i in os.listdir(self.curdir) if (os.path.splitext(i)[1] == ".dem") and (os.path.isfile(os.path.join(self.curdir, i)))]
+		except FileNotFoundError:
+			self.setstatusbar("ERROR: Current directory \"" + self.curdir + "\" does not exist.")
+			return ((),(),(),())
 		datescreated = [os.stat(os.path.join(self.curdir, i)).st_mtime for i in files]
 		sizes = [os.stat(os.path.join(self.curdir, i)).st_size for i in files]
 		datamode = self.cfg["datagrabmode"]
@@ -1274,7 +1298,7 @@ class MainApp():
 		try:
 			raw = self.filterentry_var.get() #Get and handle input
 			#Sanitize
-			raw = escapeinput(escapeinput(raw))#1st func: Protect from escapes/injections on the eval() level; 2nd func: Protect from the int()/str() funcs in the eval code
+			raw = escapeinput(raw)#1st func: Protect from escapes/injections on the eval() level; 2nd func: Protect from the int()/str() funcs in the eval code
 			raw = raw.split(",")
 			raw = [i.strip() for i in raw]
 			conddict = dict( [(i.split(":")[0], i.split(":")[1]) for i in raw] )
@@ -1287,18 +1311,14 @@ class MainApp():
 		self.setstatusbar("Constructing filters...")#Create and check filters
 		filters = []
 		try:
-			for k in conddict: #TODO: Implement ranges?
-				filters.append(eval("lambda x: "+_DEF["filterdict"][k].format(conddict[k])))#Construct lambdas for the user-entered conditions
+			for k in conddict: #TODO: Implement ranges, better way to negate filters?
+				filters.append(eval("lambda x: "+_DEF["filterdict"][k][0].format(_DEF["filterdict"][k][1](conddict[k])) ) )#Construct lambdas for the user-entered conditions
 		except KeyError:
 			self.setstatusbar("Invalid filtering key: \"" + str(k) + "\" ; please check your input.",5000)
 			return
-		dummyset = self.values["filtertest_dummyset"]
-		for i in filters: #Test filters
-			try:
-				i(dummyset)
-			except BaseException:
-				self.setstatusbar("Invalid filtering parameter; please check your input.",5000)
-				return
+		except ValueError:
+			self.setstatusbar("Invalid filtering parameter: \""+ conddict[k] +"\" ; please check your input.",5000)
+			return
 
 		FILES = self.fetchdata()[0] #Function will modify self.bookmarkdata
 		self.setstatusbar("Filtering list...")
@@ -1316,6 +1336,7 @@ class MainApp():
 					break
 			if curdemook:
 				filteredlist.append((curdataset["name"], str(len(curdataset["bookmarks"])) + " Bookmarks; "+ str(len(curdataset["killstreaks"])) + " Killstreaks.", curdataset["filedata"]["modtime"], curdataset["filedata"]["filesize"]))
+		del filters
 
 		self.listbox.setdata(filteredlist, "row")
 		self.listbox.format()
@@ -1370,14 +1391,14 @@ class MainApp():
 	def writecfg(self, data):
 		'''Writes config specified in data to self.cfgpath'''
 		handle = open(self.cfgpath, "w")
-		handle.write(json.dumps(data, indent=4))
+		handle.write(json.dumps(data, indent=4))#NOTE:Unnecessary, maybe remove eventually.
 		handle.close()
 
 	def getcfg(self):
 		'''Gets config from self.cfgpath and returns it'''
 		localcfg = self.values["defaultcfg"]
 		with open(self.cfgpath, "r") as handle:
-			localcfg.update(json.load(handle))#in case i add a new key or so
+			localcfg.update(json.load(handle))
 		return localcfg
 
 if __name__ == "__main__":
