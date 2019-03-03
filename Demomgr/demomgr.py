@@ -31,6 +31,7 @@ _DEF = {"cfgfolder":".demomgr", #Values. Is important. No changerooni.
 		"cfgname":"config.cfg",
 		"iconname":"demmgr.ico",
 		"defaultcfg":	{	"demopaths":[],
+							"lastpath":"",
 							"firstrun":True,
 							"__comment":"By messing with the firstrun parameter you acknowledge that you've read the Terms of use.",
 							"datagrabmode":0,
@@ -57,7 +58,6 @@ _DEF = {"cfgfolder":".demomgr", #Values. Is important. No changerooni.
 		"launchoptionskey":"[\"UserLocalConfigStore\"][\"Software\"][\"valve\"][\"Steam\"][\"Apps\"][\"440\"][\"LaunchOptions\"]",
 		"errlogfile":"err.log",
 		"filterdict":	{	"name":("\"{}\" in x[\"name\"]", str),#[0] will be passed through eval(); all keys will be prefixed with "lambda x: "; {} replaced with element [1] called with ESCAPED user input as parameter
-							"!name":("not \"{}\" in x[\"name\"]", str),
 							"killstreak_min":("len(x[\"killstreaks\"]) >= {}", int),
 							"killstreak_max":("len(x[\"killstreaks\"]) <= {}", int),
 							"bookmark_min":("len(x[\"bookmarks\"]) >= {}", int),
@@ -66,14 +66,16 @@ _DEF = {"cfgfolder":".demomgr", #Values. Is important. No changerooni.
 							"map_name":("\"{}\" in x[\"header\"][\"map_name\"]", str),
 							"hostname":("\"{}\" in x[\"header\"][\"hostname\"]", str),
 							"clientid":("\"{}\" in x[\"header\"][\"clientid\"]", str),
-							"!map_name":("not \"{}\" in x[\"header\"][\"map_name\"]", str),#Probably an easier way for this
-							"!hostname":("not \"{}\" in x[\"header\"][\"hostname\"]", str),
-							"!clientid":("not \"{}\" in x[\"header\"][\"clientid\"]", str),
 							"beststreak_min":("max((i[0] for i in x[\"killstreaks\"]), default=0) >= {}", int),
 							"beststreak_max":("max((i[0] for i in x[\"killstreaks\"]), default=99999) <= {}", int),
 							"moddate_min":("x[\"filedata\"][\"modtime\"] >= {}", int),
 							"moddate_max":("x[\"filedata\"][\"modtime\"] <= {}", int),
+							"filesize_min":("x[\"filedata\"][\"filesize\"] >= {}", int),
+							"filesize_max":("x[\"filedata\"][\"filesize\"] <= {}", int),
 						},
+		"filterneg":"!",
+		"filterkeysep":":",
+		"filterparamsep":"*",
 		}
 
 _convpref = ["y","z","a","f","p","n","µ","m","","k","M","G","T","P","E","Z","Y"] #LIST HAS TO BE OF SAME LENGTH TO LEFT AND RIGHT SIDE, STARTING AT ""
@@ -273,7 +275,7 @@ class FirstRunDialog(Dialog):
 		self.destroy()
 
 	def buttonbox(self):
-		pass#Override buttonbox thing, I'll make my own damn buttons!
+		pass
 
 class LaunchTF2(Dialog):
 	def __init__(self, parent, options):
@@ -789,19 +791,25 @@ class Deleter(Dialog):
 			while True:
 				if os.path.exists( os.path.join(backupfolder, os.path.splitext(_DEF["eventfile"])[0] + str(i) + ".txt" )  ): #enumerate files: _events0.txt; _events1.txt; _events2.txt ...
 					i += 1
-					continue
 				else:
 					break
 			self.appendtextbox("\n\nCreating eventfile backup at " + os.path.join(os.getcwd(), _DEF["cfgfolder"], _DEF["eventbackupfolder"], (os.path.splitext(_DEF["eventfile"])[0] + str(i) + ".txt") ) + " ...\n"  )
 			shutil.copy2( os.path.join(self.demodir, _DEF["eventfile"]), os.path.join(os.getcwd(), _DEF["cfgfolder"], _DEF["eventbackupfolder"], (os.path.splitext(_DEF["eventfile"])[0] + str(i) + ".txt") )  )
 
 	#-----------Deletion loop-----------#
-		for i in self.filestodel:#---Delete files
-			os.remove( os.path.join(self.demodir, i))
+		errorsencountered = 0
+		deletedfiles = 0
+		starttime = time.time()
+		for i in self.filestodel: #---Delete files
+			try:
+				os.remove( os.path.join(self.demodir, i))
+				deletedfiles += 1
+			except BaseException:
+				errorsencountered += 1
 			self.appendtextbox("\nDeleted " + os.path.join(self.demodir, i) )
 	#-----------------------------------#
 		
-		self.appendtextbox("\n\nUpdating " + _DEF["eventfile"] + "..." )#NOTE: Replace some lists with sets?
+		self.appendtextbox("\n\nUpdating " + _DEF["eventfile"] + "..." )
 
 		evtpath = os.path.join(self.demodir, _DEF["eventfile"])
 		tmpevtpath = os.path.join(self.demodir, "."+_DEF["eventfile"])
@@ -811,7 +819,7 @@ class Deleter(Dialog):
 			writer = handle_ev.EventWriter(tmpevtpath, clearfile = True)
 
 			if self.eventfileupdate == "passive":
-				while True:
+				while True:#NOTE: Could update those to be for loops, but I dont wanna break this
 					outchunk = next(reader)
 					regres = re.search(_DEF["eventfile_filenameformat"], outchunk.content)
 					if regres: curchunkname = regres[0][3:-4] + ".dem"
@@ -839,13 +847,16 @@ class Deleter(Dialog):
 
 			os.remove(evtpath)
 			os.rename(tmpevtpath, evtpath)
-			self.appendtextbox(" Done!")
+			self.appendtextbox(" Done!" )
 		else:
 			self.appendtextbox(" Event file not found, skipping.")
+		self.appendtextbox("\n\n==========\nTime taken: {} seconds\nFiles deleted: {}\nErrors encountered: {}\n==========".format( round(time.time() - starttime, 3), deletedfiles, errorsencountered))
 
 		self.result_["state"] = 1
 
 	def destroy(self):
+		self.withdraw()
+		self.update_idletasks()
 		super().destroy()
 
 	def appendtextbox(self, _inp):
@@ -910,11 +921,11 @@ class Settings(Dialog):
 		self.blockszselector.pack(expand=1, fill = tk.BOTH)
 		eventread_labelframe.pack(expand=1, fill = tk.BOTH)
 
-		self.btconfirm = tk.Button(master, text = "Ok", command = lambda: self.done(1))
-		self.btcancel = tk.Button(master, text="Cancel", command = lambda: self.done(0))
+		btconfirm = tk.Button(master, text = "Ok", command = lambda: self.done(1))
+		btcancel = tk.Button(master, text="Cancel", command = lambda: self.done(0))
 
-		self.btconfirm.pack(side=tk.LEFT, expand =1, fill = tk.X, anchor = tk.S)
-		self.btcancel.pack(side=tk.LEFT, expand =1, fill = tk.X, anchor = tk.S)
+		btconfirm.pack(side=tk.LEFT, expand =1, fill = tk.X, anchor = tk.S)
+		btcancel.pack(side=tk.LEFT, expand =1, fill = tk.X, anchor = tk.S)
 
 	def done(self, param):
 		self.withdraw()
@@ -959,9 +970,6 @@ class MainApp():
 	def __init__(self, *args, **kwargs):
 		'''Init values, variables, go through startup routine, then show main window.'''
 
-		if not "values" in kwargs:
-			return
-
 		self.root = tk.Tk()
 		self.root.withdraw()
 
@@ -969,22 +977,20 @@ class MainApp():
 		self.root.bind("<<MultiframeRightclick>>", self.__popupmenu)
 
 		def safestop():#NOTE:without this, the root.destroy method will produce an error on closing, due to some dark magic regarding after commands in self.setstatusbar.
-			try: self.root.destroy() #Safe destroy probably better than self.root.quit()
+			try: self.root.destroy() #Safe destroy probably better/cleaner than self.root.quit()
 			except tk.TclError: pass
 
 		self.root.protocol("WM_DELETE_WINDOW", safestop)
 
 		self.root.wm_title("Demomgr v "+str(__version__))
 
-		self.after_handler = self.root.after(0, lambda:1==1) #See self.setstatusbar
+		self.after_handler = self.root.after(0, lambda: True) #See self.setstatusbar
 
-		self.values = kwargs["values"]
-
-		if os.path.exists(os.path.join(os.getcwd(), self.values["iconname"])):
-			self.root.iconbitmap(self.values["iconname"])
+		if os.path.exists(os.path.join(os.getcwd(), _DEF["iconname"])):
+			self.root.iconbitmap(_DEF["iconname"])
 
 		self.workingdir = os.getcwd()
-		self.cfgpath = os.path.join(self.workingdir, os.path.join(self.values["cfgfolder"], self.values["cfgname"]))
+		self.cfgpath = os.path.join(self.workingdir, os.path.join(_DEF["cfgfolder"], _DEF["cfgname"]))
 		self.curdir = ""
 		self.bookmarkdata = []
 
@@ -1008,8 +1014,10 @@ class MainApp():
 		self.cfg = self.getcfg()
 		self.__setupgui()
 		self.spinboxvar.trace("w", self.spinboxsel) 		#spbxv
-		if self.cfg["demopaths"]: 							#spbxv
-			self.spinboxvar.set(self.cfg["demopaths"][0])	#spbxv; This will call self.reloadgui, so the frames are filled.
+		if os.path.exists(self.cfg["lastpath"]):
+			self.spinboxvar.set(self.cfg["lastpath"])
+		elif self.cfg["demopaths"]: 						#spbxv
+			self.spinboxvar.set(self.cfg["demopaths"][0])	#spbxv; This will call self.spinboxsel -> self.reloadgui, so the frames are filled.
 		self.root.deiconify()#end startup; show UI
 
 	def __startup(self):
@@ -1020,16 +1028,16 @@ class MainApp():
 				return {"res":1, "msg":"Firstlaunch"}
 		except FileNotFoundError:
 			try:
-				os.makedirs(self.values["cfgfolder"])
+				os.makedirs(_DEF["cfgfolder"])
 				handle = open(self.cfgpath, "w")
-				handle.write(json.dumps(self.values["defaultcfg"], indent = 4))
+				handle.write(json.dumps(_DEF["defaultcfg"], indent = 4))
 				handle.close()
-				self.cfg = self.values["defaultcfg"]
+				self.cfg = _DEF["defaultcfg"]
 			except BaseException as _exception:
 				return {"res":-1, "msg":str(_exception)}
 			return {"res":1, "msg":"Firstlaunch"}
 		except json.decoder.JSONDecodeError:
-			return {"res":-1,"msg":"Config Corrupted, please delete ~/.demomgr/" + self.values["cfgname"]}
+			return {"res":-1,"msg":"Config Corrupted, please delete ~/{}/{}".format(_DEF["cfgfolder"] ,_DEF["cfgname"])}
 		return {"res":0, "msg":"Success."}
 
 	def __setupgui(self):
@@ -1041,7 +1049,7 @@ class MainApp():
 		widgetframe2 = tk.Frame(self.mainframe)
 		widgetframe3 = tk.Frame(self.mainframe) #Buttons here interact with the currently selected demo
 		self.listboxframe = tk.Frame(self.mainframe)
-		self.demoinfframe = tk.Frame(self.mainframe, padx=5, pady=5)
+		demoinfframe = tk.Frame(self.mainframe, padx=5, pady=5)
 		self.statusbar = tk.Frame(self.mainframe)
 
 		self.listbox = mfl.Multiframe(self.listboxframe, columns=4, names=["Filename","Bookmarks?","Date created","Filesize"], sort = 2, sorters=[True,False,True,True], widths = [None, 26, 16, 10], formatters = [None, None, formatdate, convertunit])
@@ -1055,8 +1063,8 @@ class MainApp():
 		settingsbtn = tk.Button(widgetframe0, text = "Settings...", command = self.opensettings)
 		abouthelpbtn = tk.Button(widgetframe0, text = "About/Help...", command = self.showabout)
 
-		self.demoinfbox = tk_scr.ScrolledText(self.demoinfframe, wrap = tk.WORD, state=tk.DISABLED, width = 40)
-		self.demoinflabel = tk.Label(self.demoinfframe, text=self.values["demlabeldefault"])
+		self.demoinfbox = tk_scr.ScrolledText(demoinfframe, wrap = tk.WORD, state=tk.DISABLED, width = 40)
+		self.demoinflabel = tk.Label(demoinfframe, text=_DEF["demlabeldefault"])
 
 		filterlabel = tk.Label(widgetframe1, text="Filter demos: ")
 		filterentry = tk.Entry(widgetframe1, textvariable=self.filterentry_var)
@@ -1115,7 +1123,7 @@ class MainApp():
 
 		self.demoinflabel.pack(fill=tk.BOTH, expand = 0, anchor= tk.W)
 		self.demoinfbox.pack(fill=tk.BOTH, expand = 1)
-		self.demoinfframe.pack(fill=tk.BOTH, expand = 1)
+		demoinfframe.pack(fill=tk.BOTH, expand = 1)
 
 	def __cleanup(self):
 		'''Opens dialog offering demo deletion'''
@@ -1204,19 +1212,12 @@ class MainApp():
 		'''Opens a popup menu at mouse pos'''
 		clickedlist = self.listbox.getrowindex()
 		clickx, clicky = self.listbox.getlastclick()
-		listboxdim = self.listbox.getdimensions()
-		listboxx, listboxy = self.listboxframe.winfo_x(), self.listboxframe.winfo_y()
-		rootx, rooty = self.mainframe.winfo_rootx(), self.mainframe.winfo_rooty() #oh man that's a lotta positions
+		listboxx, listboxy = self.listboxframe.winfo_rootx(), self.listboxframe.winfo_rooty()
 		#get coords to create the menu on
 		menu = tk.Menu(self.mainframe, tearoff = 0)
 		menu.add_command(label = "Play", command = self.__playdem)
-		menu.add_command(label = "Delete", command = self.__deldem)
-		i = 0
-		offsetx = 0
-		while i != clickedlist:
-			offsetx += listboxdim[i][0]
-			i += 1
-		menu.post(rootx + listboxx + offsetx + clickx, rooty + listboxy + clicky + 20) #20 is label height. I hope that won't change.
+		menu.add_command(label = "Delete", command = self.__deldem)#construct menu
+		menu.post(self.listbox.frames[clickedlist][0].winfo_rootx() + clickx, self.listbox.frames[clickedlist][0].winfo_rooty() + clicky + 20) #20 is label height. I hope that won't change.
 
 	def setstatusbar(self, data, timeout=None):
 		'''Set statusbar text to data (str)'''
@@ -1243,8 +1244,8 @@ class MainApp():
 		except FileNotFoundError:
 			self.setstatusbar("ERROR: Current directory \"" + self.curdir + "\" does not exist.")
 			return ((),(),(),())
-		datescreated = [os.stat(os.path.join(self.curdir, i)).st_mtime for i in files]
-		sizes = [os.stat(os.path.join(self.curdir, i)).st_size for i in files]
+		datescreated = [os.path.getmtime(os.path.join(self.curdir, i)) for i in files]
+		sizes = [os.path.getsize(os.path.join(self.curdir, i)) for i in files]
 		datamode = self.cfg["datagrabmode"]
 		if datamode == 0:
 			data = (files, ["" for i in files], datescreated, sizes)
@@ -1252,9 +1253,9 @@ class MainApp():
 			return data
 		elif datamode == 1: #_events.txt
 			try:
-				h = open(os.path.join(self.curdir, self.values["eventfile"]))
+				h = open(os.path.join(self.curdir, _DEF["eventfile"]))
 			except FileNotFoundError:
-				self.setstatusbar("\"" + self.values["eventfile"] +"\" has not been found.",1500)
+				self.setstatusbar("\"" + _DEF["eventfile"] +"\" has not been found.",1500)
 				return ((files, ["" for i in files], datescreated, sizes))
 			self.bookmarkdata = readevents(h, self.cfg["evtblocksz"])
 			h.close()
@@ -1298,21 +1299,31 @@ class MainApp():
 		try:
 			raw = self.filterentry_var.get() #Get and handle input
 			#Sanitize
-			raw = escapeinput(raw)#1st func: Protect from escapes/injections on the eval() level; 2nd func: Protect from the int()/str() funcs in the eval code
+			raw = escapeinput(raw)#Protect from escapes/injections on the eval() level
 			raw = raw.split(",")
 			raw = [i.strip() for i in raw]
-			conddict = dict( [(i.split(":")[0], i.split(":")[1]) for i in raw] )
+			params = [ [i.split(":")[0], [i.split(_DEF["filterkeysep"])[1].split(_DEF["filterparamsep"]), False] ] for i in raw]
 			del raw
+			for i, j in enumerate(params):
+				if j[0][0] == _DEF["filterneg"]:
+					params[i][0] = j[0][len(_DEF["filterneg"]):]
+					params[i][1][1] = True
+			conddict = dict(params)
+			del params
 		except BaseException:
 			self.setstatusbar("Invalid filter parameter format",3000)
 			return
 		starttime = time.time()
 
-		self.setstatusbar("Constructing filters...")#Create and check filters
+		self.setstatusbar("Constructing filters...")
 		filters = []
 		try:
-			for k in conddict: #TODO: Implement ranges, better way to negate filters?
-				filters.append(eval("lambda x: "+_DEF["filterdict"][k][0].format(_DEF["filterdict"][k][1](conddict[k])) ) )#Construct lambdas for the user-entered conditions
+			for k in conddict:
+				isneg = conddict[k][1]
+				filters.append(eval("lambda x: {}{}{}".format(	"not (" * isneg,
+																" or ".join(_DEF["filterdict"][k][0].format( _DEF["filterdict"][k][1]( i ) ) for i in conddict[k][0]),
+																")" * isneg) 
+									)  )#Construct lambdas for the user-entered conditions
 		except KeyError:
 			self.setstatusbar("Invalid filtering key: \"" + str(k) + "\" ; please check your input.",5000)
 			return
@@ -1321,8 +1332,6 @@ class MainApp():
 			return
 
 		FILES = self.fetchdata()[0] #Function will modify self.bookmarkdata
-		self.setstatusbar("Filtering list...")
-
 		asg_bmd = assignbookmarkdata(FILES, self.bookmarkdata)
 		filteredlist = []
 
@@ -1340,12 +1349,18 @@ class MainApp():
 
 		self.listbox.setdata(filteredlist, "row")
 		self.listbox.format()
-		self.setstatusbar("Filtered " + str(len(FILES)) + " demos in " + str(round(time.time() - starttime, 3)) + " seconds.",3000)
+		self.setstatusbar("Filtered {} demos in {} seconds.".format( str(len(FILES)), str(round(time.time() - starttime, 3)) ), 3000)
 
 	def spinboxsel(self, *args):
 		'''Observer callback to self.spinboxvar; is called whenever self.spinboxvar (so the combobox) is updated. Also implicitly called from self.rempath'''
-		if not self.spinboxvar.get() == self.curdir:
-			self.curdir = self.spinboxvar.get()
+		selpath = self.spinboxvar.get()
+		if not selpath == self.curdir:
+			if os.path.exists(selpath) and self.cfg["lastpath"] != selpath: #Update lastpath entry
+				localcfg = 	self.cfg#Other functions continue to inform user that directory does not exist.
+				localcfg["lastpath"] = selpath
+				self.writecfg(localcfg)
+				self.cfg = self.getcfg()
+			self.curdir = selpath
 			self.reloadgui()
 
 	def showabout(self): #TODO: Help/About window
@@ -1396,11 +1411,11 @@ class MainApp():
 
 	def getcfg(self):
 		'''Gets config from self.cfgpath and returns it'''
-		localcfg = self.values["defaultcfg"]
+		localcfg = _DEF["defaultcfg"]
 		with open(self.cfgpath, "r") as handle:
 			localcfg.update(json.load(handle))
 		return localcfg
 
 if __name__ == "__main__":
-	mainapp = MainApp(values = _DEF) #TODO: log potential errors to .demomgr/err.log
+	mainapp = MainApp() #TODO: log potential errors to .demomgr/err.log
 	mainapp.root.mainloop()
