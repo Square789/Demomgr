@@ -15,7 +15,7 @@ The script works (tested on Python 3.6.6) with the standard library, installing 
 ### Progress and (hopefully) upcoming features:
 - [x] Basic filtering mechanism
 - [ ] Help/About dialog window
-- [ ] Broader filtering options (Such as ranges)
+- [x] Broader filtering options
 - [ ] Better Cleanup item selector
 - [ ] Remove hassle with UNIX Timestamps
 - [ ] Add stats after deletion
@@ -28,11 +28,14 @@ You can switch between directories using the Selection box at the top of the win
 
 #### Filter instructions:
 The filter criteria must be entered as follows:  
-`<keyname>:<value>`, seperated by commas.  
-**So far, all String filters have their negating form, prefixed by `!`.**  
+`<keyname>:<value0>*<value1>*<value2>`, seperated by commas.  
+**You can negate all filters by prefixing them with **`!`**.**  
+**Do not use the same filtering key (Even if negated) in a filter request, as one will replace the other.**  
+**You can enter multiple parameters by seperating them with **`*`**.**  
 **All integer filters ending in `min` can also be suffixed with `max` to create a filtering range for that attribute.**  
 
-Example: `!map_name:mvm, killstreak_min:2, beststreak_min:5, moddate_max:1551337886`  
+Example: `!map_name:mvm*plr*tr, killstreak_min:2, beststreak_min:5, moddate_max:1551337886`  
+Returns all demos where: The user has gotten at least two killstreaks, at least one of those streaks were 5 or more; the demo was made before February 28 2019 on 07:11:26 and the game does not take place on maps containing the substrings `mvm`,`plr` or `tr`.  
 
 You can currently filter the directory you are in by the following:
  * map_name : _Name of the map the demo is playing on. (Substring)_
@@ -45,3 +48,4 @@ You can currently filter the directory you are in by the following:
  * hostname : _Name of the server the demo took place on. (Usually in IPv4 format)_
  * clientid : _Steam community name of the player. (Substring)_
  * moddate_min : _Modified (created) after this date. (UNIX Timestamp)_ (Integer)
+ * filesize_min : _Filesize in bytes_ (Integer)
