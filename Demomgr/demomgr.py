@@ -108,18 +108,18 @@ def readbinFlt(handle):
 	rawbin = handle.read(4)
 	return struct.unpack("f",rawbin)[0]
 
-def demheaderreader(path): #Code happily duplicated from https://developer.valvesoftware.com/wiki/DEM_Format
+def readdemoheader(path): #Code happily duplicated from https://developer.valvesoftware.com/wiki/DEM_Format
 	'''Reads the header information of a demo.'''
-	demhdr = {	"dem_prot":None,
-				"net_prot":None,
-				"hostname":None,
-				"clientid":None,
-				"map_name":None,
-				"game_dir":None,
-				"playtime":None,
-				"tick_num":None,
-				"framenum":None,
-				"tickrate":None,}
+	demhdr = {	"dem_prot":3,
+				"net_prot":24,
+				"hostname":"",
+				"clientid":"",
+				"map_name":"",
+				"game_dir":"",
+				"playtime":0,
+				"tick_num":0,
+				"framenum":0,
+				"tickrate":0,}
 	
 	h = open(path, "rb")
 	if readbinStr(h, 8) == "HL2DEMO":
@@ -142,7 +142,7 @@ def extractlogarg(logchunk):
 	regres = re.search(_DEF["eventfile_argident"], logchunk)
 	return regres[0][1:len(regres[0]) - 2]
 
-def convertlogchunks(logchunk):
+def _convertlogchunks(logchunk):
 	'''Converts each _events.txt logchunk to a tuple: (filename, [(Streak: killstreakpeaks), (tick)], [(Bookmark: bookmarkname), (tick)])'''
 	loglines = logchunk.split("\n")
 	if loglines:
@@ -189,7 +189,7 @@ def readevents(handle, blocksz):
 	reader = handle_ev.EventReader(handle, blocksz=blocksz)
 	out = []
 	for chk in reader:
-		out.append(convertlogchunks(chk.content))
+		out.append(_convertlogchunks(chk.content))
 	reader.destroy()
 	return out
 
@@ -223,7 +223,37 @@ def escapeinput(raw):
 		out.append(i)
 	return "".join(out)
 
-class HeaderFetcher: #used in MainApp.__filter
+def _parsefilters(filterinp): #used in MainApp.__filter and DeleteDemos.__applycond
+	'''Takes input: <key1>:<val1>*<val2>, <key2>:<val1>*<val2>, ..., converts it to lambdas using _DEF["filterdict"]. Returns optional message on failure.
+	Output: filters<list of lambdas>, success<bool>, <Exception or None>, Error information<Str>'''
+	try: #Get and handle input
+		#Sanitize
+		raw = escapeinput(filterinp)#Protect from escapes/injections on the eval() level
+		raw = raw.split(",")
+		raw = [i.strip() for i in raw]
+		params = [ [i.split(":")[0], [i.split(_DEF["filterkeysep"])[1].split(_DEF["filterparamsep"]), False] ] for i in raw]
+		del raw
+		for i, j in enumerate(params):
+			if j[0][0] == _DEF["filterneg"]:
+				params[i][0] = j[0][len(_DEF["filterneg"]):]
+				params[i][1][1] = True
+		conddict = dict(params)
+		del params
+	except BaseException as exc:
+		return [], False, exc, "Invalid filter parameter format"
+	filters = []
+	try:
+		for k in conddict:
+			isneg = conddict[k][1]
+			filters.append(eval("lambda x: {}{}{}".format(	"not (" * isneg, " or ".join(_DEF["filterdict"][k][0].format( _DEF["filterdict"][k][1]( i ) ) for i in conddict[k][0]), ")" * isneg) 
+								)  )#Construct lambdas for the user-entered conditions
+	except KeyError as exc:
+		return [], False, exc, "Invalid filtering key: \"{}\" ; please check your input.".format(str(k))
+	except ValueError as exc:
+		return [], False, exc, "Invalid filtering parameter: \"{}\"; please check your input.".format(conddict[k])
+	return filters, True, None, ""
+
+class HeaderFetcher: #used in MainApp.__filter and DeleteDemos.__applycond
 	'''Only read a header when the class is accessed.'''
 	def __init__(self, filepath):
 		self.filepath = filepath
@@ -231,10 +261,13 @@ class HeaderFetcher: #used in MainApp.__filter
 
 	def __getitem__(self, key):
 		if self.header == None:
-			self.header = demheaderreader(self.filepath)
+			try:
+				self.header = readdemoheader(self.filepath)
+			except BaseException:
+				self.header = {	"dem_prot":3, "net_prot":24, "hostname":"", "clientid":"", "map_name":"", "game_dir":"", "playtime":0, "tick_num":0, "framenum":0, "tickrate":0} #Fallback header so corrupted demos don't crash the filter
 		return self.header[key]
 
-class FileStatFetcher: #used in MainApp.__filter
+class FileStatFetcher: #used in MainApp.__filter and DeleteDemos.__applycond
 	'''Only read a file's size and moddate when the class is accessed.'''
 	def __init__(self, filepath):
 		self.filepath = filepath
@@ -477,39 +510,30 @@ class DeleteDemos(Dialog):
 		self.curdir = options["curdir"]
 		self.cfg = options["cfg"]
 
-		self.selifnobookmarkdata_var = tk.BooleanVar()
+		self.bookmarkdata = assignbookmarkdata(self.files, self.bookmarkdata)
+
+		self.selicon = lambda x: " X" if x else ""
+
 		self.keepevents_var = tk.BooleanVar()
 		self.deluselessjson_var = tk.BooleanVar()
 		self.selall_var = tk.BooleanVar()
-		self.onlyprocifsel_var = tk.BooleanVar()
+		self.filterbox_var = tk.StringVar()
 
-		self.combobox_var = tk.StringVar()
-
-		self.selected = [False for i in self.files]
+		self.selected = [False for _ in self.files]
 
 		self.result_ = {"state":0}
-
-		self.CND = {#"Map name": -1,
-					"Date before [UNIX Timestamp]":{"id":0, "cond":None},
-					"Date after [UNIX Timestamp]":{"id":1, "cond":None},
-					"No killstreak above":{"id":2, "cond":None},
-					"Less than <> killstreaks":{"id":3, "cond":None},
-					"Less than <> bookmarks":{"id":4, "cond":None},
-					"Filesize below":{"id":5, "cond":None},
-					"Filesize above":{"id":6, "cond":None} #condition dict
-					}
 
 		super().__init__(parent, "Delete...")
 
 	def body(self, master):
 		'''UI'''
-		master.bind("<<MultiframeSelect>>", self.procitem) #on select, process item selected.
+		master.bind("<<MultiframeSelect>>", self.__procentry) #on select, process item selected.
 
 		okbutton = tk.Button(master, text = "Delete", command = lambda: self.done(1) )
 		cancelbutton = tk.Button(master, text= "Cancel", command = lambda: self.done(0) )
 
 		self.listbox = mfl.Multiframe(master, columns = 5, names= ["","Name","Date created","Info","Filesize"], sort = 0, formatters = [None, None, formatdate, None, convertunit], widths = [2, None, 18, 25, 15])
-		self.listbox.setdata(([self.o(i) for i in self.selected], self.files, self.dates, formatbookmarkdata(self.files, self.bookmarkdata), self.filesizes) , mfl.COLUMN)
+		self.listbox.setdata(([self.selicon(i) for i in self.selected], self.files, self.dates, formatbookmarkdata(self.files, self.bookmarkdata), self.filesizes) , mfl.COLUMN)
 		self.listbox.format()
 
 		self.demoinflabel = tk.Label(master, text="", justify=tk.LEFT, anchor=tk.W, font = ("Consolas", 8) )
@@ -521,24 +545,13 @@ class DeleteDemos(Dialog):
 		keepevents_checkbtn = ttk.Checkbutton(optframe, variable = self.keepevents_var, text = "Make backup of " + _DEF["eventfile"])
 		deljson_checkbtn = ttk.Checkbutton(optframe, variable = self.deluselessjson_var, text = "Delete orphaned json files")
 
-		condframe = tk.LabelFrame(master, text="Demo selector [Incomplete feature]", pady=3, padx=8)
-		condcheckbtnframe = tk.Frame(condframe)
-		self.condbox = ttk.Combobox(condframe, state = "readonly", values = [i for i in self.CND]) #CND keys are values.
-		self.condbox.set(next(iter(self.CND)))#dunno what this does, stole it from stackoverflow, seems to work.
-		self.condvalbox = tk.Entry(condframe) #
-		self.applybtn = tk.Button(condframe, text="Apply selection", command = self.applycond)
-		selifnobookmarks_checkbox = ttk.Checkbutton(condcheckbtnframe, text="Select when no information on condition is found", variable = self.selifnobookmarkdata_var)
-		onlyprocifsel_checkbox = ttk.Checkbutton(condcheckbtnframe, text="Only process files when they are already selected.", variable = self.onlyprocifsel_var)
-
-		onlyprocifsel_checkbox.pack(side=tk.LEFT)
-		selifnobookmarks_checkbox.pack(side=tk.LEFT)
-		condcheckbtnframe.pack(side=tk.BOTTOM, expand=1, fill=tk.X)
+		condframe = tk.LabelFrame(master, text="Demo selector / Filterer", pady=3, padx=8)
+		self.filterbox = tk.Entry(condframe, textvariable = self.filterbox_var) #
+		self.applybtn = tk.Button(condframe, text="Apply filter", command = self.__applycond)
 
 		self.applybtn.pack(side=tk.RIGHT)
 		tk.Label(condframe).pack(side=tk.RIGHT)
-		self.condvalbox.pack(side=tk.RIGHT, fill=tk.X, expand=1)
-		tk.Label(condframe).pack(side=tk.RIGHT)
-		self.condbox.pack(side=tk.RIGHT, fill=tk.X, expand=1)
+		self.filterbox.pack(side=tk.RIGHT, fill=tk.X, expand=1)
 		condframe.pack(fill=tk.BOTH)
 
 		deljson_checkbtn.pack(side=tk.LEFT)
@@ -560,12 +573,15 @@ class DeleteDemos(Dialog):
 	def destroy(self):
 		super().destroy()
 
-	def procitem(self, event):
+	def __procentry(self, event):
 		index = self.listbox.getindex()
 
 		if self.cfg["previewdemos"]:
-			hdrinf = demheaderreader(os.path.join(self.curdir, self.listbox.getcell(1,index)) )
-			self.demoinflabel.config(text=("Hostname: " + hdrinf["hostname"] + "| ClientID: " + hdrinf["clientid"] + "| Map name: " + hdrinf["map_name"]) )
+			try:
+				hdr = readdemoheader(os.path.join(self.curdir, self.listbox.getcell(1,index)) )
+			except BaseException:
+				hdr = {	"dem_prot":3, "net_prot":24, "hostname":"", "clientid":"", "map_name":"", "game_dir":"", "playtime":0, "tick_num":0, "framenum":0, "tickrate":0}
+			self.demoinflabel.config(text="Hostname: {}| ClientID: {}| Map name: {}".format(hdr["hostname"], hdr["clientid"], hdr["map_name"]) )
 		
 		if self.listbox.getrowindex() != 0: return
 		if index == None: return
@@ -574,123 +590,46 @@ class DeleteDemos(Dialog):
 			self.selall_var.set(0)
 		else:
 			self.selall_var.set(1)
-		self.listbox.setcell(0, index, self.o(self.selected[index]))
+		self.listbox.setcell(0, index, self.selicon(self.selected[index]))
 
-	def setitem(self, index, value, lazyui = False, only_proc_if_selected = False): #value: bool
-		if only_proc_if_selected and (not self.selected[index]):
-			return
+	def __setitem(self, index, value, lazyui = False): #value: bool
 		self.selected[index] = value
 		if not lazyui:
 			if False in self.selected: #~ laggy
 				self.selall_var.set(0)
 			else:
 				self.selall_var.set(1)
-			self.listbox.setcolumn(0, [self.o(i) for i in self.selected])#do not refresh ui. this is done while looping over the elements, then a final refresh is performed.
+			self.listbox.setcolumn(0, [self.selicon(i) for i in self.selected])#do not refresh ui. this is done while looping over the elements, then a final refresh is performed.
 
-	def o(self, _in):
-		return " " if not _in else " X"
-
-	def applycond(self): #TODO: OPTIMIZE WITH LAMBDAS
+	def __applycond(self): #NOTE: Improve overall handling of bookmarks?
 		'''Apply user-entered condition to the files. True spaghetti code.'''
-		conditionname = self.condbox.get()
-		procifselected = self.onlyprocifsel_var.get()#Assigning to local namespace, i have no idea if this makes it go faster
-		if conditionname == "": #empty value of stringvar
+		filterparseres = _parsefilters(self.filterbox_var.get())
+		if not filterparseres[1]:#TODO: Add error messages
 			return
-		conditionvalue = self.condvalbox.get()#is good, unless empty string
-		if conditionvalue == "":
-			return
-		conditionid = self.CND[conditionname]["id"] #hardcoded conditions, they work much, much faster.
-		if conditionid == 0: #Date before
-			conditionvalue = int(conditionvalue)
-			selifnoinfo = self.selifnobookmarkdata_var.get()
-			for i, j in enumerate(self.files):
-				if self.dates[i] < conditionvalue:
-					self.setitem(i, True, True, procifselected)
-				else:
-					self.setitem(i, False, True, procifselected)
+		else:
+			filters = filterparseres[0]
 
-		elif conditionid == 1: #Date after
-			conditionvalue = int(conditionvalue)
-			selifnoinfo = self.selifnobookmarkdata_var.get()
-			for i, j in enumerate(self.files):
-				if self.dates[i] > conditionvalue:
-					self.setitem(i, True, True, procifselected)
-				else:
-					self.setitem(i, False, True, procifselected)
-
-		elif conditionid == 2: #No killstreak above condval
-			conditionvalue = int(conditionvalue)
-			selifnoinfo = self.selifnobookmarkdata_var.get()
-			assigneddata = assignbookmarkdata(self.files, self.bookmarkdata)
-			for i, j in enumerate(self.files):
-				if assigneddata[i][0] == "":
-					self.setitem(i, bool(selifnoinfo), True, procifselected)
-					continue
-				for k in assigneddata[i][1]:
-					if k[0] >= conditionvalue:
-						self.setitem(i, True, True, procifselected)
-						break
-				else:
-					self.setitem(i, False, True, procifselected)
-
-		elif conditionid == 3: #Less than condval killstreaks
-			conditionvalue = int(conditionvalue)
-			selifnoinfo = self.selifnobookmarkdata_var.get()
-			assigneddata = assignbookmarkdata(self.files, self.bookmarkdata)
-			for i, j in enumerate(self.files):
-				if assigneddata[i][0] == "":
-					self.setitem(i, bool(selifnoinfo), True, procifselected)
-					continue
-				if len(assigneddata[i][1]) < conditionvalue:
-					self.setitem(i, True, True, procifselected)
-				else:
-					self.setitem(i, False, True, procifselected)
-
-		elif conditionid == 4: #Less than condval bookmarks
-			conditionvalue = int(conditionvalue)
-			selifnoinfo = self.selifnobookmarkdata_var.get()
-			assigneddata = assignbookmarkdata(self.files, self.bookmarkdata)
-			for i, j in enumerate(self.files):
-				if assigneddata[i][0] == "":
-					self.setitem(i, bool(selifnoinfo), True, procifselected)
-					continue
-				if len(assigneddata[i][2]) < conditionvalue:
-					self.setitem(i, True, True, procifselected)
-				else:
-					self.setitem(i, False, True, procifselected)
-
-		elif conditionid == 5: # Filesize less than condval
-			conditionvalue = int(conditionvalue)
-			for i, j in enumerate(self.files):
-				if self.filesizes[i] < conditionvalue:
-					self.setitem(i, True, True, procifselected)
-				else:
-					self.setitem(i, False, True, procifselected)
-
-		elif conditionid == 6: #Filesize more than condval
-			conditionvalue = int(conditionvalue)
-			for i, j in enumerate(self.files):
-				if self.filesizes[i] > conditionvalue:
-					self.setitem(i, True, True, procifselected)
-				else:
-					self.setitem(i, False, True, procifselected)
+		for i, j in enumerate(self.files):
+			curfile = {"name":j, "killstreaks":self.bookmarkdata[i][1], "bookmarks":self.bookmarkdata[i][2], "header": HeaderFetcher(os.path.join(self.curdir, j)), "filedata": FileStatFetcher(os.path.join(self.curdir, j))}
+			curdemook = True
+			for f in filters:
+				if not f(curfile):
+					curdemook = False
+					break
+			if curdemook:
+				self.__setitem(i, True, True)
+			else:
+				self.__setitem(i, False, True)
 
 		if len(self.selected) != 0: #set select all checkbox
-			self.setitem(0, self.selected[0], False, False)
-
-	def getheaders(self, path): #Soon (TM); this function isn't called anywhere.
-		result = []
-		files = [i for i in os.listdir(path) if os.path.splitext(i)[1] == ".dem"]
-		for i in files:
-			result.append((i, demheaderreader(i) ) )
-		return result
+			self.__setitem(0, self.selected[0], False)
 
 	def selall(self):
 		if False in self.selected:
 			self.selected = [True for i in self.files]
 		else:
 			self.selected = [False for i in self.files]
-		self.listbox.setcolumn(0, [self.o(i) for i in self.selected])
+		self.listbox.setcolumn(0, [self.selicon(i) for i in self.selected])
 
 	def done(self, param):
 		if param:
@@ -778,43 +717,47 @@ class Deleter(Dialog):
 			self.okbutton.pack_forget()
 			self.cancelbutton.pack_forget()
 
-			self.delete()
+			self.__delete()
 
 			self.closebutton.pack(side=tk.LEFT, fill=tk.X, expand=1)
 
-	def delete(self): #TODO: Add stats (time taken, files deleted, write errors encountered?)
+	def __delete(self): #TODO: Add stats (time taken, files deleted, write errors encountered?)
 		if self.keepeventsfile: #---Backup _events file
-			backupfolder = os.path.join(os.getcwd(), _DEF["cfgfolder"], _DEF["eventbackupfolder"])
-			if not os.path.exists(backupfolder):
-				os.makedirs(backupfolder)
-			i = 0
-			while True:
-				if os.path.exists( os.path.join(backupfolder, os.path.splitext(_DEF["eventfile"])[0] + str(i) + ".txt" )  ): #enumerate files: _events0.txt; _events1.txt; _events2.txt ...
-					i += 1
-				else:
-					break
-			self.appendtextbox("\n\nCreating eventfile backup at " + os.path.join(os.getcwd(), _DEF["cfgfolder"], _DEF["eventbackupfolder"], (os.path.splitext(_DEF["eventfile"])[0] + str(i) + ".txt") ) + " ...\n"  )
-			shutil.copy2( os.path.join(self.demodir, _DEF["eventfile"]), os.path.join(os.getcwd(), _DEF["cfgfolder"], _DEF["eventbackupfolder"], (os.path.splitext(_DEF["eventfile"])[0] + str(i) + ".txt") )  )
+			if os.path.exists(os.path.join(self.demodir, _DEF["eventfile"])):
+				backupfolder = os.path.join(os.getcwd(), _DEF["cfgfolder"], _DEF["eventbackupfolder"])
+				if not os.path.exists(backupfolder):
+					os.makedirs(backupfolder)
+				i = 0
+				while True:
+					if os.path.exists( os.path.join(backupfolder, os.path.splitext(_DEF["eventfile"])[0] + str(i) + ".txt" )  ): #enumerate files: _events0.txt; _events1.txt; _events2.txt ...
+						i += 1
+					else:
+						break
+				self.appendtextbox("\nCreating eventfile backup at " + os.path.join(os.getcwd(), _DEF["cfgfolder"], _DEF["eventbackupfolder"], (os.path.splitext(_DEF["eventfile"])[0] + str(i) + ".txt") ) + " .\n"  )
+				shutil.copy2( os.path.join(self.demodir, _DEF["eventfile"]), os.path.join(os.getcwd(), _DEF["cfgfolder"], _DEF["eventbackupfolder"], (os.path.splitext(_DEF["eventfile"])[0] + str(i) + ".txt") )  )
+			else:
+				self.appendtextbox("\nEventfile does not exist; can not create backup.\n")
 
-	#-----------Deletion loop-----------#
-		errorsencountered = 0
+		errorsencountered = 0 #---Delete files
 		deletedfiles = 0
 		starttime = time.time()
-		for i in self.filestodel: #---Delete files
+	#-----------Deletion loop-----------#
+		for i in self.filestodel:
 			try:
 				os.remove( os.path.join(self.demodir, i))
 				deletedfiles += 1
+				self.appendtextbox("\nDeleted {} .".format(i) )
 			except BaseException:
 				errorsencountered += 1
-			self.appendtextbox("\nDeleted " + os.path.join(self.demodir, i) )
+				self.appendtextbox("\nError deleting {} .".format(i) )
 	#-----------------------------------#
-		
-		self.appendtextbox("\n\nUpdating " + _DEF["eventfile"] + "..." )
+
+		self.appendtextbox("\n\nUpdating " + _DEF["eventfile"] + "..." ) #---Update eventfile
 
 		evtpath = os.path.join(self.demodir, _DEF["eventfile"])
-		tmpevtpath = os.path.join(self.demodir, "."+_DEF["eventfile"])
 
 		if os.path.exists(evtpath):
+			tmpevtpath = os.path.join(self.demodir, "."+_DEF["eventfile"])
 			reader = handle_ev.EventReader(evtpath, blocksz = self.cfg["evtblocksz"])
 			writer = handle_ev.EventWriter(tmpevtpath, clearfile = True)
 
@@ -828,7 +771,7 @@ class Deleter(Dialog):
 						writer.writechunk(outchunk)
 					if outchunk.message["last"]: break
 
-			elif self.eventfileupdate == "selectivemove":#Requires to have entire dir/actual files present;
+			elif self.eventfileupdate == "selectivemove":#Requires to have entire dir/actual files present in self.files;
 				okayfiles = set([j for i, j in enumerate(self.files) if not self.selected[i]])
 				while True:
 					chunkexists = False
@@ -850,7 +793,7 @@ class Deleter(Dialog):
 			self.appendtextbox(" Done!" )
 		else:
 			self.appendtextbox(" Event file not found, skipping.")
-		self.appendtextbox("\n\n==========\nTime taken: {} seconds\nFiles deleted: {}\nErrors encountered: {}\n==========".format( round(time.time() - starttime, 3), deletedfiles, errorsencountered))
+		self.appendtextbox("\n\n==[Done]==\nTime taken: {} seconds\nFiles deleted: {}\nErrors encountered: {}\n==========".format( round(time.time() - starttime, 3), deletedfiles, errorsencountered))
 
 		self.result_["state"] = 1
 
@@ -1179,7 +1122,7 @@ class MainApp():
 			return
 		try:
 			demname = self.listbox.getcell(0, index)	#Get headerinf
-			outdict = demheaderreader(os.path.join(self.curdir, demname))
+			outdict = readdemoheader(os.path.join(self.curdir, demname))
 			deminfo = "\n".join([str(k) + " : " + str(outdict[k]) for k in outdict])
 			del outdict #End headerinf
 			entry = None	#Get bookmarks
@@ -1296,40 +1239,16 @@ class MainApp():
 
 	def __filter(self):
 		'''Filters the listbox according to conditions in self.filterentry_var'''
-		try:
-			raw = self.filterentry_var.get() #Get and handle input
-			#Sanitize
-			raw = escapeinput(raw)#Protect from escapes/injections on the eval() level
-			raw = raw.split(",")
-			raw = [i.strip() for i in raw]
-			params = [ [i.split(":")[0], [i.split(_DEF["filterkeysep"])[1].split(_DEF["filterparamsep"]), False] ] for i in raw]
-			del raw
-			for i, j in enumerate(params):
-				if j[0][0] == _DEF["filterneg"]:
-					params[i][0] = j[0][len(_DEF["filterneg"]):]
-					params[i][1][1] = True
-			conddict = dict(params)
-			del params
-		except BaseException:
-			self.setstatusbar("Invalid filter parameter format",3000)
-			return
 		starttime = time.time()
+		self.setstatusbar("Filtering demos...")
 
-		self.setstatusbar("Constructing filters...")
-		filters = []
-		try:
-			for k in conddict:
-				isneg = conddict[k][1]
-				filters.append(eval("lambda x: {}{}{}".format(	"not (" * isneg,
-																" or ".join(_DEF["filterdict"][k][0].format( _DEF["filterdict"][k][1]( i ) ) for i in conddict[k][0]),
-																")" * isneg) 
-									)  )#Construct lambdas for the user-entered conditions
-		except KeyError:
-			self.setstatusbar("Invalid filtering key: \"" + str(k) + "\" ; please check your input.",5000)
+		filterres = _parsefilters(self.filterentry_var.get())
+		if not filterres[1]:
+			self.setstatusbar(filterres[3],5000)
 			return
-		except ValueError:
-			self.setstatusbar("Invalid filtering parameter: \""+ conddict[k] +"\" ; please check your input.",5000)
-			return
+		else:
+			filters = filterres[0]
+		del filterres
 
 		FILES = self.fetchdata()[0] #Function will modify self.bookmarkdata
 		asg_bmd = assignbookmarkdata(FILES, self.bookmarkdata)
@@ -1338,6 +1257,7 @@ class MainApp():
 		for i, j in enumerate(FILES): #Filter
 			curdemook = True
 			curdataset = {"name":j, "killstreaks":asg_bmd[i][1], "bookmarks":asg_bmd[i][2], "header": HeaderFetcher(os.path.join(self.curdir, j)), "filedata": FileStatFetcher(os.path.join(self.curdir, j))}
+			print(curdataset)
 			#The Fetcher classes prevent unneccessary drive access when the user i.E. only filters by name
 			for l in filters:
 				if not l(curdataset):
