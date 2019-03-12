@@ -16,7 +16,8 @@ The script works (tested on Python 3.6.6) with the standard library, installing 
 - [x] Basic filtering mechanism
 - [ ] Help/About dialog window
 - [x] Broader filtering options
-- [ ] Better Cleanup item selector
+- [x] Better Cleanup item selector
+- [ ] Information when Cleanup filter fails
 - [ ] Remove hassle with UNIX Timestamps
 - [ ] Add stats after deletion
 
