@@ -1257,7 +1257,6 @@ class MainApp():
 		for i, j in enumerate(FILES): #Filter
 			curdemook = True
 			curdataset = {"name":j, "killstreaks":asg_bmd[i][1], "bookmarks":asg_bmd[i][2], "header": HeaderFetcher(os.path.join(self.curdir, j)), "filedata": FileStatFetcher(os.path.join(self.curdir, j))}
-			print(curdataset)
 			#The Fetcher classes prevent unneccessary drive access when the user i.E. only filters by name
 			for l in filters:
 				if not l(curdataset):
