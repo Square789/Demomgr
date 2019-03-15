@@ -956,11 +956,11 @@ class MainApp():
 		#set up UI
 		self.cfg = self.getcfg()
 		self.__setupgui()
-		self.spinboxvar.trace("w", self.spinboxsel) 		#spbxv
+		self.spinboxvar.trace("w", self.__spinboxsel) 		#spbxv
 		if os.path.exists(self.cfg["lastpath"]):
 			self.spinboxvar.set(self.cfg["lastpath"])
 		elif self.cfg["demopaths"]: 						#spbxv
-			self.spinboxvar.set(self.cfg["demopaths"][0])	#spbxv; This will call self.spinboxsel -> self.reloadgui, so the frames are filled.
+			self.spinboxvar.set(self.cfg["demopaths"][0])	#spbxv; This will call self.__spinboxsel -> self.reloadgui, so the frames are filled.
 		self.root.deiconify()#end startup; show UI
 
 	def __startup(self):
@@ -1004,7 +1004,7 @@ class MainApp():
 		rempathbtn = tk.Button(widgetframe0, text = "Remove demo path", command = self.rempath)
 		addpathbtn = tk.Button(widgetframe0, text = "Add demo path...", command = self.addpath)
 		settingsbtn = tk.Button(widgetframe0, text = "Settings...", command = self.opensettings)
-		abouthelpbtn = tk.Button(widgetframe0, text = "About/Help...", command = self.showabout)
+		abouthelpbtn = tk.Button(widgetframe0, text = "About/Help...", command = self.__showabout)
 
 		self.demoinfbox = tk_scr.ScrolledText(demoinfframe, wrap = tk.WORD, state=tk.DISABLED, width = 40)
 		self.demoinflabel = tk.Label(demoinfframe, text=_DEF["demlabeldefault"])
@@ -1172,11 +1172,11 @@ class MainApp():
 
 	def reloadgui(self):
 		'''Reload UI elements that need it'''
-		self.listbox.setdata(self.fetchdata(), "column")
+		self.listbox.setdata(self.__fetchdata(), "column")
 		self.listbox.format()
 		self.__updatedemowindow(None)
 
-	def fetchdata(self):
+	def __fetchdata(self):
 		'''Get data from all the demos in current folder; return in format that can be directly put into listbox'''
 		if self.curdir == "":
 			return ((),(),(),())
@@ -1250,19 +1250,17 @@ class MainApp():
 			filters = filterres[0]
 		del filterres
 
-		FILES = self.fetchdata()[0] #Function will modify self.bookmarkdata
+		FILES = self.__fetchdata()[0] #Function will modify self.bookmarkdata
 		asg_bmd = assignbookmarkdata(FILES, self.bookmarkdata)
 		filteredlist = []
 
 		for i, j in enumerate(FILES): #Filter
-			curdemook = True
 			curdataset = {"name":j, "killstreaks":asg_bmd[i][1], "bookmarks":asg_bmd[i][2], "header": HeaderFetcher(os.path.join(self.curdir, j)), "filedata": FileStatFetcher(os.path.join(self.curdir, j))}
 			#The Fetcher classes prevent unneccessary drive access when the user i.E. only filters by name
 			for l in filters:
 				if not l(curdataset):
-					curdemook = False
 					break
-			if curdemook:
+			else:
 				filteredlist.append((curdataset["name"], str(len(curdataset["bookmarks"])) + " Bookmarks; "+ str(len(curdataset["killstreaks"])) + " Killstreaks.", curdataset["filedata"]["modtime"], curdataset["filedata"]["filesize"]))
 		del filters
 
@@ -1270,7 +1268,7 @@ class MainApp():
 		self.listbox.format()
 		self.setstatusbar("Filtered {} demos in {} seconds.".format( str(len(FILES)), str(round(time.time() - starttime, 3)) ), 3000)
 
-	def spinboxsel(self, *args):
+	def __spinboxsel(self, *args):
 		'''Observer callback to self.spinboxvar; is called whenever self.spinboxvar (so the combobox) is updated. Also implicitly called from self.rempath'''
 		selpath = self.spinboxvar.get()
 		if not selpath == self.curdir:
@@ -1282,7 +1280,7 @@ class MainApp():
 			self.curdir = selpath
 			self.reloadgui()
 
-	def showabout(self): #TODO: Help/About window
+	def __showabout(self): #TODO: Help/About window
 		dialog_ = AboutHelp(self.mainframe)
 
 	def opensettings(self):

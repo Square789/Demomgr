@@ -76,10 +76,10 @@ class EventReader():
 	def getchunks(self, toget = 1):
 		'''Method that returns the number of specified datachunks in the file.'''
 		while len(self.chunkbuffer) <= toget:
-				self.__read()
+			self.__read()
 		returnbfr = []
 		for _ in range(toget):
-				returnbfr.append(self.chunkbuffer.pop(0))
+			returnbfr.append(self.chunkbuffer.pop(0))
 		return returnbfr
 
 	def reset(self):
@@ -97,20 +97,20 @@ class EventReader():
 		if done: return
 		rawread = self.handle.read(self.cnf["blocksz"])
 		if rawread == "": #we can be sure the file is over.
-				done = True
+			done = True
 		raw = self.lastchunk + rawread
 		logchunks = raw.split(self.cnf["sep"])
 		if len(logchunks) == 0:
-				self.chunkbuffer = self.chunkbuffer + Logchunk("",{"last":True},self.handle.name)
-				return
+			self.chunkbuffer = self.chunkbuffer + Logchunk("",{"last":True},self.handle.name)
+			return
 		elif len(logchunks) == 1:
-				if rawread == "":
-						self.lastchunk = ""
-				else:
-						self.lastchunk = logchunks.pop(0)#Big logchunk
+			if rawread == "":
+				self.lastchunk = ""
+			else:
+				self.lastchunk = logchunks.pop(0)#Big logchunk
 		else:
-				self.lastchunk = logchunks.pop(-1)
-		self.chunkbuffer = self.chunkbuffer + [Logchunk(i[:-1], {"last":not bool(rawread)}, self.handle.name) for i in logchunks]#Cut off \n @ end
+			self.lastchunk = logchunks.pop(-1)
+		self.chunkbuffer = self.chunkbuffer + [Logchunk(i[:-1], {"last":not bool(rawread)}, self.handle.name) for i in logchunks]#Cut off \n @ end; NOTE: THIS MAY BE 2 CHARS ON OTHER SYSTEMS
 
 	def close(self):
 		self.destroy()
