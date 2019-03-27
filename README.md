@@ -19,7 +19,8 @@ The script works (tested on Python 3.6.6) with the standard library, installing 
 - [x] Better Cleanup item selector
 - [ ] Information when Cleanup filter fails
 - [ ] Remove hassle with UNIX Timestamps
-- [ ] Add stats after deletion
+- [x] Add stats after deletion
+- [ ] Thread demo accessing and processing for responsive UI
 
 ### Start Instructions:
 Optionally install the [vdf module](https://pypi.org/project/vdf/).  
