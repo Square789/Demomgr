@@ -21,6 +21,7 @@ The script works (tested on Python 3.6.6) with the standard library, installing 
 - [ ] Remove hassle with UNIX Timestamps
 - [x] Add stats after deletion
 - [ ] Thread demo accessing and processing for responsive UI
+- [ ] Insert custom bookmarks into demos
 
 ### Start Instructions:
 Optionally install the [vdf module](https://pypi.org/project/vdf/).  
