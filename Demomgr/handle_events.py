@@ -10,9 +10,9 @@ write_DEF = {"clearfile":False,"forceflush":False}
 
 class Logchunk:
 	'''Logchunk class, contents:
-	content : The string read directly from the file.
-	message : Dict, "last" : True if the logchunk is either empty or the last one in the file, else False.
-	fromfile : String, Absoluta path to file that the chunk was read from.'''
+	content : String; Content read directly from the file.
+	message : Dict; "last" : Boolean; True if the logchunk is either empty or the last one in the file, else False.
+	fromfile : String; Absolute path to file that the chunk was read from.'''
 	def __init__(self, content, message, fromfile):
 		self.content = content
 		self.message = message

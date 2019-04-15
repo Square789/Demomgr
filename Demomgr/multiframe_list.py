@@ -13,7 +13,7 @@ _DEFAULT = {"NAME":"egg",
 			"WIDTH":None,
 			"FRMTFUNC" : None}
 
-ALL = "all"
+ALL = "all" #NOTE: tkinter has an ALL constant with the same value. Keeping this for readability.
 COLUMN = "column"
 ROW = "row"
 BORDERWIDTH = 2
@@ -22,17 +22,12 @@ ENTRYHEIGHT = 16
 _RIGHTCLICKBTN = 3
 
 class idLabel(Label):#Labels are a subclass that hold some additional values regarding their column
-	def setid(self, id):
+	def __init__(self, parent, id, *args, **kwargs):
 		self.id = id
 		self.sortstate = 0
 
-	def getid(self):
-		return self.id
+		super().__init__(parent, *args, **kwargs)
 
-	def getsortstate(self):
-		return self.sortstate
-	def setsortstate(self, val):
-		self.sortstate = val
 
 class Multiframe(Frame):
 	'''Instantiates a multiframe tkinter based list
@@ -110,9 +105,9 @@ class Multiframe(Frame):
 		for i in range(self.options["columns"]): #This for loop adds the elements to the mainframe and configures them
 			self.shadowdata.append([])
 			self.frames.append([])
-			self.frames[i].append(Frame(self))															#[0] is frame
-			self.frames[i].append(Listbox(self.frames[i][0], exportselection = False) )					#[1] is listbox
-			self.frames[i].append(idLabel(self.frames[i][0], text=self.options["names"][i], anchor = W))#[2] is label
+			self.frames[i].append(Frame(self))																#[0] is frame
+			self.frames[i].append(Listbox(self.frames[i][0], exportselection = False) )						#[1] is listbox
+			self.frames[i].append(idLabel(self.frames[i][0], i, text=self.options["names"][i], anchor = W))	#[2] is label
 			if self.options["widths"][i]:
 				self.frames[i][0].config(width = self.options["widths"][i])
 				self.frames[i][1].config(width = self.options["widths"][i])
@@ -127,7 +122,6 @@ class Multiframe(Frame):
 			self.frames[i][1].bind("<<ListboxSelect>>", _handler1)
 			self.frames[i][1].bind("<Button-" + str(_RIGHTCLICKBTN) + ">", _handler2)
 			self.frames[i][1].config(yscrollcommand=self.__scrollalllistbox)
-			self.frames[i][2].setid(i)
 			if not self.options["sort"] == 0:
 				if self.options["sort"] == 2:
 					if self.options["sorters"][i]:
@@ -252,15 +246,15 @@ class Multiframe(Frame):
 		self.currentindex = None
 
 	def getindex(self):
-		'''Returns the current index.'''
+		'''Returns the current index. May be None.'''
 		return self.currentindex
 
 	def getrowindex(self):
-		'''Returns the row the current selection was made on'''
+		'''Returns the row the current selection was made on. May be None.'''
 		return self.currentrow
 
 	def getlastclick(self):
-		'''Returns the coordinates in the listbox the last click was made in as a tuple.'''
+		'''Returns the coordinates in the listbox the last click was made in as a tuple. May be None.'''
 		return (self.lastx, self.lasty)
 
 	def getdimensions(self):
@@ -292,7 +286,7 @@ class Multiframe(Frame):
 			return valuelist
 
 	def getcolumn(self, index):
-		'''Will return the contents of the column at index'''
+		'''Will return the contents of the column at index.'''
 		return self.frames[index][1].get(0,END)
 
 	def getcell(self, x, y):
@@ -326,15 +320,15 @@ class Multiframe(Frame):
 		'''This function will sort the list'''
 		if len(self.frames) != 0:
 			scroll = self.frames[0][1].yview()[0]
-		id = event.widget.getid()
-		sstate = event.widget.getsortstate()
+		id = event.widget.id
+		sstate = event.widget.sortstate
 		rev = False
 		if sstate == 1: rev = True
 		for i, j in enumerate(self.frames):
 			if i == id:
-				j[2].setsortstate( abs(sstate-1) )
+				j[2].sortstate = abs(sstate-1)
 				continue
-			j[2].setsortstate(0)
+			j[2].sortstate = 0
 		tmpshd = self.getshadowdata()
 		content = sorted(tmpshd, key=itemgetter(id), reverse=rev)
 		self.setdata(content)
@@ -355,19 +349,6 @@ class Multiframe(Frame):
 		else:
 			for i in range(self.options["columns"]):
 				self.frames[i][1].yview(a, b)
-
-	# def setcolumnshadowdata(self, index, data):
-		# '''This function sets the shadow data of the column index to data (list/tuple)'''
-		# #valid8
-		# if len(data) != len(self.shadowdata[index]):
-			# return
-		# #end val
-		# self.shadowdata[index] = data
-
-	# def setrowshadowdata(self, index, data):
-		# for i in range(len(data)):
-			# self.shadowdata[i][index] = data[i]
-		
 
 if __name__ == "__main__":
 	from random import randint

@@ -55,7 +55,7 @@ _DEF = {"cfgfolder":".demomgr", #Values. Is important. No changerooni.
 		"tf2launchargs":["-steam", "-game", "tf"],
 		"steamconfigpath1":"userdata/",
 		"steamconfigpath2":"config/localconfig.vdf",
-		"launchoptionskey":"[\"UserLocalConfigStore\"][\"Software\"][\"valve\"][\"Steam\"][\"Apps\"][\"440\"][\"LaunchOptions\"]",
+		"launchoptionskeys":("[\"UserLocalConfigStore\"][\"Software\"][\"Valve\"][\"Steam\"][\"Apps\"][\"440\"][\"LaunchOptions\"]","[\"UserLocalConfigStore\"][\"Software\"][\"valve\"][\"Steam\"][\"Apps\"][\"440\"][\"LaunchOptions\"]","[\"UserLocalConfigStore\"][\"Software\"][\"Valve\"][\"Steam\"][\"apps\"][\"440\"][\"LaunchOptions\"]","[\"UserLocalConfigStore\"][\"Software\"][\"valve\"][\"Steam\"][\"apps\"][\"440\"][\"LaunchOptions\"]"),
 		"errlogfile":"err.log",
 		"filterdict":	{	"name":("\"{}\" in x[\"name\"]", str),#[0] will be passed through eval(); all keys will be prefixed with "lambda x: "; {} replaced with element [1] called with ESCAPED user input as parameter
 							"killstreak_min":("len(x[\"killstreaks\"]) >= {}", int),
@@ -157,7 +157,7 @@ def _convertlogchunks(logchunk):
 	killstreaks = []
 	bookmarks = []
 
-	for i in loglines: #for each line in the feed
+	for i in loglines:
 		if i == "": #Line empty, likely last line.
 			continue
 		tick = i[-(len(re.search(_DEF["eventfile_ticklogsep"], i)[0]) - 5) -1: -1]#Unreadable but eh
@@ -213,12 +213,12 @@ def formatbookmarkdata(filelist, bookmarkdata):
 			listout[i] = "None"
 	return listout
 
+_toescape = ["\"", "\\"]
 def escapeinput(raw):
-	"""Adds escape char (\) in front of all occurrences of \\ and \" """
+	"""Adds escape char (\) in front of all occurrences of \ and " """
 	out = []
-	toescape = ["\"", "\\"]
 	for i in raw:
-		if i in toescape:
+		if i in _toescape:
 			out.append("\\")
 		out.append(i)
 	return "".join(out)
@@ -312,6 +312,8 @@ class FirstRunDialog(Dialog):
 
 class LaunchTF2(Dialog):
 	def __init__(self, parent, options):
+		'''Args: parent tkinter window, options dict with:
+		demopath (Absolute file path to the demo to be played), steamdir'''
 
 		self.result_ = {}
 
@@ -324,17 +326,14 @@ class LaunchTF2(Dialog):
 		self.errstates = [False, False, False, False, False] #0:Invalid steamdir, 1: Steamdir on bad drive, 2: VDF missing, 3:Demo outside /tf/, 4:No launchoptions
 
 		self.playdemoarg = tk.StringVar()
-
 		self.userselectvar = tk.StringVar()
 		try:
 			self.userselectvar.set(self.getusers()[0])
 		except: pass
-
 		self.launchoptionsvar = tk.StringVar()
 
 		self.shortdemopath = ""
 		self.__constructshortdemopath()
-
 
 		super().__init__( self.parent, "Play demo / Launch TF2...")
 
@@ -342,7 +341,7 @@ class LaunchTF2(Dialog):
 	def body(self, master):
 		'''Ugly UI setup'''
 		steamdirframe= tk.LabelFrame(master, text="Steam install path", padx = 10, pady=8)
-		self.steamdirentry = tk.Entry(steamdirframe, state="readonly", textvariable = self.steamdir)
+		self.steamdirentry = ttk.Entry(steamdirframe, state="readonly", textvariable = self.steamdir)
 		self.steamdirbtn = tk.Button(steamdirframe, command=self.askfordir, text="Select Steam install path")
 		self.error_steamdir_invalid = tk.Label(steamdirframe, fg="#AA0000", text="Steam dir is malformed or nonexistent! Please select the root folder called \"Steam\".")
 		self.warning_steamdir_mislocated = tk.Label(steamdirframe, fg="#AA0000", text="The queried demo and the Steam directory are on seperate drives.")
@@ -355,9 +354,9 @@ class LaunchTF2(Dialog):
 		launchoptwidgetframe = tk.Frame(launchoptionsframe, bd=4, relief = tk.RAISED, padx = 5, pady = 4)
 		self.warning_vdfmodule = tk.Label(launchoptwidgetframe, fg="#AA0000", text="Please install the vdf module in order to launch TF2 with your default settings. (Run cmd in admin mode; type \"python -m pip install vdf\")")#WARNLBL
 		self.launchlabel1 = tk.Label(launchoptwidgetframe, text="[...]/hl2.exe -steam -game tf")
-		self.launchoptionsentry = tk.Entry(launchoptwidgetframe, textvariable=self.launchoptionsvar)
+		self.launchoptionsentry = ttk.Entry(launchoptwidgetframe, textvariable=self.launchoptionsvar)
 		pluslabel = tk.Label(launchoptwidgetframe, text="+")
-		self.launchlabelentry = tk.Entry(launchoptwidgetframe, state="readonly", textvariable = self.playdemoarg)
+		self.launchlabelentry = ttk.Entry(launchoptwidgetframe, state="readonly", textvariable = self.playdemoarg)
 
 		self.warning_not_in_tf_dir = tk.Label(launchoptionsframe, fg="#AA0000", text="The demo can not be played as it is not in Team Fortress\' file system (/tf/)")
 
@@ -432,7 +431,14 @@ class LaunchTF2(Dialog):
 			self.errstates[2] = False
 			with open(os.path.join(os.path.join(os.path.join(self.steamdir.get(), _DEF["steamconfigpath1"]), self.userselectvar.get()), _DEF["steamconfigpath2"]) ) as h:
 				launchopt = vdf.load(h)
-			launchopt = eval("launchopt" + _DEF["launchoptionskey"])
+			for i in _DEF["launchoptionskeys"]:
+				try:
+					launchopt = eval("launchopt" + i)
+					break
+				except KeyError:
+					pass
+			else:#Loop completed normally --> No break statement encountered -> No key found
+				raise KeyError("No launch options key found.")
 			self.errstates[4] = False
 			return launchopt
 		except ModuleNotFoundError:
@@ -499,8 +505,9 @@ class LaunchTF2(Dialog):
 		super().destroy()
 
 class DeleteDemos(Dialog):
-	def __init__(self, parent, **options):
-		'''Variable setup'''
+	def __init__(self, parent, options):
+		'''Args: parent tkinter window, options dict with:
+		bookmarkdata, files, dates, filesizes, curdir, cfg'''
 		self.master = parent
 
 		self.bookmarkdata = options["bookmarkdata"]
@@ -512,7 +519,7 @@ class DeleteDemos(Dialog):
 
 		self.bookmarkdata = assignbookmarkdata(self.files, self.bookmarkdata)
 
-		self.selicon = lambda x: " X" if x else ""
+		self.symbollambda = lambda x: " X" if x else ""
 
 		self.keepevents_var = tk.BooleanVar()
 		self.deluselessjson_var = tk.BooleanVar()
@@ -533,7 +540,7 @@ class DeleteDemos(Dialog):
 		cancelbutton = tk.Button(master, text= "Cancel", command = lambda: self.done(0) )
 
 		self.listbox = mfl.Multiframe(master, columns = 5, names= ["","Name","Date created","Info","Filesize"], sort = 0, formatters = [None, None, formatdate, None, convertunit], widths = [2, None, 18, 25, 15])
-		self.listbox.setdata(([self.selicon(i) for i in self.selected], self.files, self.dates, formatbookmarkdata(self.files, self.bookmarkdata), self.filesizes) , mfl.COLUMN)
+		self.listbox.setdata(([self.symbollambda(i) for i in self.selected], self.files, self.dates, formatbookmarkdata(self.files, self.bookmarkdata), self.filesizes) , mfl.COLUMN)
 		self.listbox.format()
 
 		self.demoinflabel = tk.Label(master, text="", justify=tk.LEFT, anchor=tk.W, font = ("Consolas", 8) )
@@ -546,7 +553,7 @@ class DeleteDemos(Dialog):
 		deljson_checkbtn = ttk.Checkbutton(optframe, variable = self.deluselessjson_var, text = "Delete orphaned json files")
 
 		condframe = tk.LabelFrame(master, text="Demo selector / Filterer", pady=3, padx=8)
-		self.filterbox = tk.Entry(condframe, textvariable = self.filterbox_var) #
+		self.filterbox = ttk.Entry(condframe, textvariable = self.filterbox_var) #
 		self.applybtn = tk.Button(condframe, text="Apply filter", command = self.__applycond)
 
 		self.applybtn.pack(side=tk.RIGHT)
@@ -590,7 +597,7 @@ class DeleteDemos(Dialog):
 			self.selall_var.set(0)
 		else:
 			self.selall_var.set(1)
-		self.listbox.setcell(0, index, self.selicon(self.selected[index]))
+		self.listbox.setcell(0, index, self.symbollambda(self.selected[index]))
 
 	def __setitem(self, index, value, lazyui = False): #value: bool
 		self.selected[index] = value
@@ -599,7 +606,7 @@ class DeleteDemos(Dialog):
 				self.selall_var.set(0)
 			else:
 				self.selall_var.set(1)
-			self.listbox.setcolumn(0, [self.selicon(i) for i in self.selected])#do not refresh ui. this is done while looping over the elements, then a final refresh is performed.
+			self.listbox.setcolumn(0, [self.symbollambda(i) for i in self.selected])#do not refresh ui. this is done while looping over the elements, then a final refresh is performed.
 
 	def __applycond(self): #NOTE: Improve overall handling of bookmarks?
 		'''Apply user-entered condition to the files. True spaghetti code.'''
@@ -608,7 +615,6 @@ class DeleteDemos(Dialog):
 			return
 		else:
 			filters = filterparseres[0]
-
 		for i, j in enumerate(self.files):
 			curfile = {"name":j, "killstreaks":self.bookmarkdata[i][1], "bookmarks":self.bookmarkdata[i][2], "header": HeaderFetcher(os.path.join(self.curdir, j)), "filedata": FileStatFetcher(os.path.join(self.curdir, j))}
 			curdemook = True
@@ -620,7 +626,6 @@ class DeleteDemos(Dialog):
 				self.__setitem(i, True, True)
 			else:
 				self.__setitem(i, False, True)
-
 		if len(self.selected) != 0: #set select all checkbox
 			self.__setitem(0, self.selected[0], False)
 
@@ -629,7 +634,7 @@ class DeleteDemos(Dialog):
 			self.selected = [True for i in self.files]
 		else:
 			self.selected = [False for i in self.files]
-		self.listbox.setcolumn(0, [self.selicon(i) for i in self.selected])
+		self.listbox.setcolumn(0, [self.symbollambda(i) for i in self.selected])
 
 	def done(self, param):
 		if param:
@@ -641,7 +646,7 @@ class DeleteDemos(Dialog):
 			self.destroy()
 
 class Deleter(Dialog):
-	def __init__(self, parent, options = {}):
+	def __init__(self, parent, options):
 		'''Args: parent tkinter window, options dict with:
 		demodir, files, selected, keepeventsfile, deluselessjson, cfg
 		len(files) = len(selected); selected[x] = True/False; file[n] will be deleted if selected[n] == True'''
@@ -686,9 +691,7 @@ class Deleter(Dialog):
 	def body(self, master):
 		self.okbutton = tk.Button(master, text = "Delete!", command = lambda: self.confirm(1) )
 		self.cancelbutton = tk.Button(master, text= "Cancel", command = self.destroy )
-
 		self.closebutton = tk.Button(master, text="Close", command = self.destroy)
-
 		textframe = tk.Frame(master, pady = 5, padx = 5)
 
 		self.textbox = tk.Text(textframe, wrap = tk.NONE, width = 40, height = 20)
@@ -716,9 +719,7 @@ class Deleter(Dialog):
 			#self.progbar.pack(fill=tk.X, )
 			self.okbutton.pack_forget()
 			self.cancelbutton.pack_forget()
-
 			self.__delete()
-
 			self.closebutton.pack(side=tk.LEFT, fill=tk.X, expand=1)
 
 	def __delete(self): #TODO: Add stats (time taken, files deleted, write errors encountered?)
@@ -753,9 +754,7 @@ class Deleter(Dialog):
 	#-----------------------------------#
 
 		self.appendtextbox("\n\nUpdating " + _DEF["eventfile"] + "..." ) #---Update eventfile
-
 		evtpath = os.path.join(self.demodir, _DEF["eventfile"])
-
 		if os.path.exists(evtpath):
 			tmpevtpath = os.path.join(self.demodir, "."+_DEF["eventfile"])
 			reader = handle_ev.EventReader(evtpath, blocksz = self.cfg["evtblocksz"])
@@ -811,8 +810,7 @@ class Deleter(Dialog):
 
 class Settings(Dialog):
 	def __init__(self, parent, cfg):
-		'''Variable and dialog setup'''
-
+		'''Args: parent tkinter window, program configuration'''
 		self.cfg = cfg
 
 		self.datagrabmode_var = tk.IntVar()
@@ -826,7 +824,6 @@ class Settings(Dialog):
 		self.blockszvals = dict( [ (convertunit(i,"B") , i) for i in [2**pw for pw in range(12, 28)]] )
 
 		super().__init__( parent, "Settings")
-
 
 	def destroy(self):
 		super().destroy()
@@ -842,7 +839,7 @@ class Settings(Dialog):
 		ttk.Checkbutton(preview_labelframe, variable = self.preview_var, text="Preview demos?").pack()
 
 		steampath_labelframe = tk.LabelFrame(master, text="Steam path", padx=8, pady=8)
-		self.steampathentry = tk.Entry(steampath_labelframe, state = "readonly", textvariable = self.steampath_var)
+		self.steampathentry = ttk.Entry(steampath_labelframe, state = "readonly", textvariable = self.steampath_var)
 		tk.Button(steampath_labelframe, text = "Change...", command = self.choosesteampath).pack(side=tk.RIGHT, fill=tk.X, expand=0)
 
 		eventread_labelframe = tk.LabelFrame(master, text="Read _events.txt in chunks of size...", padx=8, pady=8)
@@ -910,7 +907,7 @@ class AboutHelp(Dialog):
 		super().destroy()
 
 class MainApp():
-	def __init__(self, *args, **kwargs):
+	def __init__(self):
 		'''Init values, variables, go through startup routine, then show main window.'''
 
 		self.root = tk.Tk()
@@ -1010,7 +1007,7 @@ class MainApp():
 		self.demoinflabel = tk.Label(demoinfframe, text=_DEF["demlabeldefault"])
 
 		filterlabel = tk.Label(widgetframe1, text="Filter demos: ")
-		filterentry = tk.Entry(widgetframe1, textvariable=self.filterentry_var)
+		filterentry = ttk.Entry(widgetframe1, textvariable=self.filterentry_var)
 		filterbtn = tk.Button(widgetframe1, text="Apply Filter", command = self.__filter)
 		clearfilterbtn = tk.Button(widgetframe1, text="Clear filter", command = self.reloadgui)
 
@@ -1076,9 +1073,70 @@ class MainApp():
 			files = [i for i in os.listdir(self.curdir) if os.path.splitext(i)[1] == ".dem" and (os.path.isfile(os.path.join(self.curdir, i)))]
 		except BaseException:
 			return
-		dialog_ = DeleteDemos(self.mainframe, **{"cfg":self.cfg, "curdir":self.curdir, "bookmarkdata":self.bookmarkdata, "files":files, "dates":[os.stat(os.path.join(self.curdir, i)).st_mtime for i in files], "filesizes":[os.stat(os.path.join(self.curdir, i)).st_size for i in files] } )
+		dialog_ = DeleteDemos(self.mainframe, {"cfg":self.cfg, "curdir":self.curdir, "bookmarkdata":self.bookmarkdata, "files":files, "dates":[os.stat(os.path.join(self.curdir, i)).st_mtime for i in files], "filesizes":[os.stat(os.path.join(self.curdir, i)).st_size for i in files] } )
 		if dialog_.result_["state"] == 1:
 			self.reloadgui()
+
+	def __fetchdata(self):
+		'''Get data from all the demos in current folder; return in format that can be directly put into listbox'''
+		if self.curdir == "":
+			return ((),(),(),())
+		self.setstatusbar("Reading demo information from " + self.curdir)
+		starttime = time.time()
+		try:
+			files = [i for i in os.listdir(self.curdir) if (os.path.splitext(i)[1] == ".dem") and (os.path.isfile(os.path.join(self.curdir, i)))]
+		except FileNotFoundError:
+			self.setstatusbar("ERROR: Current directory \"" + self.curdir + "\" does not exist.")
+			return ((),(),(),())
+		datescreated = [os.path.getmtime(os.path.join(self.curdir, i)) for i in files]
+		sizes = [os.path.getsize(os.path.join(self.curdir, i)) for i in files]
+		datamode = self.cfg["datagrabmode"]
+		if datamode == 0:
+			data = (files, ["" for i in files], datescreated, sizes)
+			self.setstatusbar("Bookmark information disabled.", 2000)
+			return data
+		elif datamode == 1: #_events.txt
+			try:
+				h = open(os.path.join(self.curdir, _DEF["eventfile"]))
+			except FileNotFoundError:
+				self.setstatusbar("\"" + _DEF["eventfile"] +"\" has not been found.",1500)
+				return ((files, ["" for i in files], datescreated, sizes))
+			self.bookmarkdata = readevents(h, self.cfg["evtblocksz"])
+			h.close()
+		elif datamode == 2: #.json
+			jsonfiles = [i for i in os.listdir(self.curdir) if os.path.splitext(i)[1] == ".json" and os.path.exists(os.path.join(self.curdir, os.path.splitext(i)[0] + ".dem"))]
+			worklist = []
+			for i, j in enumerate(jsonfiles):
+				worklist.append([os.path.splitext(j)[0] + ".dem", [], []])
+				h = open(os.path.join(self.curdir, j))
+				rawdata = json.load(h)["events"] #{"name":"Killstreak/Bookmark","value":"int/Name","tick":"int"}
+				h.close()
+				for k in rawdata:
+					if k["name"] == "Killstreak":
+						worklist[i][1].append((int(k["value"]),int(k["tick"])))
+					elif k["name"] == "Bookmark":
+						worklist[i][2].append((k["value"],int(k["tick"])))
+
+				killstreaks = worklist[i][1]
+				streakpeaks = [] #convert to streakpeaks
+				if killstreaks == []:
+					pass
+				else:
+					killstreaks.append((-1,-1))
+					prv = (-1, -1)
+					for l in killstreaks:
+						if l[0]<=prv[0]:
+							streakpeaks.append(prv)
+						prv = l
+				worklist[i][1] = streakpeaks
+
+			self.bookmarkdata = worklist
+
+		listout = formatbookmarkdata(files, self.bookmarkdata) #format the bookmarkdata into something that can be directly fed into listbox
+
+		data = ( files, listout, datescreated, sizes )
+		self.setstatusbar("Processed data from " + str( len(files) ) + " files in " + str(round(time.time() - starttime, 4)) + " seconds.", 3000)
+		return data
 
 	def __playdem(self):
 		'''Opens dialog which confirms tf2 launch'''
@@ -1162,85 +1220,10 @@ class MainApp():
 		menu.add_command(label = "Delete", command = self.__deldem)#construct menu
 		menu.post(self.listbox.frames[clickedlist][0].winfo_rootx() + clickx, self.listbox.frames[clickedlist][0].winfo_rooty() + clicky + 20) #20 is label height. I hope that won't change.
 
-	def setstatusbar(self, data, timeout=None):
-		'''Set statusbar text to data (str)'''
-		self.statusbarlabel.after_cancel(self.after_handler)
-		self.statusbarlabel.config(text=str(data))
-		self.statusbarlabel.update()
-		if timeout:
-			self.after_handler = self.statusbarlabel.after(timeout, lambda: self.setstatusbar(_DEF["statusbardefault"]) )
-
-	def reloadgui(self):
-		'''Reload UI elements that need it'''
-		self.listbox.setdata(self.__fetchdata(), "column")
-		self.listbox.format()
-		self.__updatedemowindow(None)
-
-	def __fetchdata(self):
-		'''Get data from all the demos in current folder; return in format that can be directly put into listbox'''
-		if self.curdir == "":
-			return ((),(),(),())
-		self.setstatusbar("Reading demo information from " + self.curdir)
-		starttime = time.time()
-		try:
-			files = [i for i in os.listdir(self.curdir) if (os.path.splitext(i)[1] == ".dem") and (os.path.isfile(os.path.join(self.curdir, i)))]
-		except FileNotFoundError:
-			self.setstatusbar("ERROR: Current directory \"" + self.curdir + "\" does not exist.")
-			return ((),(),(),())
-		datescreated = [os.path.getmtime(os.path.join(self.curdir, i)) for i in files]
-		sizes = [os.path.getsize(os.path.join(self.curdir, i)) for i in files]
-		datamode = self.cfg["datagrabmode"]
-		if datamode == 0:
-			data = (files, ["" for i in files], datescreated, sizes)
-			self.setstatusbar("Bookmark information disabled.", 2000)
-			return data
-		elif datamode == 1: #_events.txt
-			try:
-				h = open(os.path.join(self.curdir, _DEF["eventfile"]))
-			except FileNotFoundError:
-				self.setstatusbar("\"" + _DEF["eventfile"] +"\" has not been found.",1500)
-				return ((files, ["" for i in files], datescreated, sizes))
-			self.bookmarkdata = readevents(h, self.cfg["evtblocksz"])
-			h.close()
-		elif datamode == 2: #.json
-			jsonfiles = [i for i in os.listdir(self.curdir) if os.path.splitext(i)[1] == ".json" and os.path.exists(os.path.join(self.curdir, os.path.splitext(i)[0] + ".dem"))]
-			worklist = []
-			for i, j in enumerate(jsonfiles):
-				worklist.append([os.path.splitext(j)[0] + ".dem", [], []])
-				h = open(os.path.join(self.curdir, j))
-				rawdata = json.load(h)["events"] #{"name":"Killstreak/Bookmark","value":"int/Name","tick":"int"}
-				h.close()
-				for k in rawdata:
-					if k["name"] == "Killstreak":
-						worklist[i][1].append((int(k["value"]),int(k["tick"])))
-					elif k["name"] == "Bookmark":
-						worklist[i][2].append((k["value"],int(k["tick"])))
-
-				killstreaks = worklist[i][1]
-				streakpeaks = [] #convert to streakpeaks
-				if killstreaks == []:
-					pass
-				else:
-					killstreaks.append((-1,-1))
-					prv = (-1, -1)
-					for l in killstreaks:
-						if l[0]<=prv[0]:
-							streakpeaks.append(prv)
-						prv = l
-				worklist[i][1] = streakpeaks
-
-			self.bookmarkdata = worklist
-
-		listout = formatbookmarkdata(files, self.bookmarkdata) #format the bookmarkdata into something that can be directly fed into listbox
-
-		data = ( files, listout, datescreated, sizes )
-		self.setstatusbar("Processed data from " + str( len(files) ) + " files in " + str(round(time.time() - starttime, 4)) + " seconds.", 3000)
-		return data
-
-	def __filter(self):
+	def __filter(self): #TODO: Multithread this
 		'''Filters the listbox according to conditions in self.filterentry_var'''
 		starttime = time.time()
-		self.setstatusbar("Filtering demos...")
+		self.setstatusbar("Filtering demos; please stand by...")
 
 		filterres = _parsefilters(self.filterentry_var.get())
 		if not filterres[1]:
@@ -1251,6 +1234,7 @@ class MainApp():
 		del filterres
 
 		FILES = self.__fetchdata()[0] #Function will modify self.bookmarkdata
+		self.setstatusbar("Filtering demos; please stand by...")#It'll also change the statusbar, redo that
 		asg_bmd = assignbookmarkdata(FILES, self.bookmarkdata)
 		filteredlist = []
 
@@ -1268,12 +1252,26 @@ class MainApp():
 		self.listbox.format()
 		self.setstatusbar("Filtered {} demos in {} seconds.".format( str(len(FILES)), str(round(time.time() - starttime, 3)) ), 3000)
 
-	def __spinboxsel(self, *args):
+	def setstatusbar(self, data, timeout=None):
+		'''Set statusbar text to data (str)'''
+		self.statusbarlabel.after_cancel(self.after_handler)
+		self.statusbarlabel.config(text=str(data))
+		self.statusbarlabel.update()
+		if timeout:
+			self.after_handler = self.statusbarlabel.after(timeout, lambda: self.setstatusbar(_DEF["statusbardefault"]) )	#NOTE: This causes some issues with the commands that are registered internally within tkinter
+
+	def reloadgui(self):
+		'''Reload UI elements that need it.'''
+		self.listbox.setdata(self.__fetchdata(), "column")
+		self.listbox.format()
+		self.__updatedemowindow(None)
+
+	def __spinboxsel(self, *_):
 		'''Observer callback to self.spinboxvar; is called whenever self.spinboxvar (so the combobox) is updated. Also implicitly called from self.rempath'''
 		selpath = self.spinboxvar.get()
 		if not selpath == self.curdir:
 			if os.path.exists(selpath) and self.cfg["lastpath"] != selpath: #Update lastpath entry
-				localcfg = 	self.cfg#Other functions continue to inform user that directory does not exist.
+				localcfg = self.cfg#Other functions continue to inform user that directory does not exist.
 				localcfg["lastpath"] = selpath
 				self.writecfg(localcfg)
 				self.cfg = self.getcfg()
