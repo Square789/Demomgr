@@ -223,7 +223,7 @@ def escapeinput(raw):
 		out.append(i)
 	return "".join(out)
 
-def _parsefilters(filterinp): #used in MainApp.__filter and DeleteDemos.__applycond
+def _parsefilters(filterinp): #used in MainApp.__filter and DeleteDemos.__applycond; #TODO: add support for "" or so, including escaping with \
 	'''Takes input: <key1>:<val1>*<val2>, <key2>:<val1>*<val2>, ..., converts it to lambdas using _DEF["filterdict"]. Returns optional message on failure.
 	Output: filters<list of lambdas>, success<bool>, <Exception or None>, Error information<Str>'''
 	try: #Get and handle input
@@ -245,8 +245,7 @@ def _parsefilters(filterinp): #used in MainApp.__filter and DeleteDemos.__applyc
 	try:
 		for k in conddict:
 			isneg = conddict[k][1]
-			filters.append(eval("lambda x: {}{}{}".format(	"not (" * isneg, " or ".join(_DEF["filterdict"][k][0].format( _DEF["filterdict"][k][1]( i ) ) for i in conddict[k][0]), ")" * isneg) 
-								)  )#Construct lambdas for the user-entered conditions
+			filters.append(eval("lambda x: {}{}{}".format(	"not (" * isneg, " or ".join(_DEF["filterdict"][k][0].format( _DEF["filterdict"][k][1]( i ) ) for i in conddict[k][0]), ")" * isneg) )  )#Construct lambdas for the user-entered conditions
 	except KeyError as exc:
 		return [], False, exc, "Invalid filtering key: \"{}\" ; please check your input.".format(str(k))
 	except ValueError as exc:
@@ -279,14 +278,22 @@ class FileStatFetcher: #used in MainApp.__filter and DeleteDemos.__applycond
 			self.data = {"filesize":statres.st_size, "modtime":statres.st_mtime}
 		return self.data[key]
 
-class FirstRunDialog(Dialog):
+class _CleanDialog(Dialog):
+	'''Helper base class that overrides some methods from the tk.simpledialog.Dialog class'''
+	def __init__(self, parent, title=None):
+		super().__init__(parent, title)
+
+	def body(self, master): pass
+	def buttonbox(self): pass
+	def validate(self): pass
+	def apply(self): pass
+	def ok(self, _): pass
+
+class FirstRunDialog(_CleanDialog):
 	def __init__(self, parent = None):
 		if not parent:
 			parent = tk._default_root
 		super().__init__(parent, "Welcome!")
-
-	def destroy(self):
-		super().destroy()
 
 	def body(self, master):
 		txtbox = tk_scr.ScrolledText(master, wrap = tk.WORD)
@@ -307,10 +314,7 @@ class FirstRunDialog(Dialog):
 		self.result = param
 		self.destroy()
 
-	def buttonbox(self):
-		pass
-
-class LaunchTF2(Dialog):
+class LaunchTF2(_CleanDialog):
 	def __init__(self, parent, options):
 		'''Args: parent tkinter window, options dict with:
 		demopath (Absolute file path to the demo to be played), steamdir'''
@@ -336,7 +340,6 @@ class LaunchTF2(Dialog):
 		self.__constructshortdemopath()
 
 		super().__init__( self.parent, "Play demo / Launch TF2...")
-
 
 	def body(self, master):
 		'''Ugly UI setup'''
@@ -498,13 +501,7 @@ class LaunchTF2(Dialog):
 				tk_msg.showerror("Demomgr - Error", "hl2 executable not found.", parent = self)
 		self.destroy()
 
-	def buttonbox(self):
-		pass
-
-	def destroy(self):
-		super().destroy()
-
-class DeleteDemos(Dialog):
+class DeleteDemos(_CleanDialog):
 	def __init__(self, parent, options):
 		'''Args: parent tkinter window, options dict with:
 		bookmarkdata, files, dates, filesizes, curdir, cfg'''
@@ -574,12 +571,6 @@ class DeleteDemos(Dialog):
 		okbutton.pack(side=tk.LEFT, fill=tk.X, expand=1)
 		cancelbutton.pack(side=tk.LEFT, fill=tk.X,expand=1)
 
-	def buttonbox(self):
-		pass
-
-	def destroy(self):
-		super().destroy()
-
 	def __procentry(self, event):
 		index = self.listbox.getindex()
 
@@ -645,7 +636,7 @@ class DeleteDemos(Dialog):
 		else:
 			self.destroy()
 
-class Deleter(Dialog):
+class Deleter(_CleanDialog):
 	def __init__(self, parent, options):
 		'''Args: parent tkinter window, options dict with:
 		demodir, files, selected, keepeventsfile, deluselessjson, cfg
@@ -685,9 +676,6 @@ class Deleter(Dialog):
 
 		super().__init__(parent, "Delete...")
 
-	def buttonbox(self):
-		pass
-
 	def body(self, master):
 		self.okbutton = tk.Button(master, text = "Delete!", command = lambda: self.confirm(1) )
 		self.cancelbutton = tk.Button(master, text= "Cancel", command = self.destroy )
@@ -722,7 +710,7 @@ class Deleter(Dialog):
 			self.__delete()
 			self.closebutton.pack(side=tk.LEFT, fill=tk.X, expand=1)
 
-	def __delete(self): #TODO: Add stats (time taken, files deleted, write errors encountered?)
+	def __delete(self):
 		if self.keepeventsfile: #---Backup _events file
 			if os.path.exists(os.path.join(self.demodir, _DEF["eventfile"])):
 				backupfolder = os.path.join(os.getcwd(), _DEF["cfgfolder"], _DEF["eventbackupfolder"])
@@ -752,7 +740,6 @@ class Deleter(Dialog):
 				errorsencountered += 1
 				self.appendtextbox("\nError deleting {} .".format(i) )
 	#-----------------------------------#
-
 		self.appendtextbox("\n\nUpdating " + _DEF["eventfile"] + "..." ) #---Update eventfile
 		evtpath = os.path.join(self.demodir, _DEF["eventfile"])
 		if os.path.exists(evtpath):
@@ -766,7 +753,7 @@ class Deleter(Dialog):
 					regres = re.search(_DEF["eventfile_filenameformat"], outchunk.content)
 					if regres: curchunkname = regres[0][3:-4] + ".dem"
 					else: curchunkname = ""
-					if not curchunkname in self.filestodel:#Dilemma: should i create a new list of okay files or basically waste twice the time going through all the .json files?
+					if not curchunkname in self.filestodel:#create a new list of okay files or basically waste twice the time going through all the .json files?
 						writer.writechunk(outchunk)
 					if outchunk.message["last"]: break
 
@@ -796,11 +783,6 @@ class Deleter(Dialog):
 
 		self.result_["state"] = 1
 
-	def destroy(self):
-		self.withdraw()
-		self.update_idletasks()
-		super().destroy()
-
 	def appendtextbox(self, _inp):
 		self.textbox.config(state = tk.NORMAL)
 		self.textbox.insert(tk.END, str(_inp) )
@@ -808,7 +790,7 @@ class Deleter(Dialog):
 		self.textbox.update()
 		self.textbox.config(state = tk.DISABLED)
 
-class Settings(Dialog):
+class Settings(_CleanDialog):
 	def __init__(self, parent, cfg):
 		'''Args: parent tkinter window, program configuration'''
 		self.cfg = cfg
@@ -824,9 +806,6 @@ class Settings(Dialog):
 		self.blockszvals = dict( [ (convertunit(i,"B") , i) for i in [2**pw for pw in range(12, 28)]] )
 
 		super().__init__( parent, "Settings")
-
-	def destroy(self):
-		super().destroy()
 
 	def body(self, master):
 		'''UI'''
@@ -886,25 +865,64 @@ class Settings(Dialog):
 			return
 		self.steampath_var.set(sel)
 
-	def buttonbox(self):
-		pass#Override buttonbox thing, I'll make my own damn buttons!
-
-class AboutHelp(Dialog):
+class AboutHelp(_CleanDialog):#TODO: Finish this
 	def __init__(self, parent):
 		self.parent = parent
-
 		super().__init__(parent, "DemoMgr - About / Help")
 
 	def body(self, master):
-		mesg = tk.Message(master, text="DemoMgr Version {VER}, created by {AUTHOR}.".format(VER = __version__, AUTHOR = __author__))
-
+		mesg = tk.Message(master, text="Demomgr Version {VER}, created by {AUTHOR}.".format(VER = __version__, AUTHOR = __author__))
 		mesg.pack()
 
-	def buttonbox(self):
-		pass
+class BookmarkSetter(_CleanDialog): #TODO: Work on this.
+	def __init__(self, parent, options):
+		'''Args: parent tkinter window, options dict with:
+		
+			targetdemo: Full path to the demo that should be marked.'''
+		self.targetdemo = options["targetdemo"]
+		
+		self.jsonmark_var = tk.BooleanVar()
+		self.eventsmark_var = tk.BooleanVar()
+		super().__init__(parent, "Insert bookmark...")
 
-	def destroy(self):
-		super().destroy()
+	def body(self, parent):
+		def numchecker(inp):
+			try:
+				int(inp)
+				return True
+			except ValueError:
+				return False
+
+		marksel_labelframe = tk.LabelFrame(parent, text = "Mark demo in:")
+		jsonsel_checkbox = ttk.Checkbutton(marksel_labelframe, text = "json file", variable = self.jsonmark_var)
+		eventssel_checkbox = ttk.Checkbutton(marksel_labelframe, text = "_events file", variable = self.eventsmark_var)
+
+		tickinp_frame = tk.Frame(marksel_labelframe)
+		tk.Label(tickinp_frame, text = "Mark at: ").pack(side = tk.LEFT)
+		regid = parent.register(numchecker)
+		tick_entry = tk.Entry(tickinp_frame, validate = "key", validatecommand = (regid, "%S"))
+
+		markbtn = tk.Button(parent, text = "Mark!")
+		cancelbtn = tk.Button(parent, text = "Cancel", command = self.cancel)
+
+		jsonsel_checkbox.pack()
+		eventssel_checkbox.pack()
+		marksel_labelframe.pack(expand = 1, fill = tk.BOTH)
+
+		tick_entry.pack(side = tk.LEFT)
+		tickinp_frame.pack()
+
+		markbtn.pack(fill = tk.X, side = tk.LEFT)
+		cancelbtn.pack(fill = tk.X, side = tk.LEFT)
+
+	def __mark(self):#NOTE: Probably multithread, idk it's not like this'll take eons
+		markJson, markEvts = self.jsonmark_var.get(), self.eventsmark_var.get()
+		if markJson:
+			pass
+		elif markEvts:
+			pass
+
+		self.cancel()
 
 class MainApp():
 	def __init__(self):
@@ -929,6 +947,9 @@ class MainApp():
 		if os.path.exists(os.path.join(os.getcwd(), _DEF["iconname"])):
 			self.root.iconbitmap(_DEF["iconname"])
 
+		self.demooperations = ( ("Play", " selected demo...", self.__playdem), ("Delete", " selected demo...", self.__deldem) )#, ("Insert bookmark", " into selected demo...", self.__insertbookmark) )
+		#NOTE: The tuple above has to be in here instead of in _DEF because of the reference to local "private" class methods
+
 		self.workingdir = os.getcwd()
 		self.cfgpath = os.path.join(self.workingdir, os.path.join(_DEF["cfgfolder"], _DEF["cfgname"]))
 		self.curdir = ""
@@ -938,7 +959,7 @@ class MainApp():
 
 		self.mainframe = tk.Frame(self.root, padx=5, pady=3)
 		self.mainframe.pack(expand = 1, fill = tk.BOTH, side=tk.TOP, anchor = tk.NW)
-			#Start execution
+		#Start execution
 		startupres = self.__startup()
 		if startupres["res"] == -1:
 			tk_msg.showerror("Demomgr - Error","The following error occurred during startup: " + startupres["msg"])
@@ -1000,7 +1021,7 @@ class MainApp():
 
 		rempathbtn = tk.Button(widgetframe0, text = "Remove demo path", command = self.rempath)
 		addpathbtn = tk.Button(widgetframe0, text = "Add demo path...", command = self.addpath)
-		settingsbtn = tk.Button(widgetframe0, text = "Settings...", command = self.opensettings)
+		settingsbtn = tk.Button(widgetframe0, text = "Settings...", command = self.__opensettings)
 		abouthelpbtn = tk.Button(widgetframe0, text = "About/Help...", command = self.__showabout)
 
 		self.demoinfbox = tk_scr.ScrolledText(demoinfframe, wrap = tk.WORD, state=tk.DISABLED, width = 40)
@@ -1012,9 +1033,8 @@ class MainApp():
 		clearfilterbtn = tk.Button(widgetframe1, text="Clear filter", command = self.reloadgui)
 
 		cleanupbtn = tk.Button(widgetframe2, text="Cleanup...", command = self.__cleanup)
-
-		playdemobtn = tk.Button(widgetframe3, text="Play selected demo...", command = self.__playdem)
-		deldemobtn = tk.Button(widgetframe3, text="Delete selected demo...", command = self.__deldem)
+		
+		demoopbuttons = [tk.Button(widgetframe3, text = i[0] + i[1], command = i[2] ) for i in self.demooperations]
 
 		self.statusbarlabel = ttk.Label(self.statusbar, text="Ready.")
 
@@ -1053,9 +1073,10 @@ class MainApp():
 		widgetframe2.pack(anchor = tk.N, fill = tk.X, pady = 5)
 
 		#widgetframe3
-		playdemobtn.pack(side = tk.LEFT, fill = tk.X, expand=0)
-		tk.Label(widgetframe3, text="", width=3).pack(side=tk.LEFT) #Placeholder
-		deldemobtn.pack(side = tk.LEFT, fill = tk.X, expand=0)
+		for i in demoopbuttons:
+			i.pack(side = tk.LEFT, fill = tk.X, expand=0)
+			tk.Label(widgetframe3, text="", width=3).pack(side=tk.LEFT) #Placeholder
+
 		widgetframe3.pack(anchor = tk.N, fill = tk.X, pady = 5)
 
 		self.listbox.pack(fill=tk.BOTH, expand=1)
@@ -1138,6 +1159,16 @@ class MainApp():
 		self.setstatusbar("Processed data from " + str( len(files) ) + " files in " + str(round(time.time() - starttime, 4)) + " seconds.", 3000)
 		return data
 
+	def __opensettings(self):
+		'''Opens settings, acts based on results'''
+		dialog_ = Settings(self.mainframe, self.getcfg())
+		if dialog_.result:
+			localcfg = self.cfg
+			localcfg.update(dialog_.result)
+			self.writecfg(localcfg)
+			self.cfg = self.getcfg()
+			self.reloadgui()
+
 	def __playdem(self):
 		'''Opens dialog which confirms tf2 launch'''
 		index = self.listbox.getindex()
@@ -1165,6 +1196,15 @@ class MainApp():
 		_dialog = Deleter(self.root, {"cfg":self.cfg, "files":[filename] ,"selected": [True], "demodir":self.curdir, "keepeventsfile": False, "deluselessjson":False} )
 		if _dialog.result_["state"] == 1:
 			self.reloadgui()
+
+	def __insertbookmark(self):
+		index = self.listbox.getindex()
+		if index == None:
+			self.setstatusbar("Please select a demo file.",1500)
+			return
+		filename = self.listbox.getcell(0, index)
+		path = os.path.join(self.curdir, filename)
+		dialog_ = BookmarkSetter(self.root, {"targetdemo":path})
 
 	def __updatedemowindow(self, _):
 		'''Renew contents of demo information window'''
@@ -1216,8 +1256,8 @@ class MainApp():
 		listboxx, listboxy = self.listboxframe.winfo_rootx(), self.listboxframe.winfo_rooty()
 		#get coords to create the menu on
 		menu = tk.Menu(self.mainframe, tearoff = 0)
-		menu.add_command(label = "Play", command = self.__playdem)
-		menu.add_command(label = "Delete", command = self.__deldem)#construct menu
+		for i in self.demooperations:
+			menu.add_command(label = i[0] + "...", command = i[2])#construct menu
 		menu.post(self.listbox.frames[clickedlist][0].winfo_rootx() + clickx, self.listbox.frames[clickedlist][0].winfo_rooty() + clicky + 20) #20 is label height. I hope that won't change.
 
 	def __filter(self): #TODO: Multithread this
@@ -1278,18 +1318,8 @@ class MainApp():
 			self.curdir = selpath
 			self.reloadgui()
 
-	def __showabout(self): #TODO: Help/About window
+	def __showabout(self):
 		dialog_ = AboutHelp(self.mainframe)
-
-	def opensettings(self):
-		'''Opens settings, acts based on results'''
-		dialog_ = Settings(self.mainframe, self.getcfg())
-		if dialog_.result:
-			localcfg = self.cfg
-			localcfg.update(dialog_.result)
-			self.writecfg(localcfg)
-			self.cfg = self.getcfg()
-			self.reloadgui()
 
 	def addpath(self):
 		'''Adds a demo folder path and writes to config after validating'''

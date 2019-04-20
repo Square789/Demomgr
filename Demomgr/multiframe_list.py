@@ -1,4 +1,5 @@
 '''ONLY TESTED ON WINDOWS 7 64 bit, Tcl v8.5'''
+#TODO: Make configurable.
 from tkinter import *
 from operator import itemgetter
 from math import floor
@@ -8,10 +9,16 @@ __author__ = "Square789"
 
 _DEFAULT = {"NAME":"egg",
 			"BLANK":"",
-			"SORTMODE":0,
 			"SORTERMODE":False,
 			"WIDTH":None,
-			"FRMTFUNC" : None}
+			"FRMTFUNC" : None,}
+
+_DEF_OPT = {"columns":1,
+			"names":[],
+			"sort":0,
+			"sorters":[],
+			"widths":[],
+			"formatters":[],}
 
 ALL = "all" #NOTE: tkinter has an ALL constant with the same value. Keeping this for readability.
 COLUMN = "column"
@@ -27,7 +34,6 @@ class idLabel(Label):#Labels are a subclass that hold some additional values reg
 		self.sortstate = 0
 
 		super().__init__(parent, *args, **kwargs)
-
 
 class Multiframe(Frame):
 	'''Instantiates a multiframe tkinter based list
@@ -52,7 +58,7 @@ class Multiframe(Frame):
 
 		self.master = master
 
-		self.options = options
+		self.options = _DEF_OPT.copy()
 		self.currentindex = None
 		self.currentrow = None
 		self.lastx = None
@@ -65,26 +71,8 @@ class Multiframe(Frame):
 
 		self.length = 0
 
-		if not "columns" in self.options:
-			return
-
-		if not "names" in self.options:
-			self.options["names"] = []
-
-		if not "sort" in self.options:
-			self.options["sort"] = _DEFAULT["SORTMODE"]
-
-		if not "sorters" in self.options:
-			self.options["sorters"] = []
-		
-		if not "widths" in self.options:
-			self.options["widths"] = []
-
-		if self.options["sort"] == 2 and not self.options["sorters"]:
-			self.options["sort"] = 0
-
-		if not "formatters" in self.options:
-			self.options["formatters"] = []
+		self.options.update(options) #user-defined options here
+		self.options = dict( zip( ([k for k in self.options]), ( map(lambda a, b: list(a) if b else a, [self.options[k] for k in self.options], [isinstance(self.options[k], tuple) for k in self.options])) ) )#one liner lol, converts every tuple to a list, leaving anything that isn't a tuple untouched.
 
 		if len(self.options["names"]) < self.options["columns"]:
 			for i in range(self.options["columns"] - len(self.options["names"])):
@@ -356,7 +344,7 @@ if __name__ == "__main__":
 		def priceconv(data):
 			return str(data) + "$"
 		root = Tk()
-		mf = Multiframe(root, columns=5, names=["Name","Age","Author","Price","Length"], sort = 2, sorters=[True, True, False, False, True], widths = [None, 5, None, 10], formatters=[_DEFAULT["FRMTFUNC"],_DEFAULT["FRMTFUNC"],_DEFAULT["FRMTFUNC"],priceconv])
+		mf = Multiframe(root, columns=5, names=("Name","Age","Author","Price","Length"), sort = 2, sorters=(True, True, False, False, True), widths = (None, 5, None, 10), formatters=(None, None, None, priceconv))
 		for i in range(10):
 			mf.appendrow((randint(0,100), randint(0,100), randint(0,100), randint(0,100), randint(0,100), randint(0,100), "Hello!", 9))
 		mf.format()
