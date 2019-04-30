@@ -76,6 +76,7 @@ _DEF = {"cfgfolder":".demomgr", #Values. Is important. No changerooni.
 		"filterneg":"!",
 		"filterkeysep":":",
 		"filterparamsep":"*",
+		"filterparamsep_regex":r"(.*?)((?<!\\)\*|$)",	#regex; NOTE: Evil.
 		}
 
 _convpref = ["y","z","a","f","p","n","µ","m","","k","M","G","T","P","E","Z","Y"] #LIST HAS TO BE OF SAME LENGTH TO LEFT AND RIGHT SIDE, STARTING AT ""
@@ -223,7 +224,7 @@ def escapeinput(raw):
 		out.append(i)
 	return "".join(out)
 
-def _parsefilters(filterinp): #used in MainApp.__filter and DeleteDemos.__applycond; #TODO: add support for "" or so, including escaping with \
+def _parsefilters(filterinp): #used in MainApp.__filter and DeleteDemos.__applycond
 	'''Takes input: <key1>:<val1>*<val2>, <key2>:<val1>*<val2>, ..., converts it to lambdas using _DEF["filterdict"]. Returns optional message on failure.
 	Output: filters<list of lambdas>, success<bool>, <Exception or None>, Error information<Str>'''
 	try: #Get and handle input
@@ -231,13 +232,17 @@ def _parsefilters(filterinp): #used in MainApp.__filter and DeleteDemos.__applyc
 		raw = escapeinput(filterinp)#Protect from escapes/injections on the eval() level
 		raw = raw.split(",")
 		raw = [i.strip() for i in raw]
-		params = [ [i.split(":")[0], [i.split(_DEF["filterkeysep"])[1].split(_DEF["filterparamsep"]), False] ] for i in raw]
+		params = [ [i.split(_DEF["filterkeysep"])[0], [ [j[0] for j in re.findall(_DEF["filterparamsep_regex"], i.split(_DEF["filterkeysep"])[1])[:-1] ], False] ] for i in raw]
+		#For each pair of key and parameters as string: create a list where [0] is the key and [1] is a list where: [[param1, param2, ...], <boolean>]. The boolean will be changed further down and indicates negation of the command the key stands for.
+		for i, j in enumerate(params):	#NOTE: unescape asterisks the regex ignores, this is probably quite illegal and Un-PYtHoNic
+			for k, l in enumerate(j[1][0]):
+				params[i][1][0][k] = l.replace("\\" + _DEF["filterparamsep"], _DEF["filterparamsep"])
 		del raw
 		for i, j in enumerate(params):
-			if j[0][0] == _DEF["filterneg"]:
-				params[i][0] = j[0][len(_DEF["filterneg"]):]
-				params[i][1][1] = True
-		conddict = dict(params)
+			if j[0][0] == _DEF["filterneg"]:				#if key starts with !
+				params[i][0] = j[0][len(_DEF["filterneg"]):]#shorten key
+				params[i][1][1] = True						#set negated bool to true
+		conddict = dict(params)#conddict looks as follows: {<filter key>:[[<str| filter param1>, <str| filter param2>, ...], <bool| isNegated>], ...}
 		del params
 	except BaseException as exc:
 		return [], False, exc, "Invalid filter parameter format"
@@ -249,7 +254,7 @@ def _parsefilters(filterinp): #used in MainApp.__filter and DeleteDemos.__applyc
 	except KeyError as exc:
 		return [], False, exc, "Invalid filtering key: \"{}\" ; please check your input.".format(str(k))
 	except ValueError as exc:
-		return [], False, exc, "Invalid filtering parameter: \"{}\"; please check your input.".format(conddict[k])
+		return [], False, exc, "Invalid filtering parameter: \"{}\"; please check your input.".format(conddict[k][0][i])#i should be whatever's in the horror list generator above
 	return filters, True, None, ""
 
 class HeaderFetcher: #used in MainApp.__filter and DeleteDemos.__applycond
