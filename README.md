@@ -34,11 +34,11 @@ The filter criteria must be entered as follows:
 `<keyname>:<value0>*<value1>*<value2>`, seperated by commas.  
 **You can negate all filters by prefixing them with **`!`**.**  
 **Do not use the same filtering key (Even if negated) in a filter request, as one will replace the other.**  
-**You can enter multiple parameters by seperating them with **`*`**.**  
+**You can enter multiple parameters by seperating them with **`*`**. Add a backslash in front of the asterisk in order to escape it.**  
 **All integer filters ending in `min` can also be suffixed with `max` to create a filtering range for that attribute.**  
 
-Example: `!map_name:mvm*plr*tr, killstreak_min:2, beststreak_min:5, moddate_max:1551337886`  
-Returns all demos where: The user has gotten at least two killstreaks, at least one of those streaks were 5 or more; the demo was made before February 28 2019 on 07:11:26 and the game does not take place on maps containing the substrings `mvm`,`plr` or `tr`.  
+Example: `!map_name:mvm_*plr_*tr_, killstreak_min:2, beststreak_min:5, moddate_max:1551337886`  
+Returns all demos where: The user has gotten at least two killstreaks, at least one of those streaks were 5 or more; the demo was made before February 28 2019 on 07:11:26 and the game does not take place on maps containing the substrings `mvm_`,`plr_` or `tr_`.  
 
 You can currently filter the directory you are in by the following:
  * map_name : _Name of the map the demo is playing on. (Substring)_
