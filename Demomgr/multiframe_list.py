@@ -4,7 +4,7 @@ from tkinter import *
 from operator import itemgetter
 from math import floor
 
-__version__ = 1.3
+__version__ = "1.5"
 __author__ = "Square789"
 
 _DEFAULT = {"NAME":"egg",
@@ -28,9 +28,9 @@ ENTRYHEIGHT = 16
 
 _RIGHTCLICKBTN = 3
 
-class idLabel(Label):#Labels are a subclass that hold some additional values regarding their column
-	def __init__(self, parent, id, *args, **kwargs):
-		self.id = id
+class idLabel(Label): # Labels are a subclass that hold some additional values regarding their column
+	def __init__(self, parent, id_, *args, **kwargs):
+		self.id = id_
 		self.sortstate = 0
 
 		super().__init__(parent, *args, **kwargs)
@@ -59,8 +59,8 @@ class Multiframe(Frame):
 		self.master = master
 
 		self.options = _DEF_OPT.copy()
-		self.currentindex = None
-		self.currentrow = None
+		self.currentsely = None
+		self.currentselx = None
 		self.lastx = None
 		self.lasty = None
 
@@ -90,7 +90,7 @@ class Multiframe(Frame):
 			for i in range(self.options["columns"] - len(self.options["formatters"])):
 				self.options["formatters"].append(_DEFAULT["FRMTFUNC"])
 
-		for i in range(self.options["columns"]): #This for loop adds the elements to the mainframe and configures them
+		for i in range(self.options["columns"]): #This for loop adds the elements to the main Frame and configures them
 			self.shadowdata.append([])
 			self.frames.append([])
 			self.frames[i].append(Frame(self))																#[0] is frame
@@ -123,34 +123,9 @@ class Multiframe(Frame):
 				expandop = 1
 			self.frames[i][0].pack(expand=expandop, fill=BOTH, side=LEFT)	#pack frame
 
-
 		self.scrollbar.pack(fill=Y,expand=0,side=LEFT)
 
-	def __setindex(self, event, button, rowindex, fromclick):
-		'''Called by listboxes; GENERATES EVENT, sets the current index.'''
-		if self.length == 0: return
-		try:
-			if button == _RIGHTCLICKBTN and fromclick:
-				offset = event.widget.yview()[0] * self.length
-				tosel = int(floor((event.y + - BORDERWIDTH) / ENTRYHEIGHT) + offset)
-				if tosel < 0: return
-				if tosel >= self.length: tosel = self.length - 1
-				event.widget.selection_clear(0, END)
-				event.widget.selection_set(tosel)
-			sel = event.widget.curselection()[0]
-			for i in self.frames:
-				i[1].selection_clear(0, END)
-				i[1].selection_set(sel)
-				i[1].activate(sel)
-			self.currentindex = sel
-			self.currentrow = rowindex
-			self.lastx = event.x
-			self.lasty = event.y
-			self.master.event_generate("<<MultiframeSelect>>", when = "tail")
-			if button == _RIGHTCLICKBTN:
-				self.master.event_generate("<<MultiframeRightclick>>", when = "tail")
-		except BaseException:
-			pass
+#====USER METHODS====
 
 	def appendrow(self, data):
 		'''data: The row contents as list/tuple. shadowdata will be the same.'''
@@ -183,11 +158,11 @@ class Multiframe(Frame):
 						self.frames[i][1].insert(END, j)
 						self.shadowdata[i].append(j)
 				self.length = ln
-		if self.currentindex == None: return
-		if self.currentindex > self.length - 1:
-			self.currentindex = self.length - 1
-		if self.currentindex < 0:
-			self.currentindex = None
+		if self.currentsely == None: return
+		if self.currentsely > self.length - 1:
+			self.currentsely = self.length - 1
+		if self.currentsely < 0:
+			self.currentsely = None
 
 	def setcolumn(self, index, data, overrideval = False, modshdat = True):
 		'''This function will set the contents of the column at index to data, data being a list/tuple of values. overrideval: No validation. Use with care!'''
@@ -211,7 +186,7 @@ class Multiframe(Frame):
 		self.frames[x][1].insert(y, data)
 		self.shadowdata[x][y] = data
 		if scroll: self.__scrollalllistbox(self.frames[x][1].yview()[1], 1.0)
-	
+
 	def removerow(self, index=None):
 		'''Will delete a row at index.'''
 		if index == None or index > (self.length - 1):
@@ -220,37 +195,27 @@ class Multiframe(Frame):
 			self.frames[i][1].delete(index)
 			self.shadowdata[i].pop(index)
 		self.length -= 1
-		if self.currentindex > (self.length - 1):
-			self.currentindex = self.length - 1
-		if self.currentindex < 0:
-			self.currentindex = None
+		if self.currentsely > (self.length - 1):
+			self.currentsely = self.length - 1
+		if self.currentsely < 0:
+			self.currentsely = None
 
 	def clear(self):
 		'''Clears the multiframe-list.'''
 		for i in range(self.options["columns"]):
-			self.frames[i][1].delete(0,END)
+			self.frames[i][1].delete(0, END)
 			self.shadowdata[i] = []
 		self.length = 0
-		self.currentindex = None
+		self.currentselx = None
+		self.currentsely = None
 
-	def getindex(self):
-		'''Returns the current index. May be None.'''
-		return self.currentindex
-
-	def getrowindex(self):
-		'''Returns the row the current selection was made on. May be None.'''
-		return self.currentrow
+	def getselectedcell(self):
+		'''Returns the currently selected cell as a tuple of length 2: (0, 0) starting in the top left corner; The two values may also be None.'''
+		return (self.currentselx, self.currentsely)
 
 	def getlastclick(self):
-		'''Returns the coordinates in the listbox the last click was made in as a tuple. May be None.'''
+		'''Returns the coordinates in the listbox the last click was made in as a tuple. May consist of int or None.'''
 		return (self.lastx, self.lasty)
-
-	def getdimensions(self):
-		'''Returns the current width and height of all listboxes as a list of tuples [(x, y), ...] '''
-		res = []
-		for i in self.frames:
-			res.append( (i[1].winfo_width(), i[1].winfo_height()) )
-		return res
 
 	def getlen(self):
 		'''Returns length of the multiframe-list'''
@@ -304,30 +269,33 @@ class Multiframe(Frame):
 			else:
 				self.setcolumn(i, [self.options["formatters"][i](j) for j in self.getcolumn(i)], True, False)
 
-	def __sort(self, event):
-		'''This function will sort the list'''
-		if len(self.frames) != 0:
-			scroll = self.frames[0][1].yview()[0]
-		id = event.widget.id
-		sstate = event.widget.sortstate
-		rev = False
-		if sstate == 1: rev = True
-		for i, j in enumerate(self.frames):
-			if i == id:
-				j[2].sortstate = abs(sstate-1)
-				continue
-			j[2].sortstate = 0
-		tmpshd = self.getshadowdata()
-		content = sorted(tmpshd, key=itemgetter(id), reverse=rev)
-		self.setdata(content)
-		self.format()
-		self.__scrollalllistbox(scroll, 1.0)
+#====INTERNAL METHODS====
 
-	def __scrollalllistbox(self, a, b):
-		'''Bound to all listboxes so that they will scroll the other ones and scrollbar.'''
-		for i in range(self.options["columns"]):
-			self.frames[i][1].yview_moveto(a)
-		self.scrollbar.set(a, b)
+	def __setindex(self, event, button, rowindex, fromclick):
+		'''Called by listboxes; GENERATES EVENT, sets the current index.'''
+		if self.length == 0: return
+		try:
+			if button == _RIGHTCLICKBTN and fromclick:
+				offset = event.widget.yview()[0] * self.length
+				tosel = int(floor((event.y + - BORDERWIDTH) / ENTRYHEIGHT) + offset)
+				if tosel < 0: return
+				if tosel >= self.length: tosel = self.length - 1
+				event.widget.selection_clear(0, END)
+				event.widget.selection_set(tosel)
+			sel = event.widget.curselection()[0]
+			for i in self.frames:
+				i[1].selection_clear(0, END)
+				i[1].selection_set(sel)
+				i[1].activate(sel)
+			self.currentsely = sel
+			self.currentselx = rowindex
+			self.lastx = event.x
+			self.lasty = event.y
+			self.master.event_generate("<<MultiframeSelect>>", when = "tail")
+			if button == _RIGHTCLICKBTN:
+				self.master.event_generate("<<MultiframeRightclick>>", when = "tail")
+		except Exception:
+			pass
 
 	def __scrollallbar(self, a, b, c = None): #c only appears when holding mouse and scrolling on the scrollbar
 		'''Bound to the scrollbar; Will scroll listboxes'''
@@ -337,6 +305,31 @@ class Multiframe(Frame):
 		else:
 			for i in range(self.options["columns"]):
 				self.frames[i][1].yview(a, b)
+
+	def __scrollalllistbox(self, a, b):
+		'''Bound to all listboxes so that they will scroll the other ones and scrollbar.'''
+		for i in range(self.options["columns"]):
+			self.frames[i][1].yview_moveto(a)
+		self.scrollbar.set(a, b)
+
+	def __sort(self, event):
+		'''This function will sort the list'''
+		if len(self.frames) != 0:
+			scroll = self.frames[0][1].yview()[0]
+		id_ = event.widget.id
+		sstate = event.widget.sortstate
+		rev = False
+		if sstate == 1: rev = True
+		for i, j in enumerate(self.frames):
+			if i == id_:
+				j[2].sortstate = abs(sstate-1)
+				continue
+			j[2].sortstate = 0
+		tmpshd = self.getshadowdata()
+		content = sorted(tmpshd, key=itemgetter(id_), reverse=rev)
+		self.setdata(content)
+		self.format()
+		self.__scrollalllistbox(scroll, 1.0)
 
 if __name__ == "__main__":
 	from random import randint
@@ -350,10 +343,10 @@ if __name__ == "__main__":
 		mf.format()
 		mf.pack(expand=1, fill=BOTH)
 		addbutton = Button(root, text="Add", command=lambda: mf.appendrow((randint(0,100), randint(0,100), randint(0,100), randint(0,100), randint(0,100), randint(0,100), "eight", 9)))
-		removebutton = Button(root, text="Remove", command=lambda: mf.removerow(mf.getindex()) )
+		removebutton = Button(root, text="Remove", command=lambda: mf.removerow(mf.getselectedcell()[1]) )
 		clearbutton = Button(root, text="Clear", command = mf.clear)
-		getindexbutton = Button(root, text="Get index", command = lambda: print(mf.getindex()))
-		getbutton = Button(root, text="Get", command=lambda: print(mf.getrows(mf.getindex())))
+		getindexbutton = Button(root, text="Get selected cell", command = lambda: print(mf.getselectedcell()))
+		getbutton = Button(root, text="Get", command=lambda: print(mf.getrows(mf.getselectedcell()[1])))
 		getlenbutton = Button(root, text="Get length", command = lambda: print(mf.getlen()))
 		setclmbtn = Button(root, text="Setclm", command= lambda: mf.setcolumn(2, (1,3,4,"5",9,"hi")))
 		getshdw = Button(root, text = "Get SD", command = lambda: print(mf.getshadowdata()))

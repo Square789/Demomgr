@@ -1,12 +1,10 @@
 '''Classes designed to ease up the handling of a _events.txt file as written by the source engine'''
 '''If the classes EventReader and EventWriter are given handle objects, they will not be closed afterwards. Use strings instead.'''
 
-import re
-
-_DEF = {	"sep":">\n"}
+_DEF = {"sep":">\n"}
 
 read_DEF = {"blocksz":65536, "resethandle":True}
-write_DEF = {"clearfile":False,"forceflush":False}
+write_DEF = {"clearfile":False, "forceflush":False}
 
 class Logchunk:
 	'''Logchunk class, contents:
@@ -34,9 +32,9 @@ class EventReader():
 	sep : Seperator for individual logchunks.
 	resethandle : Will reset the file handle's position to 0 once upon creation.
 	blocksz : Blocksize to read files in. Default is 65536.'''
-	def __init__(self, handle, cnf = {}, **cnfargs):
+	def __init__(self, handle, cnf={}, **cnfargs):
 		self.isownhandle = False
-		if type(handle) is str:
+		if isinstance(handle, str):
 			self.isownhandle = True
 			handle = open(handle, "r")
 		self.handle = handle
@@ -57,21 +55,25 @@ class EventReader():
 	def __enter__(self):
 		return self
 
-	def __exit__(self, *_):
-		self.destroy()
-
-	def __next__(self):
-		return self.getchunks(1)[0]
-
-	def __del__(self):
-		self.destroy()
-
 	def __iter__(self):
 		self.reset()
 		while True:
 			chk = self.__next__()
 			yield chk
 			if chk.message["last"]: break
+
+	def __exit__(self, *_):
+		self.destroy()
+
+	def __next__(self):
+		return self.getchunks(1)[0]
+
+	def close(self):
+		self.destroy()
+
+	def destroy(self):
+		self.handle.close()
+		del self
 
 	def getchunks(self, toget = 1):
 		'''Method that returns the number of specified datachunks in the file.'''
@@ -101,7 +103,7 @@ class EventReader():
 		raw = self.lastchunk + rawread
 		logchunks = raw.split(self.cnf["sep"])
 		if len(logchunks) == 0:
-			self.chunkbuffer = self.chunkbuffer + Logchunk("",{"last":True},self.handle.name)
+			self.chunkbuffer = self.chunkbuffer + Logchunk("", {"last":True}, self.handle.name)
 			return
 		elif len(logchunks) == 1:
 			if rawread == "":
@@ -110,14 +112,7 @@ class EventReader():
 				self.lastchunk = logchunks.pop(0)#Big logchunk
 		else:
 			self.lastchunk = logchunks.pop(-1)
-		self.chunkbuffer = self.chunkbuffer + [Logchunk(i[:-1], {"last":not bool(rawread)}, self.handle.name) for i in logchunks]#Cut off \n @ end; NOTE: THIS MAY BE 2 CHARS ON OTHER SYSTEMS
-
-	def close(self):
-		self.destroy()
-
-	def destroy(self):
-		self.handle.close()
-		del self
+		self.chunkbuffer = self.chunkbuffer + [Logchunk(i[:-1], {"last":not bool(rawread)}, self.handle.name) for i in logchunks]#Cut off \n @ end; NOTE: THIS MAY BE 2 OR 1 CHARS DEPENDING ON SYSTEM
 
 class EventWriter():
 	'''Class designed to write to a Source engine demo event log file.
@@ -129,13 +124,13 @@ class EventWriter():
 	sep : Seperator for individual logchunks.
 	clearfile: Will delete the file's contents once as soon as the handler is created.
 	forceflush: Will call the flush() method on the file handle after every written logchunk.'''
-	def __init__(self, handle, cnf = {}, **cnfargs):
+	def __init__(self, handle, cnf={}, **cnfargs):
 		self.cnf = _DEF
 		self.cnf.update(write_DEF)
 		self.cnf.update(cnfargs)
 		self.cnf.update(cnf)
 		self.isownhandle = False
-		if type(handle) is str:
+		if isinstance(handle, str):
 			self.isownhandle = True
 			handle = open(handle, "a+")
 
@@ -150,7 +145,7 @@ class EventWriter():
 			self.handle.seek(0)
 			self.handle.truncate(0)
 
-		self.handle.seek(0,2) #Move to end of file
+		self.handle.seek(0, 2) #Move to end of file
 
 	def __enter__(self):
 		return self
@@ -158,12 +153,9 @@ class EventWriter():
 	def __exit__(self, *_):#NOTE: maybe handle exceptions dunno
 		self.destroy()
 
-	def __del__(self):
-		self.destroy()
-
 	def writechunk(self, in_chk):
 		'''Writes a string or Logchunk to the file following options specified.'''
-		if not type(in_chk) in (Logchunk, str):
+		if not isinstance(in_chk, (Logchunk, str) ):
 			raise ValueError("Expected Logchunk or str, not " + type(in_chk).__name__)
 		#If start of file, don't write >\n, else do.
 		#Always write \n when done
