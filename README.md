@@ -17,11 +17,12 @@ The script works (tested on Python 3.6.6) with the standard library, installing 
 - [ ] Help/About dialog window
 - [x] Broader filtering options
 - [x] Better Cleanup item selector
-- [ ] Information when Cleanup filter fails
+- [ ] Improve Cleanup dialog filter
 - [ ] Remove hassle with UNIX Timestamps
 - [x] Add stats after deletion
-- [ ] Thread demo accessing and processing for responsive UI
+- [x] Thread demo accessing and processing for responsive UI
 - [ ] Insert custom bookmarks into demos
+- [ ] Make UI look less 1995-ish
 
 ### Start Instructions:
 Optionally install the [vdf module](https://pypi.org/project/vdf/).  
