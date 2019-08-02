@@ -6,10 +6,12 @@ _DEF = {"sep":">\n"}
 read_DEF = {"blocksz":65536, "resethandle":True}
 write_DEF = {"clearfile":False, "forceflush":False}
 
-class Logchunk:
+class Logchunk():
 	'''Logchunk class, contents:
 	content : String; Content read directly from the file.
-	message : Dict; "last" : Boolean; True if the logchunk is either empty or the last one in the file, else False.
+	message : Dict;
+		"last" : Boolean; True if the logchunk is either empty or the last
+		one in the file, else False.
 	fromfile : String; Absolute path to file that the chunk was read from.'''
 	def __init__(self, content, message, fromfile):
 		self.content = content
@@ -17,7 +19,7 @@ class Logchunk:
 		self.fromfile = fromfile
 
 	def __repr__(self):
-		return self.content
+		return "<Logchunk from file " + self.fromfile + ">"
 
 	def __str__(self):
 		return self.content
@@ -25,13 +27,14 @@ class Logchunk:
 class EventReader():
 	'''Class designed to read a Source engine demo event log file.
 
-	handle: Must either be a file handle object or a string to a file. If a file handle, must be opened in r, w+, a+ so it can be read.
+	handle: Must either be a file handle object or a string to a file.
+	If a file handle, must be opened in r, w+, a+ so it can be read.
 
-	Configuration args:
+	Keyword args:
 
-	sep : Seperator for individual logchunks.
-	resethandle : Will reset the file handle's position to 0 once upon creation.
-	blocksz : Blocksize to read files in. Default is 65536.'''
+	sep : String; Seperator for individual logchunks.
+	resethandle : Bool; Will reset the file handle's position to 0 upon creation.
+	blocksz : Integer; Blocksize to read files in. Default is 65536.'''
 	def __init__(self, handle, cnf={}, **cnfargs):
 		self.isownhandle = False
 		if isinstance(handle, str):
@@ -117,13 +120,16 @@ class EventReader():
 class EventWriter():
 	'''Class designed to write to a Source engine demo event log file.
 
-	handle: Must either be a file handle object or a string to a file. If a file handle, must be opened in a+ mode.
+	handle: Must either be a file handle object or a string to a file.
+	If a file handle, must be opened in a+ mode.
 
 	Configuration args:
 
-	sep : Seperator for individual logchunks.
-	clearfile: Will delete the file's contents once as soon as the handler is created.
-	forceflush: Will call the flush() method on the file handle after every written logchunk.'''
+	sep : String; Seperator for individual logchunks.
+	clearfile : Bool; Will delete the file's contents once as soon as the
+		handler is created.
+	forceflush : Bool; Will call the flush() method on the file handle after
+		every written logchunk.'''
 	def __init__(self, handle, cnf={}, **cnfargs):
 		self.cnf = _DEF
 		self.cnf.update(write_DEF)
