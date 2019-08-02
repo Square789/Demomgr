@@ -38,10 +38,18 @@ The filter criteria must be entered as follows:
 `<keyname>:<parameter>`, seperated by commas.  
 **You can negate all key-parameter pairs by prefixing the key with **`!`**.**  
 **Do not use the same filtering key (Even if negated) in a filter request, as one will replace the other.**  
-**You can enter multiple parameters by seperating them with **`,`**.
+**You can enter multiple parameters by seperating them with **`,`**.**
 
 Example: `!map:(mvm_,plr_, tr_, ), killstreaks:2.. , beststreak:5.. , moddate:..1551337886`  
 Returns all demos where: The user has gotten at least two killstreaks, at least one of those streaks were 5 or more; the demo was made before February 28 2019 on 07:11:26 and the game does not take place on maps containing the substrings `mvm_`,`plr_` or `tr_`.  
+
+Accepted parameters are:
+ * Quoteless string: `foo`
+ * Quoteless string tuple: `(foo, bar, baz)`
+ * String: `"foo"`, `'b\u0061r'` (*regex module required*)
+ * String tuple: `("foo", 'b\u0061r', "b\u0061z", )` (*regex module required*)
+ * Range: `1..2`, `10..`, `..50`
+Quoteless strings may consist out of A-Z, a-z, \_, -
 
 You can currently filter the directory you are in by the following:
  * map : _Name of the map the demo is playing on. (String)_
