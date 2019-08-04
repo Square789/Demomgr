@@ -45,11 +45,11 @@ Returns all demos where: The user has gotten at least two killstreaks, at least 
 
 Accepted parameters are:
  * Quoteless string: `foo`
+   * Quoteless strings may consist out of A-Z, a-z, \_, -
  * Quoteless string tuple: `(foo, bar, baz)`
  * String: `"foo"`, `'b\u0061r'` (*regex module required*)
  * String tuple: `("foo", 'b\u0061r', "b\u0061z", )` (*regex module required*)
- * Range: `1..2`, `10..`, `..50`
-Quoteless strings may consist out of A-Z, a-z, \_, -
+ * Range: `1..2`, `10..`, `..50`  
 
 You can currently filter the directory you are in by the following:
  * map : _Name of the map the demo is playing on. (String)_
