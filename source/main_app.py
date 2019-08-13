@@ -75,7 +75,7 @@ class MainApp():
 		# NOTE : Merge into __init__() maybe.
 		startupres = self.__startup() # loads self.cfg
 
-		#load style (For FirstRunDialog)
+		#load style (For FirstRun)
 		self.ttkstyle = ttk.Style() # Used later-on too.
 		self._DEFAULT_THEME = self.ttkstyle.theme_use()
 		#Fallback that is different depending on the platform.
@@ -86,7 +86,7 @@ class MainApp():
 				" occurred during startup: " + startupres["msg"])
 			sys.exit()
 		elif startupres["res"] == 1:
-			d = FirstRunDialog(self.root)
+			d = FirstRun(self.root)
 			if not d.result: # Is either None; 1 or 0
 				self.quit_app()
 				sys.exit()
