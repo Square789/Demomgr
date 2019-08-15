@@ -28,7 +28,7 @@ from .helpers import (formatdate, readdemoheader, convertunit,
 from .dialogues import *
 from .threads import ThreadFilter, ThreadReadFolder
 
-__version__ = "0.4"
+__version__ = "0.41"
 __author__ = "Square789"
 
 RCB = "3"
@@ -150,7 +150,7 @@ class MainApp():
 			{"name":"Date created", "col_id":"col_ctime", "sort":True,
 				"width":19, "formatter":formatdate, },
 			{"name":"Filesize", "col_id":"col_filesize", "sort":True,
-				"width":10, "formatter":convertunit, }, ), ttkhook = True )
+				"width":10, "formatter":convertunit, }, ), )
 
 		#self.emptyfoldernot = ttk.Label(self.listboxframe, text = "This folder is empty.")
 		#TODO: Add fancy info label
@@ -391,9 +391,9 @@ class MainApp():
 		menu = tk.Menu(self.mainframe, tearoff = 0)
 		for i in self.demooperations:
 			menu.add_command(label = i[0] + "...", command = i[2])#construct menu
-		menu.post(self.listbox.frames[clickedlist][0].winfo_rootx() + clickx,
-			self.listbox.frames[clickedlist][0].winfo_rooty() + clicky + 20)
+		menu.post(clickx, clicky)
 			#20 is label height. Hopefully that won't change.
+			# TODO
 
 	def reloadgui(self):
 		'''Should be called to re-fetch a directory's contents.

@@ -72,12 +72,6 @@ class BookmarkSetter(BaseDialog):
 		parent.columnconfigure(0, weight = 1)
 		parent.columnconfigure(1, weight = 1)
 
-		self.savebtn = ttk.Button(parent, text = "Save", command = self.__mark)
-		cancelbtn = ttk.Button(parent, text = "Close", command = self.cancel)
-
-		self.savebtn.grid(row = 2, column = 0, padx = (0, 3), sticky = "ew")
-		cancelbtn.grid(row = 2, column = 1, padx = (3, 0), sticky = "ew")
-
 		widgetcontainer = ttk.Frame(parent)#, style = "Contained.TFrame")
 		widgetcontainer.columnconfigure(0, weight = 3)
 		widgetcontainer.columnconfigure(1, weight = 1)
@@ -85,7 +79,7 @@ class BookmarkSetter(BaseDialog):
 
 		self.listbox = mfl.MultiframeList(widgetcontainer, inicolumns = (
 			{"name":"Name", "col_id":"col_name"},
-			{"name":"Tick", "col_id":"col_tick"}), ttkhook = True)
+			{"name":"Tick", "col_id":"col_tick"}))
 		self.listbox.grid(row = 0, column = 0, rowspan = 2, sticky = "news")
 
 		add_bm_btn = ttk.Button(widgetcontainer, text = "Insert bookmark",
@@ -129,9 +123,16 @@ class BookmarkSetter(BaseDialog):
 		widgetcontainer.grid(row = 0, column = 0, columnspan = 2,
 			sticky = "news")
 
-		self.textbox = TtkText(parent, self.styleobj, height = 8, wrap = "none")
+		self.textbox = TtkText(parent, self.styleobj, height = 8,
+			wrap = "none", takefocus = False)
 		self.textbox.grid(row = 1, column = 0, columnspan = 2, sticky = "news")
 		self.textbox.lower()
+
+		self.savebtn = ttk.Button(parent, text = "Save", command = self.__mark)
+		cancelbtn = ttk.Button(parent, text = "Close", command = self.cancel)
+
+		self.savebtn.grid(row = 2, column = 0, padx = (0, 3), sticky = "ew")
+		cancelbtn.grid(row = 2, column = 1, padx = (3, 0), sticky = "ew")
 
 		self.__fill_gui()
 		self.__log("Marking " + os.path.split(self.targetdemo)[1] + "\n")

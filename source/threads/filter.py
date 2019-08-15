@@ -57,11 +57,6 @@ class ThreadFilter(_StoppableBaseThread):
 		if self.stoprequest.isSet():
 			self.queue_out.put(("Finish", 2)); return
 
-		#self.queue_out.put( ("SetStatusbar", ("Filtering demos; Assigning bookmarkdata...", ) ) )
-		#asg_bmd = assignbookmarkdata(files, bookmarkdata)
-		#if self.stoprequest.isSet():
-		#	self.queue_out.put( ("Finish", 2) ); return
-
 		filteredlist = {"col_filename":[], "col_bookmark":[], "col_ctime":[], "col_filesize":[], }
 		file_amnt = len(files)
 		for i, j in enumerate(files): #Filter

@@ -1,5 +1,6 @@
-'''Classes designed to ease up the handling of a _events.txt file as written by the source engine'''
-'''If the classes EventReader and EventWriter are given handle objects, they will not be closed afterwards. Use strings instead.'''
+'''Classes designed to ease up the handling of a _events.txt file as written
+by the source engine.
+'''
 
 _DEF = {"sep":">\n"}
 
@@ -33,6 +34,7 @@ class EventReader():
 
 	handle: Must either be a file handle object or a string to a file.
 	If a file handle, must be opened in r, w+, a+ so it can be read.
+	If a file handle, it will not be closed after destruction of the reader.
 
 	Keyword args:
 
@@ -127,6 +129,7 @@ class EventWriter():
 
 	handle: Must either be a file handle object or a string to a file.
 	If a file handle, must be opened in a+ mode.
+	If a file handle, it will not be closed after destruction of the writer.
 
 	Keyword args:
 
@@ -136,7 +139,8 @@ class EventWriter():
 	forceflush: Bool; Will call the flush() method on the file handle after
 		every written logchunk.
 	empty_ok: Bool; If false, raises a ValueError if an empty chunk is
-		written. If true, does not write the chunk, but continues.
+		written. If true, does not write the chunk, but continues without
+		raising an exception.
 	'''
 	def __init__(self, handle, cnf={}, **cnfargs):
 		self.cnf = _DEF

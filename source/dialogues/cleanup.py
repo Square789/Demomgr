@@ -80,8 +80,7 @@ class Cleanup(BaseDialog): #TODO: Add thread
 			{"name":"Date created", "col_id":"col_ctime", "width":19,
 				"formatter":formatdate, "sort":True, },
 			{"name":"Filesize", "col_id":"col_filesize",  "width":10,
-				"formatter":convertunit, "sort":True, }, ),
-			ttkhook = True )
+				"formatter":convertunit, "sort":True, }, ), )
 		self.listbox.setdata({
 			"col_sel":[False for _ in self.files],
 			"col_filename":self.files,

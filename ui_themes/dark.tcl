@@ -92,6 +92,7 @@ ttk::style theme create demomgr_dark -settings \
 		{focus selected} $IMG(radiobtn-s-f.png) \
 		selected $IMG(radiobtn-s.png)] \
 		-sticky nsew
+
 	ttk::style layout TButton \
 	{
 		Button.button -children \

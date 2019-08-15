@@ -5,12 +5,13 @@ Demomgr is a python script designed to keep track of, cleanup and play demo file
 * List Demos, their filesize, creation date and the amount of Killstreaks/Bookmarks
   * View demo header information
 * Read Killstreak/Bookmark information from both .json files and the \_events.txt file
+* Manage bookmark information of individual demos
 * Sort and filter demos by multiple criteria
 * Play or delete demos from within the program
 * Cleanup entire folders by multiple criteria
   * Removes unneccessary entries from \_events.txt and also deletes useless .json files
 
-The script works (tested on Python 3.6.6) with the standard library, installing the [vdf module](https://pypi.org/project/vdf/) however will allow it to work with standard launch information for TF2. Installing the [regex module](https://pypi.org/project/regex/) will add two additional parameter structures in the filtering syntax.
+The script works (tested on Python 3.7.4) with the standard library, installing the [vdf module](https://pypi.org/project/vdf/) however will allow it to work with standard launch information for TF2. Installing the [regex module](https://pypi.org/project/regex/) will add two additional parameter structures in the filtering syntax.
 
 ### Progress and (hopefully) upcoming features:
 - [x] Basic filtering mechanism
@@ -21,7 +22,7 @@ The script works (tested on Python 3.6.6) with the standard library, installing 
 - [ ] Remove hassle with UNIX Timestamps
 - [x] Add stats after deletion
 - [x] Thread demo accessing and processing for responsive UI
-- [ ] Insert custom bookmarks into demos
+- [x] Insert custom bookmarks into demos
 - [x] Make UI look less 1995-ish
 - [ ] Add right click menus
 - [ ] Add filesystem-related information on current demos and directory

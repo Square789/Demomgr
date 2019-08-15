@@ -8,14 +8,13 @@ import tkinter.ttk as ttk
 from operator import itemgetter
 from math import floor
 
-__version__ = "2.0"
+__version__ = "2.1"
 __author__ = "Square789"
 
 BLANK = ""
 
 _DEF_OPT = {"inicolumns":[{""}],
 			"listboxstyle":{},
-			"ttkhook":False,
 			"rightclickbtn":"3"}
 
 _DEF_COL_OPT =	{"name":"<NO_NAME>",
@@ -220,15 +219,16 @@ class MultiframeList(ttk.Frame):
 		The dicts supplied should take form of Column constructor kwargs. See
 		the multiframe_list.Column class for a list of acceptable kwargs.
 
-	ttkhook <Bool>: A terrible idea of a feature, if set to True, the
-		MultiframeList will grab the currently active theme (as well as listen
-		to the <<ThemeChanged>> event) and attempt to apply style configuration
-		options in the current theme's style called "MultiframeList.Listbox" to
-		its listboxes, as those are not available as ttk variants.
 	rightclickbtn <Str>: The button that will trigger the MultiframeRightclick
 		virtual event. It is 3 (standard) on windows, this may differ from
 		platform to platform.
 
+	A terrible idea of a feature:
+		The MultiframeList will grab the currently active theme (as well as
+		listen to the <<ThemeChanged>> event) and attempt to apply style
+		configuration options in the current theme's style called
+		"MultiframeList.Listbox" to its listboxes, as those are not available
+		as ttk variants.
 	The list broadcasts the Virtual event "<<MultiframeSelect>>" to its parent
 		whenever something is selected.
 	The list broadcasts the Virtual event "<<MultiframeRightclick>>" to its
@@ -255,11 +255,14 @@ class MultiframeList(ttk.Frame):
 
 	def __init__(self, master, **options):
 
-		super().__init__(master)
+		super().__init__(master, takefocus = True)
 
 		self.master = master
 
-		self.options = _DEF_OPT.copy()
+		self.bind("<Down>", lambda _: self.__setindex_arr(1))
+		self.bind("<Up>", lambda _: self.__setindex_arr(-1))
+		self.bind("<KeyPress-App>", self.__callback_menu_button)
+
 		self.curcellx = None
 		self.curcelly = None
 		self.coordx = None
@@ -274,6 +277,7 @@ class MultiframeList(ttk.Frame):
 
 		self.length = 0
 
+		self.options = _DEF_OPT.copy()
 		self.options.update(options) #user-defined options here
 		opt_vals = self.options.values()
 		self.options = dict( zip(
@@ -291,10 +295,9 @@ class MultiframeList(ttk.Frame):
 			colopt["iniframe"] = index
 			self.columns.append(Column(self, **colopt))
 
-		if self.options["ttkhook"]:
-			self.ttkhookstyle = ttk.Style()
-			self.bind("<<ThemeChanged>>", self.__themeupdate)
-			self.__themeupdate(None)
+		self.ttkhookstyle = ttk.Style()
+		self.bind("<<ThemeChanged>>", self.__themeupdate)
+		self.__themeupdate(None)
 
 		self.framecontainer.pack(expand = 1, fill = tk.BOTH, side = tk.LEFT)
 		self.scrollbar.pack(fill = tk.Y, expand = 0, side = tk.LEFT)
@@ -317,20 +320,66 @@ class MultiframeList(ttk.Frame):
 		for i in range(amount):
 			self.frames.append([])
 			curindex = startindex + i
+			rcb = self.options["rightclickbtn"]
 			self.frames[curindex].append(ttk.Frame(self.framecontainer))
-			self.frames[curindex].append(tk.Listbox(self.frames[curindex][0], exportselection = False) )
+			self.frames[curindex].append(tk.Listbox(self.frames[curindex][0],
+				exportselection = False, takefocus = False))
 			self.frames[curindex].append(ttk.Label(self.frames[curindex][0], text = BLANK, anchor = tk.W))
-			# [0] is Frame, [1] is Listbox, [2] is Label
-			# https://infohost.nmt.edu/tcc/help/pubs/tkinter/web/extra-args.html
-			def _handler0(event, self = self, button = self.options["rightclickbtn"], currow = curindex, fromclick = False):#This sort of code might get me to commit die one day.
-				return self.__setindex(event, button, currow, fromclick)
-			def _handler1(event, self = self, button = 1, currow = curindex, fromclick = True):
-				return self.__setindex(event, button, currow, fromclick)
-			def _handler2(event, self = self, button = self.options["rightclickbtn"], currow = curindex, fromclick = True):
-				return self.__setindex(event, button, currow, fromclick)
-			self.frames[curindex][1].bind("<KeyPress-App>", _handler0)
-			self.frames[curindex][1].bind("<<ListboxSelect>>", _handler1)
-			self.frames[curindex][1].bind("<Button-" + self.options["rightclickbtn"] + ">", _handler2)
+			instance_name = self.frames[curindex][1].bindtags()[0]
+			# REMOVE Listbox bindings from listboxes
+			self.frames[curindex][1].bindtags((instance_name, '.', 'all'))
+			def _handler_m1(event, self = self, button = 1, frameindex = curindex):
+				return self.__setindex_lb(event, button, frameindex)
+			def _handler_m3(event, self = self, button = rcb, frameindex = curindex):
+				return self.__setindex_lb(event, button, frameindex)
+
+			self.frames[curindex][1].bind("<Button-" + rcb + ">", _handler_m3)
+			self.frames[curindex][1].bind("<Button-1>", _handler_m1)
+			self.tk.eval("""if {{[tk windowingsystem] eq "aqua"}} {{
+    bind {w} <MouseWheel> {{
+        %W yview scroll [expr {{- (%D)}}] units
+    }}
+    bind {w} <Option-MouseWheel> {{
+        %W yview scroll [expr {{-10 * (%D)}}] units
+    }}
+    bind {w} <Shift-MouseWheel> {{
+        %W xview scroll [expr {{- (%D)}}] units
+    }}
+    bind {w} <Shift-Option-MouseWheel> {{
+        %W xview scroll [expr {{-10 * (%D)}}] units
+    }}
+}} else {{
+    bind {w} <MouseWheel> {{
+        %W yview scroll [expr {{- (%D / 120) * 4}}] units
+    }}
+    bind {w} <Shift-MouseWheel> {{
+        %W xview scroll [expr {{- (%D / 120) * 4}}] units
+    }}
+}}
+
+if {{"x11" eq [tk windowingsystem]}} {{
+    bind {w} <4> {{
+	if {{!$tk_strictMotif}} {{
+	    %W yview scroll -5 units
+	}}
+    }}
+    bind {w} <Shift-4> {{
+	if {{!$tk_strictMotif}} {{
+	    %W xview scroll -5 units
+	}}
+    }}
+    bind {w} <5> {{
+	if {{!$tk_strictMotif}} {{
+	    %W yview scroll 5 units
+	}}
+    }}
+    bind {w} <Shift-5> {{
+	if {{!$tk_strictMotif}} {{
+	    %W xview scroll 5 units
+	}}
+    }}
+}}""".format(w = self.frames[curindex][1]._w)) # *vomits*
+
 			self.frames[curindex][1].config(yscrollcommand = self.__scrollalllistbox)
 			self.frames[curindex][1].insert(tk.END, *(BLANK for _ in range(self.length)))
 
@@ -405,8 +454,9 @@ class MultiframeList(ttk.Frame):
 		return (self.curcellx, self.curcelly)
 
 	def getlastclick(self):
-		'''Returns the coordinates in the listbox the last click was made in as
-		a tuple. May consist of int or None.
+		'''Returns the absolute screen coordinates the last user interaction
+		was made at as a tuple. May consist of int or None.
+		This method can be used to get coordinates to open a popup window at.
 		'''
 		return (self.coordx, self.coordy)
 
@@ -436,6 +486,10 @@ class MultiframeList(ttk.Frame):
 			if col.assignedframe in to_purge:
 				col.setdisplay(None)
 		for i in to_purge:
+			if self.curcellx is not None:
+				if self.curcellx >= i:
+					self.curcellx = i - 1
+			print(self.curcellx)
 			self.frames[i][0].destroy()
 			self.frames.pop(i)
 
@@ -666,12 +720,35 @@ class MultiframeList(ttk.Frame):
 		'''Returns a list of references to the columns that are displaying
 		their data currently, sorted starting at 0.
 		'''
-		# assumes that there are no unfilled frames, under no circumstances
-		# leave it like this!!!
 		r = sorted([i for i in self.columns if i.assignedframe is not None],
 			key = lambda col: col.assignedframe)
-		#print(r)
 		return r
+
+	def __callback_menu_button(self, _):
+		'''User has pressed the menu button.
+		This generates a <<MultiframeRightclick>> event and modifies
+		self.coord[xy] to the currently selected index.
+		'''
+		if not self.frames:
+			return
+		if self.curcelly is None:
+			return
+		if self.curcellx is None:
+			local_curcellx = 0
+		else:
+			local_curcellx = self.curcellx
+		vtup = self.frames[0][1].yview()
+		tmp_x = self.frames[local_curcellx][0].winfo_rootx() + 5
+		tmp_y = ENTRYHEIGHT * (self.curcelly - (self.length * vtup[0])) + 20 + \
+			self.frames[local_curcellx][0].winfo_rooty()
+		tmp_x = int(round(tmp_x))
+		tmp_y = int(round(tmp_y))
+		if tmp_y < 0:
+			tmp_y = 0
+		tmp_y += 10
+		self.coordx = tmp_x
+		self.coordy = tmp_y
+		self.event_generate("<<MultiframeRightclick>>", when = "tail")
 
 	def __gethiddencolumns(self):
 		'''Get all columns that are not being currently displayed.'''
@@ -683,27 +760,50 @@ class MultiframeList(ttk.Frame):
 		assignedframes = [col.assignedframe for col in self.columns]
 		return [f for f in existingframes if not f in assignedframes]
 
-	def __setindex(self, event, button, frameindex, fromclick):
+	def __relay_focus(self, *_):
+		'''Called by frames when they are clicked so focus is given to the
+		MultiframeList Frame itself.
+		'''
+		self.focus()
+
+	def __setindex_lb(self, event, button, frameindex):
 		'''Called by listboxes; GENERATES EVENT, sets the current index.'''
-		if self.length == 0: return
-		if button == self.options["rightclickbtn"] and fromclick:
-			offset = event.widget.yview()[0] * self.length
-			tosel = int(floor((event.y + - BORDERWIDTH) / ENTRYHEIGHT) + offset)
-			if tosel < 0: return
-			if tosel >= self.length: tosel = self.length - 1
+		self.__relay_focus()
+		if self.length == 0:
+			return
+		offset = event.widget.yview()[0] * self.length
+		tosel = int(floor((event.y + - BORDERWIDTH) / ENTRYHEIGHT) + offset)
+		if tosel < 0: return
+		if tosel >= self.length: tosel = self.length - 1
+		if tosel != self.curcelly:
 			event.widget.selection_clear(0, tk.END)
 			event.widget.selection_set(tosel)
-		sel = event.widget.curselection()[0]
-		event.widget.focus_set()
-		self.curcelly = sel
-		self.curcellx = frameindex
-		self.__selectionmod_callback()
-		self.coordx = event.x
-		self.coordy = event.y
+			self.curcelly = tosel
+			self.curcellx = frameindex
+			self.__selectionmod_callback()
+			self.coordx = self.frames[self.curcellx][0].winfo_rootx() + event.x
+			self.coordy = self.frames[self.curcellx][0].winfo_rooty() + 20 + event.y
 		self.master.event_generate("<<MultiframeSelect>>", when = "tail")
 		if button == self.options["rightclickbtn"]:
 			self.master.event_generate("<<MultiframeRightclick>>",
 				when = "tail")
+
+	def __setindex_arr(self, direction):
+		'''Executed when the MultiframeList receives <Up> and <Down> events,
+		triggered by the user pressing the arrow keys.
+		'''
+		if self.curcelly == None:
+			tosel = 0
+		else:
+			tosel = self.curcelly
+			tosel += direction
+		if tosel < 0 or tosel > self.length - 1:
+			return
+		self.curcelly = tosel
+		self.__selectionmod_callback()
+		for i in self.frames:
+			i[1].see(self.curcelly)
+		self.master.event_generate("<<MultiframeSelect>>", when = "tail")
 
 	def __lengthmod_callback(self):
 		'''Called by some methods after the MultiframeList's length was
@@ -745,7 +845,8 @@ class MultiframeList(ttk.Frame):
 	def __selectionmod_callback(self):
 		'''Called after selection (self.curcell[x/y]) is modified.
 		Purely cosmetic effect, as actual selection access should only
-		occur via self.curcell()'''
+		occur via self.curcell()
+		'''
 		sel = self.curcelly
 		if sel is None:
 			for i in self.frames:
@@ -757,8 +858,9 @@ class MultiframeList(ttk.Frame):
 			i[1].activate(sel)
 
 	def __themeupdate(self, _):
-		'''Called from event binding when ttkhook is set to true at
-		initialization. Changes Listbox look, as those are not in ttk.'''
+		'''Called from event binding when the current theme changes.
+		Changes Listbox look, as those are not available as ttk variants.
+		'''
 		conf = self._DEFAULT_LISTBOX_CONFIG.copy()
 		for style in (".", "MultiframeList.Listbox"):
 			cur_style_cnf = self.ttkhookstyle.configure(style)
