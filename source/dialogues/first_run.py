@@ -16,8 +16,7 @@ class FirstRun(BaseDialog):
 
 	def body(self, master):
 		'''UI'''
-		master.columnconfigure(0, weight = 1)
-		master.columnconfigure(1, weight = 1)
+		master.columnconfigure((0, 1), weight = 1)
 		master.columnconfigure(2, weight = 0)
 		master.rowconfigure(0, weight = 1)
 

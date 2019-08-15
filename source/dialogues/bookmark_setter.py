@@ -67,10 +67,8 @@ class BookmarkSetter(BaseDialog):
 			return True
 
 		parent.rowconfigure(0, weight = 1, pad = 5)
-		parent.rowconfigure(1, pad = 5)
-		parent.rowconfigure(2, pad = 5)
-		parent.columnconfigure(0, weight = 1)
-		parent.columnconfigure(1, weight = 1)
+		parent.rowconfigure((1, 2), pad = 5)
+		parent.columnconfigure((0, 1), weight = 1)
 
 		widgetcontainer = ttk.Frame(parent)#, style = "Contained.TFrame")
 		widgetcontainer.columnconfigure(0, weight = 3)

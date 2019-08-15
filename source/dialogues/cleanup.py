@@ -72,15 +72,16 @@ class Cleanup(BaseDialog): #TODO: Add thread
 			"json files", style = "Contained.TCheckbutton")
 
 		self.listbox = mfl.MultiframeList(master, inicolumns = (
-			{"name":"", "col_id":"col_sel", "width":2,
+			{"name":"", "col_id":"col_sel", "weight":0, "minsize": 16,
 				"formatter": self.symbollambda},
-			{"name":"Filename", "col_id":"col_filename", "sort":True, },
-			{"name":"Bookmarks", "col_id":"col_bookmark", "width":26,
-				"formatter":format_bm_pair, },
-			{"name":"Date created", "col_id":"col_ctime", "width":19,
-				"formatter":formatdate, "sort":True, },
-			{"name":"Filesize", "col_id":"col_filesize",  "width":10,
-				"formatter":convertunit, "sort":True, }, ), )
+			{"name":"Filename", "col_id":"col_filename", "sort":True,
+				"weight":5, },
+			{"name":"Bookmarks", "col_id":"col_bookmark", "minsize":156,
+				"formatter":format_bm_pair, "weight":1, },
+			{"name":"Date created", "col_id":"col_ctime", "minsize":120,
+				"formatter":formatdate, "sort":True, "weight":1, },
+			{"name":"Filesize", "col_id":"col_filesize",  "minsize":60,
+				"formatter":convertunit, "sort":True, "weight":1, }, ), )
 		self.listbox.setdata({
 			"col_sel":[False for _ in self.files],
 			"col_filename":self.files,

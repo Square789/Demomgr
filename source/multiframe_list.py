@@ -8,20 +8,21 @@ import tkinter.ttk as ttk
 from operator import itemgetter
 from math import floor
 
-__version__ = "2.1"
+__version__ = "2.2"
 __author__ = "Square789"
 
 BLANK = ""
 
-_DEF_OPT = {"inicolumns":[{""}],
-			"listboxstyle":{},
-			"rightclickbtn":"3"}
+_DEF_OPT = {"inicolumns": [{""}],
+			"listboxstyle": {},
+			"rightclickbtn": "3", }
 
-_DEF_COL_OPT =	{"name":"<NO_NAME>",
-				"sort":False,
-				"width":None,
-				"formatter":None,
-				"fallback_type":None,}
+_DEF_COL_OPT =	{"name": "<NO_NAME>",
+				"sort": False,
+				"minsize": 0,
+				"weight": 1,
+				"formatter": None,
+				"fallback_type": None,}
 
 ALL = "all"
 END = "end"
@@ -49,7 +50,11 @@ class Column():
 	names: Name to appear in the label and title the column.
 	sort: Whether the column should sort the entire MultiframeList when its
 		label is clicked.
-	width: Set column to fixed length; if None, it will expand as normally.
+	minsize: Specify the minimun size the column should occupy.
+		This option gets passed to the grid geometry manager.
+		This option also gets applied to the widgets of a frame to prevent
+		standard sizes from taking up more space than intended.
+	weight: Weight parameter according to the grid geometry manager.
 	formatter: A function that formats each element in a column's datalist.
 		This is especially useful for i. e. dates, where you want
 		to be able to sort by a unix timestamp but still be able to have the
@@ -70,7 +75,8 @@ class Column():
 
 		self.__cnfcmd = {
 			"name":self.__conf_name, "sort":self.__conf_sort,
-			"width":self.__conf_width, "formatter":self.__conf_formatter,
+			"minsize":self.__conf_grid, "weight": self.__conf_grid,
+			"formatter":self.__conf_formatter,
 			"fallback_type": lambda: False, }
 
 		if col_id is None:
@@ -93,8 +99,8 @@ class Column():
 
 	def __repr__(self):
 		return "<{} of {} at {}, col_id: {}>".format(
-			self.__class__.__name__, self.mfl.__class__.__name__, id(self.mfl),
-			self.col_id)
+			self.__class__.__name__, self.mfl.__class__.__name__,
+			hex(id(self.mfl)), self.col_id)
 
 	def __len__(self):
 		return len(self.data)
@@ -124,13 +130,15 @@ class Column():
 			else:
 				self.mfl.frames[self.assignedframe][2].unbind("<Button-1>")
 
-	def __conf_width(self):
+	def __conf_grid(self):
 		if self.assignedframe is not None:
-			width = self.cnf["width"]
-			for widg in self.mfl.frames[self.assignedframe]:
-				widg.config(width = width)
-			expand_opt = 1 if width is None else 0
-			self.mfl.frames[self.assignedframe][0].pack(expand = expand_opt)
+			self.mfl.framecontainer.grid_columnconfigure(self.assignedframe,
+				minsize = self.cnf["minsize"], weight = self.cnf["weight"])
+			width = self.cnf["minsize"]
+			#for widg in self.mfl.frames[self.assignedframe]:
+			#	widg.config(width = width)
+			# expand_opt = 1 if width is None else 0
+			# self.mfl.frames[self.assignedframe][0].pack(expand = expand_opt)
 
 	def __conf_formatter(self): # NOTE: YES OR NO?
 		self.format()
@@ -262,6 +270,7 @@ class MultiframeList(ttk.Frame):
 		self.bind("<Down>", lambda _: self.__setindex_arr(1))
 		self.bind("<Up>", lambda _: self.__setindex_arr(-1))
 		self.bind("<KeyPress-App>", self.__callback_menu_button)
+		self.bind("asd", lambda _: self.framecontainer.grid_columnconfigure(0, weight = 500))
 
 		self.curcellx = None
 		self.curcelly = None
@@ -270,6 +279,8 @@ class MultiframeList(ttk.Frame):
 
 		self.scrollbar = ttk.Scrollbar(self, command = self.__scrollallbar)
 		self.framecontainer = ttk.Frame(self)
+		self.framecontainer.grid_rowconfigure(0, weight = 1)
+		self.framecontainer.grid_columnconfigure(tk.ALL, weight = 1)
 
 		self.frames = [] # Each frame contains interface elements for display.
 		self.columns = [] # Columns will provide data storage capability as
@@ -299,8 +310,8 @@ class MultiframeList(ttk.Frame):
 		self.bind("<<ThemeChanged>>", self.__themeupdate)
 		self.__themeupdate(None)
 
-		self.framecontainer.pack(expand = 1, fill = tk.BOTH, side = tk.LEFT)
-		self.scrollbar.pack(fill = tk.Y, expand = 0, side = tk.LEFT)
+		self.scrollbar.pack(fill = tk.Y, expand = 0, side = tk.RIGHT)
+		self.framecontainer.pack(expand = 1, fill = tk.BOTH, side = tk.RIGHT)
 
 	#====USER METHODS====
 
@@ -321,10 +332,15 @@ class MultiframeList(ttk.Frame):
 			self.frames.append([])
 			curindex = startindex + i
 			rcb = self.options["rightclickbtn"]
-			self.frames[curindex].append(ttk.Frame(self.framecontainer))
+			self.frames[curindex].append(ttk.Frame(self.framecontainer, width = 0))
+
+			self.frames[curindex][0].grid_rowconfigure(1, weight = 1)
+			self.frames[curindex][0].grid_columnconfigure(0, weight = 1)
+
 			self.frames[curindex].append(tk.Listbox(self.frames[curindex][0],
-				exportselection = False, takefocus = False))
-			self.frames[curindex].append(ttk.Label(self.frames[curindex][0], text = BLANK, anchor = tk.W))
+				exportselection = False, takefocus = False, width = 0))
+			self.frames[curindex].append(ttk.Label(self.frames[curindex][0],
+				text = BLANK, anchor = tk.W, width = 0))
 			instance_name = self.frames[curindex][1].bindtags()[0]
 			# REMOVE Listbox bindings from listboxes
 			self.frames[curindex][1].bindtags((instance_name, '.', 'all'))
@@ -383,9 +399,9 @@ if {{"x11" eq [tk windowingsystem]}} {{
 			self.frames[curindex][1].config(yscrollcommand = self.__scrollalllistbox)
 			self.frames[curindex][1].insert(tk.END, *(BLANK for _ in range(self.length)))
 
-			self.frames[curindex][2].pack(expand = 0, fill = tk.X, side = tk.TOP) 		#pack label
-			self.frames[curindex][1].pack(expand = 1, fill = tk.BOTH, side = tk.LEFT)	#pack listbox
-			self.frames[curindex][0].pack(expand = 1, fill = tk.BOTH, side = tk.LEFT)	#pack frame
+			self.frames[curindex][2].grid(row = 0, column = 0, sticky = "news")			#grid label
+			self.frames[curindex][1].grid(row = 1, column = 0, sticky = "news")			#grid listbox
+			self.frames[curindex][0].grid(row = 0, column = curindex, sticky = "news")	#grid frame
 
 	def assigncolumn(self, col_id, req_frame):
 		'''Sets display of a column given by its column id to req_frame.
@@ -409,7 +425,9 @@ if {{"x11" eq [tk windowingsystem]}} {{
 		old_frameobj[1].delete(0, tk.END)
 		old_frameobj[1].insert(0, *[BLANK
 			for _ in range(self.length)])
-		for w in old_frameobj: w.configure(width = _STANDARDWIDTH)
+		self.framecontainer.grid_columnconfigure(old_frame,
+			weight = 1, minsize = 0)
+		#for w in old_frameobj: w.configure(width = _STANDARDWIDTH)
 
 	def clear(self):
 		'''Clears the MultiframeList.'''

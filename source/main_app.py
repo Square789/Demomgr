@@ -144,13 +144,14 @@ class MainApp():
 			style = "Statusbar.TFrame" )
 
 		self.listbox = mfl.MultiframeList(self.listboxframe, inicolumns = (
-			{"name":"Filename", "col_id":"col_filename", "sort":True, },
+			{"name":"Filename", "col_id":"col_filename", "sort":True,
+				"weight": 5},
 			{"name":"Bookmarks", "col_id":"col_bookmark", "sort":False,
-				"width":26, "formatter":format_bm_pair, },
+				"minsize":26, "weight":1, "formatter":format_bm_pair, },
 			{"name":"Date created", "col_id":"col_ctime", "sort":True,
-				"width":19, "formatter":formatdate, },
+				"minsize":19, "weight":1, "formatter":formatdate, },
 			{"name":"Filesize", "col_id":"col_filesize", "sort":True,
-				"width":10, "formatter":convertunit, }, ), )
+				"minsize":10, "weight":1, "formatter":convertunit, }, ), )
 
 		#self.emptyfoldernot = ttk.Label(self.listboxframe, text = "This folder is empty.")
 		#TODO: Add fancy info label
