@@ -13,7 +13,10 @@ __author__ = "Square789"
 
 BLANK = ""
 
-_DEF_OPT = {"inicolumns": [{""}],
+# _DEF_LABEL_WIDTH = 0
+_DEF_LISTBOX_WIDTH = 20
+
+_DEF_OPT = {"inicolumns": [],
 			"listboxstyle": {},
 			"rightclickbtn": "3", }
 
@@ -21,6 +24,7 @@ _DEF_COL_OPT =	{"name": "<NO_NAME>",
 				"sort": False,
 				"minsize": 0,
 				"weight": 1,
+				"w_width": _DEF_LISTBOX_WIDTH,
 				"formatter": None,
 				"fallback_type": None,}
 
@@ -30,7 +34,6 @@ COLUMN = "column"
 ROW = "row"
 BORDERWIDTH = 2
 ENTRYHEIGHT = 16
-_STANDARDWIDTH = 20
 
 class Column():
 	'''Class whose purpose is to store data and information regarding a
@@ -40,9 +43,12 @@ class Column():
 	!!! Columns should not be instantiated or controlled directly, !!!
 	!!! only through methods of a MultiframeList.                  !!!
 	##################################################################
-	Args:
-		mfl: Parent, must be a MultiframeList
-	KwArgs:
+	Required args:
+
+	mfl: Parent, must be a MultiframeList
+
+	Optional args:
+
 	col_id: The identifying name of the column it will be addressed by.
 		This is recommended to be a descriptive name set by the developer.
 		If not specified, is set to an integer that is not
@@ -50,10 +56,14 @@ class Column():
 	names: Name to appear in the label and title the column.
 	sort: Whether the column should sort the entire MultiframeList when its
 		label is clicked.
-	minsize: Specify the minimun size the column should occupy.
+	w_width: The width the widgets in this Column's occupied frame
+		should have, measured in text units.
+		The tkinter default for the label is 0, for the listbox 20, it is
+		possible that the listbox stretches further than it should.
+		! NOT TO BE CONFUSED WITH minsize !
+	minsize: Specify the minimum amount of pixels the column should occupy.
 		This option gets passed to the grid geometry manager.
-		This option also gets applied to the widgets of a frame to prevent
-		standard sizes from taking up more space than intended.
+		! NOT TO BE CONFUSED WITH w_width !
 	weight: Weight parameter according to the grid geometry manager.
 	formatter: A function that formats each element in a column's datalist.
 		This is especially useful for i. e. dates, where you want
@@ -72,11 +82,12 @@ class Column():
 		if not isinstance(mfl, MultiframeList):
 			raise TypeError("Bad Column parent, must be MultiframeList.")
 		self.mfl = mfl
+		self.assignedframe = None
 
 		self.__cnfcmd = {
-			"name":self.__conf_name, "sort":self.__conf_sort,
-			"minsize":self.__conf_grid, "weight": self.__conf_grid,
-			"formatter":self.__conf_formatter,
+			"name":self.__cnf_name, "sort":self.__cnf_sort,
+			"minsize":self.__cnf_grid, "weight": self.__cnf_grid,
+			"formatter":self.__cnf_formatter, "w_width": self.__cnf_w_width,
 			"fallback_type": lambda: False, }
 
 		if col_id is None:
@@ -95,7 +106,7 @@ class Column():
 		self.cnf = _DEF_COL_OPT.copy()
 		self.cnf.update(kwargs)
 
-		self.setdisplay(kwargs.pop("iniframe", None))
+		# self.setdisplay(kwargs.pop("iniframe", None))
 
 	def __repr__(self):
 		return "<{} of {} at {}, col_id: {}>".format(
@@ -117,12 +128,32 @@ class Column():
 				idok = True
 		return curid
 
-	def __conf_name(self):
+	def __cnf_formatter(self): # NOTE: YES OR NO?
+		self.format()
+
+	def __cnf_grid(self):
+		if self.assignedframe is not None:
+			curr_grid = self.mfl.framecontainer.grid_columnconfigure(
+				self.assignedframe)
+			callargs = {}
+			for value in ("minsize", "weight"):
+				if curr_grid[value] != self.cnf[value]:
+					callargs[value] = self.cnf[value]
+			if callargs:
+				self.mfl.framecontainer.grid_columnconfigure(self.assignedframe,
+					**callargs)
+			# width = self.cnf["minsize"]
+			#for widg in self.mfl.frames[self.assignedframe]:
+			#	widg.config(width = width)
+			# expand_opt = 1 if width is None else 0
+			# self.mfl.frames[self.assignedframe][0].pack(expand = expand_opt)
+
+	def __cnf_name(self):
 		if self.assignedframe is not None:
 			self.mfl.frames[self.assignedframe][2].config(
 				text = self.cnf["name"] )
 
-	def __conf_sort(self):
+	def __cnf_sort(self):
 		if self.assignedframe is not None:
 			if self.cnf["sort"]:
 				self.mfl.frames[self.assignedframe][2].bind("<Button-1>",
@@ -130,18 +161,10 @@ class Column():
 			else:
 				self.mfl.frames[self.assignedframe][2].unbind("<Button-1>")
 
-	def __conf_grid(self):
+	def __cnf_w_width(self):
 		if self.assignedframe is not None:
-			self.mfl.framecontainer.grid_columnconfigure(self.assignedframe,
-				minsize = self.cnf["minsize"], weight = self.cnf["weight"])
-			width = self.cnf["minsize"]
-			#for widg in self.mfl.frames[self.assignedframe]:
-			#	widg.config(width = width)
-			# expand_opt = 1 if width is None else 0
-			# self.mfl.frames[self.assignedframe][0].pack(expand = expand_opt)
-
-	def __conf_formatter(self): # NOTE: YES OR NO?
-		self.format()
+			self.mfl.frames[self.assignedframe][1].configure(
+				width = self.cnf["w_width"])
 
 	def config(self, **kw):
 		if not kw:
@@ -303,8 +326,9 @@ class MultiframeList(ttk.Frame):
 
 		self.addframes(len(self.options["inicolumns"]))
 		for index, colopt in enumerate(self.options["inicolumns"]):
-			colopt["iniframe"] = index
+			# colopt["iniframe"] = index
 			self.columns.append(Column(self, **colopt))
+			self.columns[-1].setdisplay(index)
 
 		self.ttkhookstyle = ttk.Style()
 		self.bind("<<ThemeChanged>>", self.__themeupdate)
@@ -332,15 +356,15 @@ class MultiframeList(ttk.Frame):
 			self.frames.append([])
 			curindex = startindex + i
 			rcb = self.options["rightclickbtn"]
-			self.frames[curindex].append(ttk.Frame(self.framecontainer, width = 0))
+			self.frames[curindex].append(ttk.Frame(self.framecontainer))#, width = 0))
 
 			self.frames[curindex][0].grid_rowconfigure(1, weight = 1)
 			self.frames[curindex][0].grid_columnconfigure(0, weight = 1)
 
 			self.frames[curindex].append(tk.Listbox(self.frames[curindex][0],
-				exportselection = False, takefocus = False, width = 0))
+				exportselection = False, takefocus = False))
 			self.frames[curindex].append(ttk.Label(self.frames[curindex][0],
-				text = BLANK, anchor = tk.W, width = 0))
+				text = BLANK, anchor = tk.W))#, width = 0))
 			instance_name = self.frames[curindex][1].bindtags()[0]
 			# REMOVE Listbox bindings from listboxes
 			self.frames[curindex][1].bindtags((instance_name, '.', 'all'))
@@ -417,8 +441,9 @@ if {{"x11" eq [tk windowingsystem]}} {{
 		col = self._get_col_by_id(col_id)
 		old_frame = col.assignedframe
 		col.setdisplay(req_frame)
-		# old frame is now column-less, so the list itself has to update it
-		if old_frame is None: return
+		# old frame is now column-less, so the list itself has to revert it
+		if old_frame is None:
+			return
 		old_frameobj = self.frames[old_frame]
 		old_frameobj[2].configure(text = BLANK)
 		old_frameobj[2].unbind("<Button-1>")
@@ -427,7 +452,7 @@ if {{"x11" eq [tk windowingsystem]}} {{
 			for _ in range(self.length)])
 		self.framecontainer.grid_columnconfigure(old_frame,
 			weight = 1, minsize = 0)
-		#for w in old_frameobj: w.configure(width = _STANDARDWIDTH)
+		old_frameobj[1].configure(width = _DEF_LISTBOX_WIDTH)
 
 	def clear(self):
 		'''Clears the MultiframeList.'''
@@ -507,7 +532,6 @@ if {{"x11" eq [tk windowingsystem]}} {{
 			if self.curcellx is not None:
 				if self.curcellx >= i:
 					self.curcellx = i - 1
-			print(self.curcellx)
 			self.frames[i][0].destroy()
 			self.frames.pop(i)
 
@@ -892,7 +916,7 @@ if {{"x11" eq [tk windowingsystem]}} {{
 			lbwidg.configure(**conf)
 
 if __name__ == "__main__":
-	from random import randint
+	from random import randint, sample
 	def test():
 		def adddata():
 			mf.insertrow_v([randint(0,100) for _ in range(10)])
@@ -900,9 +924,13 @@ if __name__ == "__main__":
 
 		def add1col():
 			if "newcol" in mf.getcolumns():
+				if mf.getcolumns()["newcol"] != 6:
+					print("Please return that column to frame 6, it's where it feels at home.")
+					return
 				mf.removecolumn("newcol")
 			else:
-				mf.addcolumns({"col_id":"newcol", "name":"added @ runtime"})
+				mf.addcolumns({"col_id":"newcol", "name":"added @ runtime; wide.",
+				"w_width": 35, "minsize":30, "weight":3})
 				mf.assigncolumn("newcol", 6)
 
 		def getcurrrow(end = None):
@@ -943,16 +971,27 @@ if __name__ == "__main__":
 				print("Select a row to delete!"); return
 			mf.removerow(mf.getselectedcell()[1])
 
+		def swap(first, second):
+			_tmp = mf.getcolumns()
+			f_frm = _tmp[first]
+			s_frm = _tmp[second]
+			mf.assigncolumn(first, None)
+			mf.assigncolumn(second, f_frm)
+			mf.assigncolumn(first, s_frm)
+			
 		def swap01():
 			c_a = 1
 			c_b = 0
 			if mf.getcolumns()[0] == 0:
 				c_a = 0
 				c_b = 1
-			mf.assigncolumn(0, None)
-			mf.assigncolumn(1, None)
-			mf.assigncolumn(c_a, 1)
-			mf.assigncolumn(c_b, 0)
+			swap(c_a, c_b)
+
+		def swaprand():
+			l = mf.getcolumns().keys()
+			s_res = sample(l, 2)
+			print("Swapping {}".format(" with ".join([str(i) for i in s_res])))
+			swap(*s_res)
 
 		def priceconv(data):
 			return str(data) + "$"
@@ -970,14 +1009,15 @@ if __name__ == "__main__":
 					lambda: print(mf.getselectedcell())},
 				{"text":"getlength", "command":lambda: print(mf.getlen())},
 				{"text":"addcolumn", "command":lambda: add1col()},
-				{"text":"swp01", "command":swap01}, )
+				{"text":"swp01", "command":swap01},
+				{"text":"swprnd", "command":swaprand}, )
 		root = tk.Tk()
 		mf = MultiframeList(root, inicolumns=(
-		{"name":"smol col", "width":10},
+		{"name":"smol col", "w_width":10},
 		{"name":"Sortercol", "sort":True},
 		{"name":"sickocol", "sort":True, "col_id":"sickocol"},
 		{"name":"-100", "col_id":"sub_col", "formatter":lambda n: n-100},
-		{"name":"Wide col", "width":30},
+		{"name":"Wide col", "w_width":30},
 		{"name":"unconf name","col_id":"cnfcl"} ),
 		listboxstyle = {"background":"#4E4E4E", "foreground":"#EEEEEE"})
 		mf.configcolumn("sickocol", formatter = priceconv)

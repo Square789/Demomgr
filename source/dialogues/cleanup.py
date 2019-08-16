@@ -73,7 +73,7 @@ class Cleanup(BaseDialog): #TODO: Add thread
 
 		self.listbox = mfl.MultiframeList(master, inicolumns = (
 			{"name":"", "col_id":"col_sel", "weight":0, "minsize": 16,
-				"formatter": self.symbollambda},
+				"w_width":2, "formatter":self.symbollambda},
 			{"name":"Filename", "col_id":"col_filename", "sort":True,
 				"weight":5, },
 			{"name":"Bookmarks", "col_id":"col_bookmark", "minsize":156,
@@ -96,9 +96,9 @@ class Cleanup(BaseDialog): #TODO: Add thread
 			variable = self.selall_var, text = "", command = self.selall)
 
 		okbutton = ttk.Button(master, text = "Delete",
-			command = lambda: self.done(1) )
+			command = lambda: self.done(1))
 		cancelbutton = ttk.Button(master, text= "Cancel",
-			command = lambda: self.done(0) )
+			command = lambda: self.done(0))
 
 		self.applybtn.pack(side = tk.RIGHT)
 		self.filterbox.pack(side = tk.RIGHT, fill = tk.X, expand = 1, padx = (0, 5))
