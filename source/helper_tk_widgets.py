@@ -12,8 +12,7 @@ class TtkText(Text):
 		attempts to apply configuration options to itself. The style name
 		read from is "TtkHook.Text".
 
-		__init__() Reroutes all args to tkinter.Text except for the second
-		argument.
+		__init__() Reroutes all args to tkinter.Text except for "styleobj"
 	'''
 	_DEFAULT_CONFIG = {
 		"autoseparators": 1,

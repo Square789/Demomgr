@@ -18,6 +18,7 @@ import time
 
 from . import multiframe_list as mfl
 from .style_helper import StyleHelper
+from . import context_menus
 
 from .helper_tk_widgets import TtkText
 
@@ -28,7 +29,7 @@ from .helpers import (formatdate, readdemoheader, convertunit,
 from .dialogues import *
 from .threads import ThreadFilter, ThreadReadFolder
 
-__version__ = "0.4.2"
+__version__ = "0.5"
 __author__ = "Square789"
 
 RCB = "3"
@@ -42,15 +43,16 @@ class MainApp():
 		self.root = tk.Tk()
 		self.root.withdraw()
 
-		self.root.protocol("WM_DELETE_WINDOW", self.quit_app)
-		self.root.bind("<<MultiframeSelect>>", self.__updatedemowindow)
-		self.root.bind("<<MultiframeRightclick>>", self.__popupmenu)
+		self.RCB = RCB
+		if self.root._windowingsystem == "aqua": # should probably work
+			self.RCB = "2"
 
+		self.root.protocol("WM_DELETE_WINDOW", self.quit_app)
 		self.root.wm_title("Demomgr v" + __version__ + " by " + __author__)
 
 		# TODO: add icon
 
-		self.demooperations = ( ("Play", " selected demo...", self.__playdem),
+		self.demooperations = (("Play", " selected demo...", self.__playdem),
 			("Delete", " selected demo...", self.__deldem),
 			("Manage bookmarks", " of selected demo...", self.__managebookmarks), )
 
@@ -99,6 +101,16 @@ class MainApp():
 
 		#create widgets
 		self.__setupgui()
+
+		self.root.bind("<<MultiframeSelect>>", self.__updatedemowindow)
+		self.root.bind("<<MultiframeRightclick>>", 
+			lambda ev: context_menus.multiframelist_cb(ev, self.listbox,
+				self.demooperations))
+		self.root.bind_class("TEntry", "<Button-" + self.RCB + ">",
+			context_menus.entry_cb)
+		self.root.bind_class("TCombobox", "<Button-" + self.RCB + ">",
+			context_menus.entry_cb)
+
 		self.spinboxvar.trace("w", self.__spinboxsel)
 		if os.path.exists(self.cfg["lastpath"]):
 			self.spinboxvar.set(self.cfg["lastpath"])
@@ -124,10 +136,10 @@ class MainApp():
 
 	def __setupgui(self):
 		'''Sets up UI inside of the self.mainframe widget.'''
-		#self.root.bind_class("TEntry", "<Button-" + RCB + ">" \
-		#	"<ButtonRelease-" + RCB + ">", lambda e: print("clicky", e.widget))
-		#self.root.bind_class("TEntry", "<Button-" + RCB + ">" \
-		#	"<Leave><ButtonRelease-" + RCB + ">", lambda _: None)
+		#self.root.bind_class("TEntry", "<Button-" + self.RCB + ">" \
+		#	"<ButtonRelease-" + self.RCB + ">", lambda e: print("clicky", e.widget))
+		#self.root.bind_class("TEntry", "<Button-" + self.RCB + ">" \
+		#	"<Leave><ButtonRelease-" + self.RCB + ">", lambda _: None)
 		## This interrupts above event seq
 		#self.root.bind_class("TEntry", "<KeyPress-App>",
 		#	lambda e: print("clicky", e.widget))
@@ -145,13 +157,16 @@ class MainApp():
 
 		self.listbox = mfl.MultiframeList(self.listboxframe, inicolumns = (
 			{"name":"Filename", "col_id":"col_filename", "sort":True,
-				"weight": 5},
+				"weight": 5, "minsize": 100, "w_width": 20},
 			{"name":"Bookmarks", "col_id":"col_bookmark", "sort":False,
-				"minsize":26, "weight":1, "formatter":format_bm_pair, },
+				"minsize":26, "weight":1, "w_width":26,
+				"formatter":format_bm_pair, },
 			{"name":"Date created", "col_id":"col_ctime", "sort":True,
-				"minsize":19, "weight":1, "formatter":formatdate, },
+				"minsize":19, "weight":1, "w_width":19,
+				"formatter":formatdate, },
 			{"name":"Filesize", "col_id":"col_filesize", "sort":True,
-				"minsize":10, "weight":1, "formatter":convertunit, }, ), )
+				"minsize":10, "weight":1, "w_width":10,
+				"formatter":convertunit, }, ), rightclickbtn = self.RCB )
 
 		#self.emptyfoldernot = ttk.Label(self.listboxframe, text = "This folder is empty.")
 		#TODO: Add fancy info label
@@ -382,19 +397,6 @@ class MainApp():
 		if demmarks:
 			self.demoinfbox.insert(tk.END, demmarks)
 		self.demoinfbox.config(state = tk.DISABLED)
-
-	def __popupmenu(self, event):
-		'''Opens a popup menu at mouse position.'''
-		clickedlist = self.listbox.getselectedcell()[0]
-		clickx, clicky = self.listbox.getlastclick()
-		listboxx, listboxy = self.listboxframe.winfo_rootx(), \
-			self.listboxframe.winfo_rooty()
-		menu = tk.Menu(self.mainframe, tearoff = 0)
-		for i in self.demooperations:
-			menu.add_command(label = i[0] + "...", command = i[2])#construct menu
-		menu.post(clickx, clicky)
-			#20 is label height. Hopefully that won't change.
-			# TODO
 
 	def reloadgui(self):
 		'''Should be called to re-fetch a directory's contents.
