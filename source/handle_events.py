@@ -42,7 +42,9 @@ class EventReader():
 	resethandle: Bool; Will reset the file handle's position to 0 upon creation.
 	blocksz: Integer; Blocksize to read files in. Default is 65536.
 	'''
-	def __init__(self, handle, cnf={}, **cnfargs):
+	def __init__(self, handle, cnf=None, **cnfargs):
+		if cnf is None:
+			cnf = {}
 		self.isownhandle = False
 		if isinstance(handle, str):
 			self.isownhandle = True
@@ -142,7 +144,9 @@ class EventWriter():
 		written. If true, does not write the chunk, but continues without
 		raising an exception.
 	'''
-	def __init__(self, handle, cnf={}, **cnfargs):
+	def __init__(self, handle, cnf=None, **cnfargs):
+		if cnf is None:
+			cnf = {}
 		self.cnf = _DEF
 		self.cnf.update(write_DEF)
 		self.cnf.update(cnfargs)

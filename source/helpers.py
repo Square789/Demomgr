@@ -74,7 +74,8 @@ def getstreakpeaks(killstreaks):
 	For example: (1,2,3,4,5,6,1,2,1,2,3,4) -> (6,2,4) [Only element 0 of
 	the tuples displayed].
 	This function does not perform any sorting, input is expected to already
-	be in a correct order.'''
+	be in a correct order.
+	'''
 	streakpeaks = []
 	if killstreaks:
 		localkillstreaks = killstreaks.copy()
@@ -114,7 +115,7 @@ def formatbookmarkdata(filelist, bookmarkdata):
 def format_bm_pair(toformat):
 	'''Formats a bookmark pair ((), ()) into readable strings'''
 	if toformat is None:
-		return "None."
+		return "None"
 	return f"{len(toformat[0])} Killstreaks; {len(toformat[1])} Bookmarks"
 
 def frmd_label(parent, text,

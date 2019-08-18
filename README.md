@@ -8,6 +8,7 @@ Demomgr is a python script designed to keep track of, cleanup and play demo file
 * Manage bookmark information of individual demos
 * Sort and filter demos by multiple criteria
 * Play or delete demos from within the program
+  * Optionally with HLAE
 * Cleanup entire folders by multiple criteria
   * Removes unneccessary entries from \_events.txt and also deletes useless .json files
 
@@ -26,7 +27,7 @@ The script works (tested on Python 3.7.4) with the standard library, installing 
 - [x] Make UI look less 1995-ish
 - [x] Add right click menus
 - [ ] Add filesystem-related information on current demos and directory
-- [ ] Add HLAE support
+- [x] Add HLAE support
 
 ### Start Instructions:
 Optionally install the [vdf module](https://pypi.org/project/vdf/).  

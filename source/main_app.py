@@ -29,7 +29,7 @@ from .helpers import (formatdate, readdemoheader, convertunit,
 from .dialogues import *
 from .threads import ThreadFilter, ThreadReadFolder
 
-__version__ = "0.5"
+__version__ = "0.6"
 __author__ = "Square789"
 
 RCB = "3"
@@ -280,7 +280,7 @@ class MainApp():
 			self.__applytheme()
 
 	def __playdem(self):
-		'''Opens dialog which confirms tf2 launch.'''
+		'''Opens dialog which arranges for tf2 launch.'''
 		index = self.listbox.getselectedcell()[1]
 		if index == None:
 			self.setstatusbar("Please select a demo file.", 1500)
@@ -288,12 +288,13 @@ class MainApp():
 		filename = self.listbox.getcell("col_filename", index)
 		path = os.path.join(self.curdir, filename)
 		dialog = LaunchTF2(self.mainframe, demopath = path,
-			steamdir = self.cfg["steampath"])
-		if "steampath" in dialog.result_:
-			if dialog.result_["steampath"] != self.cfg["steampath"]:
-				self.cfg["steampath"] = dialog.result_["steampath"]
-				self.writecfg(self.cfg)
-				self.cfg = self.getcfg()
+			cfg = self.cfg)
+		if dialog.result is not None:
+			if "steampath" in dialog.result:
+				if dialog.result["steampath"] != self.cfg["steampath"]:
+					self.cfg["steampath"] = dialog.result["steampath"]
+					self.writecfg(self.cfg)
+					self.cfg = self.getcfg()
 
 	def __deldem(self):
 		'''Deletes the currently selected demo.'''

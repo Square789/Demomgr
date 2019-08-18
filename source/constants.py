@@ -11,12 +11,13 @@ DEFAULT_CFG = {
 	"datagrabmode":0,
 	"previewdemos":True,
 	"steampath":"",
+	"hlaepath":"",
 	"evtblocksz":65536,
 	"ui_theme":"Dark"
 }
 DEFAULT_CFG_TYPES = {
 	"demopaths":list, "lastpath":str, "firstrun": bool, "__comment":str,
-	"datagrabmode":int, "previewdemos":bool, "steampath":str,
+	"datagrabmode":int, "previewdemos":bool, "steampath":str, "hlaepath":str,
 	"evtblocksz":int, "ui_theme":str
 }
 EVENT_BACKUP_FOLDER = "_eventbackup"
@@ -38,12 +39,19 @@ STATUSBARDEFAULT = "Ready."
 TF2_EXE_PATH = "steamapps/common/team fortress 2/hl2.exe"
 TF2_HEAD_PATH = "steamapps/common/team fortress 2/tf/"
 TF2_LAUNCHARGS = ["-steam", "-game", "tf"]
+HLAE_EXE = "hlae.exe"
+HLAE_HOOK_DLL = "AfxHookSource.dll"
+HLAE_LAUNCHARGS0 = ["-customLoader", "-noGui", "-autoStart", "-hookDllPath"]
+HLAE_LAUNCHARGS1 = ["-programPath"]
+HLAE_LAUNCHARGS2 = ["-cmdLine"]
+HLAE_ADD_TF2_ARGS = ["-insecure", "+sv_lan", "1"]
 STEAM_CFG_PATH0 = "userdata/"
 STEAM_CFG_PATH1 = "config/localconfig.vdf"
 LAUNCHOPTIONSKEYS = ('["UserLocalConfigStore"]["Software"]["Valve"]["Steam"]["Apps"]["440"]["LaunchOptions"]',
 					'["UserLocalConfigStore"]["Software"]["valve"]["Steam"]["Apps"]["440"]["LaunchOptions"]',
 					'["UserLocalConfigStore"]["Software"]["Valve"]["Steam"]["apps"]["440"]["LaunchOptions"]',
 					'["UserLocalConfigStore"]["Software"]["valve"]["Steam"]["apps"]["440"]["LaunchOptions"]',)
+STEAM_CFG_USER_NAME = '["UserLocalConfigStore"]["friends"]["PersonaName"]'
 ERRLOGFILE = "err.log"
 GUI_UPDATE_WAIT = 20 # Setting this to lower values might lock the UI, use with care.
 THEME_SUBDIR = "ui_themes"

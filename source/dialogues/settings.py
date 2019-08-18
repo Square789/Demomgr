@@ -8,6 +8,13 @@ from .. import constants as CNST
 from ..helper_tk_widgets import TtkText
 from ..helpers import (frmd_label, convertunit)
 
+_TK_VARTYPES = {
+	"str": tk.StringVar,
+	"int": tk.IntVar,
+	"bool": tk.BooleanVar,
+	"double": tk.DoubleVar,
+}
+
 class Settings(BaseDialog):
 	'''Settings dialog that offers a bunch of configuration options.'''
 	def __init__(self, parent, cfg):
@@ -17,14 +24,11 @@ class Settings(BaseDialog):
 		'''
 		self.cfg = cfg
 
-		self.datagrabmode_var = tk.IntVar()
-		self.datagrabmode_var.set(cfg["datagrabmode"])
-		self.preview_var = tk.BooleanVar()
-		self.preview_var.set(cfg["previewdemos"])
-		self.steampath_var = tk.StringVar()
-		self.steampath_var.set(cfg["steampath"])
-		self.ui_style_var = tk.StringVar()
-		self.ui_style_var.set(cfg["ui_theme"])
+		self._create_tk_var("int", "datagrabmode_var", cfg["datagrabmode"])
+		self._create_tk_var("bool", "preview_var", cfg["previewdemos"])
+		self._create_tk_var("str", "steampath_var", cfg["steampath"])
+		self._create_tk_var("str", "hlaepath_var", cfg["hlaepath"])
+		self._create_tk_var("str", "ui_style_var", cfg["ui_theme"])
 
 		self.blockszvals = {convertunit(i, "B"): i
 			for i in [2**pw for pw in range(12, 28)]}
@@ -34,50 +38,58 @@ class Settings(BaseDialog):
 
 	def body(self, master):
 		'''UI setup.'''
+		master.grid_columnconfigure((0, 1), weight = 1)
+
 		display_labelframe = ttk.LabelFrame(master, padding = 8,
 			labelwidget = frmd_label(master, "Display"))
+		display_labelframe.grid_columnconfigure(0, weight = 1)
 		ttk.Checkbutton(display_labelframe, variable = self.preview_var,
-			text="Preview demos?", style = "Contained.TCheckbutton").pack(
-			ipadx = 4, anchor = tk.NW)
+			text = "Preview demos?", style = "Contained.TCheckbutton").grid(
+			sticky = "w", ipadx = 4)
 		ui_style_labelframe = ttk.Labelframe(display_labelframe,
 			style = "Contained.TLabelframe", padding = 8,
-			labelwidget = frmd_label(display_labelframe, "UI Style") )
-		radiobtnframe = ttk.Frame(ui_style_labelframe, style = "Contained.TFrame")
+			labelwidget = frmd_label(display_labelframe, "UI Style"))
 		for i in CNST.THEME_PACKAGES.keys():
-			b = ttk.Radiobutton(radiobtnframe, variable = self.ui_style_var,
+			b = ttk.Radiobutton(ui_style_labelframe, variable = self.ui_style_var,
 				text = i, value = i, style = "Contained.TRadiobutton")
-			b.pack(side = tk.TOP, anchor = tk.W, ipadx = 4)
-		ttk.Radiobutton(radiobtnframe, variable = self.ui_style_var,
+			b.grid(ipadx = 4, sticky = "w")
+		ttk.Radiobutton(ui_style_labelframe, variable = self.ui_style_var,
 			text = "Default", value = "_DEFAULT", style =
-			"Contained.TRadiobutton").pack(side = tk.TOP, anchor = tk.W, ipadx = 4)
-		radiobtnframe.pack(side = tk.TOP, fill = tk.X)
-		ui_style_labelframe.pack(expand = 1, fill = tk.BOTH, pady = 4)
+			"Contained.TRadiobutton").grid(ipadx = 4, sticky = "w")
+		ui_style_labelframe.grid(sticky = "news", pady = 4)
 
-		steampath_labelframe = ttk.LabelFrame(master, padding = 8,
-			labelwidget = frmd_label(master, "Steam path"))
-		self.steampathentry = ttk.Entry(steampath_labelframe, state = "readonly",
-			textvariable = self.steampath_var)
-		steampath_choosebtn = ttk.Button(steampath_labelframe, text = "Change...",
-			command = self.choosesteampath, style = "Contained.TButton")
-		self.steampathentry.pack(side = tk.LEFT, expand = 1, fill = tk.X, anchor = tk.N)
-		steampath_choosebtn.pack(side = tk.RIGHT, expand = 0, fill = tk.X, anchor = tk.N)
+		path_labelframe = ttk.LabelFrame(master, padding = 8,
+			labelwidget = frmd_label(master, "Paths"))
+		path_labelframe.grid_columnconfigure(1, weight = 1)
+		for i, j in enumerate((("Steam:", self.steampath_var),
+					("HLAE:", self.hlaepath_var))):
+			desc_label = ttk.Label(path_labelframe,
+				style = "Contained.TLabel", text = j[0])
+			path_entry = ttk.Entry(path_labelframe, state = "readonly",
+				textvariable = j[1])
+			def _tmp_handler(self = self, var = j[1]): # that's a no from me dawg
+				return self._sel_dir(var)
+			change_btn = ttk.Button(path_labelframe, text = "Change...",
+				command = _tmp_handler, style = "Contained.TButton")
+			desc_label.grid(row = i, column = 0, sticky = "w")
+			path_entry.grid(row = i, column = 1, sticky = "ew")
+			change_btn.grid(row = i, column = 2, pady = (0, 3))
 
 		datagrab_labelframe = ttk.LabelFrame(master, padding = 8,
 			labelwidget = frmd_label(master, "Get bookmark information via..."))
-		radiobtnframe = ttk.Frame(datagrab_labelframe, style = "Contained.TFrame")
+		datagrab_labelframe.grid_columnconfigure(0, weight = 1)
 		for i, j in ((".json files", 2), (CNST.EVENT_FILE, 1), ("None", 0)):
-			b = ttk.Radiobutton(radiobtnframe, value = j,
+			b = ttk.Radiobutton(datagrab_labelframe, value = j,
 				variable = self.datagrabmode_var, text = i,
 				style = "Contained.TRadiobutton")
-			b.pack(side = tk.TOP, anchor = tk.W, ipadx = 4)
-		radiobtnframe.pack(side = tk.TOP, fill = tk.X)
-		del radiobtnframe
+			b.grid(sticky = "w", ipadx = 4)
 
 		eventread_labelframe = ttk.LabelFrame(master, padding = 8,
-			labelwidget = frmd_label(master, "Read _events.txt in chunks of size...") )
+			labelwidget = frmd_label(master, "Read _events.txt in chunks of size..."))
+		eventread_labelframe.grid_columnconfigure(0, weight = 1)
 		self.blockszselector = ttk.Combobox(eventread_labelframe,
 			state = "readonly", values = [k for k in self.blockszvals])
-		self.blockszselector.pack(side = tk.TOP, expand = 1, fill = tk.X, anchor = tk.N)
+		self.blockszselector.grid(sticky = "ew")
 
 		try:
 			self.blockszvals[convertunit(self.cfg["evtblocksz"], "B")]
@@ -85,34 +97,52 @@ class Settings(BaseDialog):
 		except KeyError:
 			self.blockszselector.set(next(iter(self.blockszvals)))
 
-		display_labelframe.pack(expand = 1, fill = tk.BOTH, pady = 3)
-		steampath_labelframe.pack(expand = 1, fill = tk.BOTH, pady = 3)
-		datagrab_labelframe.pack(expand = 1, fill = tk.BOTH, pady = 3)
-		eventread_labelframe.pack(expand = 1, fill = tk.BOTH, pady = 3)
+		display_labelframe.grid(columnspan = 2, pady = 3, sticky = "news")
+		path_labelframe.grid(columnspan = 2, pady = 3, sticky = "news")
+		datagrab_labelframe.grid(columnspan = 2, pady = 3, sticky = "news")
+		eventread_labelframe.grid(columnspan = 2, pady = 3, sticky = "news")
 
 		btconfirm = ttk.Button(master, text = "Ok", command = lambda: self.done(1))
 		btcancel = ttk.Button(master, text = "Cancel", command = lambda: self.done(0))
 
-		btconfirm.pack(side = tk.LEFT, expand = 1, fill = tk.X, anchor = tk.S,
-			padx = (0, 3))
-		btcancel.pack(side = tk.LEFT, expand = 1, fill = tk.X, anchor = tk.S,
-			padx = (3, 0))
+		btconfirm.grid(padx = (0, 3), sticky = "news")
+		btcancel.grid(row = 4, column = 1, padx = (3, 0), sticky = "news")
 
 	def done(self, param):
 		self.withdraw()
 		self.update_idletasks()
 		if param:
-			self.result = {	"datagrabmode":self.datagrabmode_var.get(),
-							"previewdemos":self.preview_var.get(),
-							"steampath":self.steampath_var.get(),
-							"evtblocksz":self.blockszvals[self.blockszselector.get()],
-							"ui_theme":self.ui_style_var.get()}
+			self.result = {
+				"datagrabmode":self.datagrabmode_var.get(),
+				"previewdemos":self.preview_var.get(),
+				"steampath":self.steampath_var.get(),
+				"hlaepath":self.hlaepath_var.get(),
+				"evtblocksz":self.blockszvals[self.blockszselector.get()],
+				"ui_theme":self.ui_style_var.get()
+			}
 		else:
 			self.result = None
 		self.destroy()
 
-	def choosesteampath(self):
+	def _sel_dir(self, variable):
+		'''Prompt the user to select a directory, then modify the tkinter
+		variable variable with the selected value.
+		'''
+		print("Selecting for", variable, variable.__repr__())
 		sel = tk_fid.askdirectory()
 		if sel == "":
 			return
-		self.steampath_var.set(sel)
+		variable.set(sel)
+
+	def _create_tk_var(self, type_, name, inivalue):
+		'''Creates a tkinter variable of type "str", "int", "bool", "double",
+		registers it as an attribute of the dialog with name name and sets
+		it to inivalue.
+		'''
+		try:
+			getattr(self, name)
+			raise ValueError("Variable {} already exists.".format(name))
+		except AttributeError:
+			pass
+		setattr(self, name, _TK_VARTYPES[type_]())
+		getattr(self, name).set(inivalue)
