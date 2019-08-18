@@ -24,8 +24,9 @@ The script works (tested on Python 3.7.4) with the standard library, installing 
 - [x] Thread demo accessing and processing for responsive UI
 - [x] Insert custom bookmarks into demos
 - [x] Make UI look less 1995-ish
-- [ ] Add right click menus
+- [x] Add right click menus
 - [ ] Add filesystem-related information on current demos and directory
+- [ ] Add HLAE support
 
 ### Start Instructions:
 Optionally install the [vdf module](https://pypi.org/project/vdf/).  

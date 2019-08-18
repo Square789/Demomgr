@@ -106,10 +106,15 @@ class MainApp():
 		self.root.bind("<<MultiframeRightclick>>", 
 			lambda ev: context_menus.multiframelist_cb(ev, self.listbox,
 				self.demooperations))
-		self.root.bind_class("TEntry", "<Button-" + self.RCB + ">",
-			context_menus.entry_cb)
-		self.root.bind_class("TCombobox", "<Button-" + self.RCB + ">",
-			context_menus.entry_cb)
+
+		for class_tag in ("TEntry", "TCombobox"):
+			self.root.bind_class(class_tag, "<Button-" + self.RCB + ">" \
+				"<ButtonRelease-" + self.RCB + ">", context_menus.entry_cb)
+			self.root.bind_class(class_tag, "<Button-" + self.RCB + ">" \
+				"<Leave><ButtonRelease-" + self.RCB + ">", lambda _: None)
+			# This interrupts above event seq
+			self.root.bind_class(class_tag, "<KeyPress-App>",
+				context_menus.entry_cb)
 
 		self.spinboxvar.trace("w", self.__spinboxsel)
 		if os.path.exists(self.cfg["lastpath"]):
@@ -136,14 +141,6 @@ class MainApp():
 
 	def __setupgui(self):
 		'''Sets up UI inside of the self.mainframe widget.'''
-		#self.root.bind_class("TEntry", "<Button-" + self.RCB + ">" \
-		#	"<ButtonRelease-" + self.RCB + ">", lambda e: print("clicky", e.widget))
-		#self.root.bind_class("TEntry", "<Button-" + self.RCB + ">" \
-		#	"<Leave><ButtonRelease-" + self.RCB + ">", lambda _: None)
-		## This interrupts above event seq
-		#self.root.bind_class("TEntry", "<KeyPress-App>",
-		#	lambda e: print("clicky", e.widget))
-
 		self.filterentry_var = tk.StringVar()
 
 		widgetframe0 = ttk.Frame(self.mainframe) #Directory Selection, Settings/About #NOTE: Resquash into tkinter.Menu ?
