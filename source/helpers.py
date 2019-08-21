@@ -130,6 +130,20 @@ def frmd_label(parent, text,
 	lbl.pack()
 	return frm
 
+def tk_secure_str(in_str, repl = None):
+	'''If any character in in_str is out of tkinter's char displaying range
+	(0x0000 - 0xFFFF), it will be replaced with the constant REPLACEMENT_CHAR.
+	This can be overridden by passing repl as an additional parameter.
+	'''
+	if repl is None:
+		repl = CNST.REPLACEMENT_CHAR
+	in_str = [i for i in in_str]
+	for i, j in enumerate(in_str):
+		print(j)
+		if ord(j) > 0xFFFF:
+			in_str[i] = repl
+	return "".join(in_str)
+
 class HeaderFetcher: #used in _thread_filter.py
 	'''Only read a header when the class is accessed.'''
 	def __init__(self, filepath):

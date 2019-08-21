@@ -16,7 +16,7 @@ from ._base import BaseDialog
 
 from .. import constants as CNST
 from ..helper_tk_widgets import TtkText
-from ..helpers import (frmd_label)
+from ..helpers import (frmd_label, tk_secure_str)
 
 class LaunchTF2(BaseDialog):
 	'''Dialog that reads and displays TF2 launch arguments and steam profile
@@ -203,9 +203,10 @@ class LaunchTF2(BaseDialog):
 			for index, user in enumerate(users):
 				try:
 					cnf_file = os.path.join(toget, user, CNST.STEAM_CFG_PATH1)
-					with open(cnf_file) as h:
+					with open(cnf_file, encoding = "utf-8") as h:
 						vdfdata = vdf.load(h)
 						username = eval("vdfdata" + CNST.STEAM_CFG_USER_NAME)
+					username = tk_secure_str(username)
 					users[index] = users[index] + " // " + username
 				except (OSError, PermissionError, FileNotFoundError):
 					pass
@@ -222,7 +223,7 @@ class LaunchTF2(BaseDialog):
 			user_id = self.userselectvar.get().split(" // ")[0]
 			with open(os.path.join(self.steamdir_var.get(),
 				CNST.STEAM_CFG_PATH0, user_id,
-				CNST.STEAM_CFG_PATH1)) as h:
+				CNST.STEAM_CFG_PATH1), encoding = "utf-8") as h:
 				launchopt = vdf.load(h)
 			for i in CNST.LAUNCHOPTIONSKEYS:
 				try:
@@ -261,7 +262,7 @@ class LaunchTF2(BaseDialog):
 	def _toggle_hlae_cb(self):
 		'''Changes some labels.'''
 		if self.usehlae_var.get():
-			self.head_args_lbl.configure(text = "[...]/hlae.exe [...] -cmdLine \" -steam -game tf -insecure ")
+			self.head_args_lbl.configure(text = "[...]/hlae.exe [...] -cmdLine \" -steam -game tf -insecure +sv_lan 1")
 			self.end_q_mark_label.configure(text = '"')
 		else:
 			self.head_args_lbl.configure(text = "[...]/hl2.exe -steam -game tf")
@@ -296,10 +297,10 @@ class LaunchTF2(BaseDialog):
 			if USE_HLAE:
 				tf2_launch_args.extend(CNST.HLAE_ADD_TF2_ARGS)
 				executable = os.path.join(self.hlaedir_var.get(), CNST.HLAE_EXE)
-				launch_args = CNST.HLAE_LAUNCHARGS0.copy() #hookdll required
+				launch_args = CNST.HLAE_LAUNCHARGS0.copy() # hookdll required
 				launch_args.append(os.path.join(self.hlaedir_var.get(),
 					CNST.HLAE_HOOK_DLL))
-				launch_args.extend(CNST.HLAE_LAUNCHARGS1) #hl2 exe path required
+				launch_args.extend(CNST.HLAE_LAUNCHARGS1) # hl2 exe path required
 				launch_args.append(os.path.join(self.steamdir_var.get(),
 					CNST.TF2_EXE_PATH))
 				launch_args.extend(CNST.HLAE_LAUNCHARGS2)

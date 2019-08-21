@@ -820,11 +820,11 @@ if {{"x11" eq [tk windowingsystem]}} {{
 		if tosel != self.curcelly:
 			event.widget.selection_clear(0, tk.END)
 			event.widget.selection_set(tosel)
-			self.curcelly = tosel
-			self.curcellx = frameindex
-			self.__selectionmod_callback()
-			self.coordx = self.frames[self.curcellx][0].winfo_rootx() + event.x
-			self.coordy = self.frames[self.curcellx][0].winfo_rooty() + 20 + event.y
+		self.curcelly = tosel
+		self.curcellx = frameindex
+		self.__selectionmod_callback()
+		self.coordx = self.frames[self.curcellx][0].winfo_rootx() + event.x
+		self.coordy = self.frames[self.curcellx][0].winfo_rooty() + 20 + event.y
 		self.master.event_generate("<<MultiframeSelect>>", when = "tail")
 		if button == self.options["rightclickbtn"]:
 			self.master.event_generate("<<MultiframeRightclick>>",
