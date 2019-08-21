@@ -139,7 +139,6 @@ def tk_secure_str(in_str, repl = None):
 		repl = CNST.REPLACEMENT_CHAR
 	in_str = [i for i in in_str]
 	for i, j in enumerate(in_str):
-		print(j)
 		if ord(j) > 0xFFFF:
 			in_str[i] = repl
 	return "".join(in_str)
