@@ -56,10 +56,24 @@ class TtkText(Text):
 		conf = {k: v for k, v in conf.items() if k in ok_values}
 		self.configure(**conf)
 
-#class MultiLabel(Frame):
-#	'''A widget that packs a lines of labels into a Frame and provides some
-#	useful methods to manipulate them. Budget version of the multiframe_list,
-#	if you will.
-#	'''
-#	def __init__(self, parent, *args, **kwargs):
-#		super().__init__(self, parent, *args, **kwargs)
+class MultiLabel(Frame):
+	'''A widget that packs a lines of labels into a Frame and provides some
+	methods to manipulate them. Budget version of the multiframe_list,
+	if you will.
+	'''
+	def __init__(self, parent, inilabels = None, *args, **kwargs):
+		if inilabels is None:
+			inilabels = ()
+
+		super().__init__(self, parent, *args, **kwargs)
+
+		self.labels = []
+		for lblcnf in inilabels:
+			self.addlabel(**lblcnf)
+
+	def addlabel(self, **opt):
+		pass
+	def removelabel(self, index):
+		pass
+	def modlabel(self, index, **opt):
+		pass

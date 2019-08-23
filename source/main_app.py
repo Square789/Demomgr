@@ -29,7 +29,7 @@ from .helpers import (formatdate, readdemoheader, convertunit,
 from .dialogues import *
 from .threads import ThreadFilter, ThreadReadFolder
 
-__version__ = "0.6.1"
+__version__ = "0.6.2"
 __author__ = "Square789"
 
 RCB = "3"
@@ -185,8 +185,6 @@ class MainApp():
 		self.demoinfbox = TtkText(demoinfframe, self.ttkstyle, wrap = tk.WORD,
 			state = tk.DISABLED, width = 40, yscrollcommand = demoinfbox_scr.set)
 		demoinfbox_scr.config(command = self.demoinfbox.yview)
-		self.demoinflabel = ttk.Label(demoinfframe,
-			text = "No demo selected.", anchor = tk.N)
 
 		filterlabel = ttk.Label(widgetframe1, text="Filter demos: ")
 		filterentry = ttk.Entry(widgetframe1, textvariable=self.filterentry_var)
@@ -236,11 +234,9 @@ class MainApp():
 		#self.emptyfoldernot.place(relx = .2, rely = .2)
 		self.listboxframe.pack(fill = tk.BOTH, expand = 1, side = tk.LEFT)
 
-		self.demoinflabel.pack(fill = tk.BOTH, expand = 0, side = tk.TOP)
 		demoinfbox_scr.pack(side = tk.RIGHT, fill = tk.Y)
 		self.demoinfbox.pack(fill = tk.BOTH, expand = 1)
 		demoinfframe.pack(fill = tk.BOTH, expand = 1)
-		self.demoinflabel.pack_propagate(False)
 
 	def quit_app(self):
 		for k in self.threads:
@@ -355,17 +351,13 @@ class MainApp():
 	def __updatedemowindow(self, _):
 		'''Renew contents of demo information window'''
 		index = self.listbox.getselectedcell()[1]
+		self.demoinfbox.config(state = tk.NORMAL)
+		self.demoinfbox.delete("0.0", tk.END)
 		if _ == None:
-			self.demoinflabel.config(text = "Preview window")
-			self.demoinfbox.config(state = tk.NORMAL)
-			self.demoinfbox.delete("0.0", tk.END)
 			self.demoinfbox.insert(tk.END, "")
 			self.demoinfbox.config(state = tk.DISABLED)
 			return
 		if not self.cfg["previewdemos"]:
-			self.demoinflabel.config(text = "Preview window")
-			self.demoinfbox.config(state = tk.NORMAL)
-			self.demoinfbox.delete("0.0", tk.END)
 			self.demoinfbox.insert(tk.END, "(Preview disabled)")
 			self.demoinfbox.config(state = tk.DISABLED)
 			return
@@ -373,27 +365,26 @@ class MainApp():
 		try:
 			demname = self.listbox.getcell("col_filename", index) #Get headerinf
 			outdict = readdemoheader(os.path.join(self.curdir, demname))
-			deminfo = "\n".join(["{} : {}".format(k, v) for k, v in outdict.items()])
+			headerinfo = ("Information for " + demname + ":\n\n" +
+				"\n".join(["{} : {}".format(k, v) for k, v in outdict.items()]))
 			del outdict # End headerinf
-			entry = self.listbox.getcell("col_bookmark", index) # Get bookmarks
-			if entry == None:
-				demmarks = "\n\nNo bookmark container found."
-			else:
-				demmarks = "\n\n"
-				for i in entry[0]:
-					demmarks += (str(i[0]) + " streak at " + str(i[1]) + "\n")
-				demmarks += "\n"
-				for i in entry[1]:
-					demmarks += ("\"" + str(i[0]) + "\" bookmark at " + str(i[1]) + "\n")#End bookmarks
 		except Exception:
-			deminfo = "Error reading demo; file is likely corrupted :("
+			headerinfo = "Error reading demo; file is likely corrupted :("
+
+		entry = self.listbox.getcell("col_bookmark", index) # Get bookmarks
+		if entry == None:
+			demmarks = "\n\nNo bookmark container found."
+		else:
+			demmarks = "\n\n"
+			for i in entry[0]:
+				demmarks += (str(i[0]) + " streak at " + str(i[1]) + "\n")
+			demmarks += "\n"
+			for i in entry[1]:
+				demmarks += ("\"" + str(i[0]) + "\" bookmark at " + str(i[1]) + "\n")#End bookmarks
 			demmarks = "\n\nNo bookmark information found."
-		self.demoinflabel.config(text = "Info for " + demname)
-		self.demoinfbox.config(state = tk.NORMAL)
-		self.demoinfbox.delete("0.0", tk.END)
-		self.demoinfbox.insert(tk.END, deminfo)
-		if demmarks:
-			self.demoinfbox.insert(tk.END, demmarks)
+		self.demoinfbox.insert(tk.END, headerinfo)
+		self.demoinfbox.insert(tk.END, demmarks)
+		
 		self.demoinfbox.config(state = tk.DISABLED)
 
 	def reloadgui(self):

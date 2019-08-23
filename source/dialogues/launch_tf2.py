@@ -77,7 +77,7 @@ class LaunchTF2(BaseDialog):
 				text = "Change path...")
 			dir_label.grid(row = i, column = 0)
 			dir_entry.grid(row = i, column = 1, sticky = "ew")
-			dir_btn.grid(row = i, column = 2)
+			dir_btn.grid(row = i, column = 2, padx = (3, 0))
 		self.error_steamdir_invalid = ttk.Label(dir_sel_lblfrm, anchor = tk.N,
 			justify = tk.CENTER, style = "Error.Contained.TLabel",
 			text = ("Getting steam users failed! Please select the root folder"

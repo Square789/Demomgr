@@ -73,7 +73,7 @@ class Settings(BaseDialog):
 				command = _tmp_handler, style = "Contained.TButton")
 			desc_label.grid(row = i, column = 0, sticky = "w")
 			path_entry.grid(row = i, column = 1, sticky = "ew")
-			change_btn.grid(row = i, column = 2, pady = (0, 3))
+			change_btn.grid(row = i, column = 2, padx = (3, 0))
 
 		datagrab_labelframe = ttk.LabelFrame(master, padding = 8,
 			labelwidget = frmd_label(master, "Get bookmark information via..."))
@@ -128,7 +128,6 @@ class Settings(BaseDialog):
 		'''Prompt the user to select a directory, then modify the tkinter
 		variable variable with the selected value.
 		'''
-		print("Selecting for", variable, variable.__repr__())
 		sel = tk_fid.askdirectory()
 		if sel == "":
 			return
