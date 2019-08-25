@@ -94,8 +94,8 @@ class LaunchTF2(BaseDialog):
 			anchor = tk.N, style = "Info.Contained.TLabel", text = ("Launch "
 			"configuration not found, it likely does not exist.") )
 		self.userselectbox = ttk.Combobox(userselectframe,
-			textvariable = self.userselectvar, values = self.getusers(),
-			state = "readonly")#Once changed, observer callback triggered by self.userselectvar
+			textvariable = self.userselectvar, state = "readonly")
+		# Once changed, observer callback triggered by self.userselectvar
 
 		launchoptionsframe = ttk.LabelFrame(master, padding = (10, 8, 10, 8),
 			labelwidget = frmd_label(master, "Launch options:"))
@@ -159,6 +159,13 @@ class LaunchTF2(BaseDialog):
 
 		self.btconfirm.grid(padx = (0, 3), sticky = "news")
 		self.btcancel.grid(row = 3, column = 1, padx = (3, 0), sticky = "news")
+
+		# initialize some UI components
+		users = self.getusers()
+		self.userselectbox.config(values = users)
+		if users:
+			self.userselectvar.set(users[0])
+
 		self.userchange()
 
 		self.__showerrs()
@@ -190,7 +197,12 @@ class LaunchTF2(BaseDialog):
 			self.info_launchoptions_not_found.grid_forget()
 
 	def getusers(self):
-		'''Executed once by body(), by askfordir(), and used to insert value
+		'''Retrieve users from the current steam directory. If vdf module is
+		present, returns a list of strings where "[FOLDER_NAME] // [USER_NAME]"
+		, if an error getting the user name occurs or if the vdf module is
+		missing, only "[FOLDER_NAME]".
+
+		Executed once by body(), by _sel_dir(), and used to insert value
 		into self.userselectvar.
 		'''
 		toget = os.path.join(self.steamdir_var.get(), CNST.STEAM_CFG_PATH0)
@@ -250,10 +262,11 @@ class LaunchTF2(BaseDialog):
 		variable.set(sel)
 		if variable != self.steamdir_var:
 			return
-		self.userselectbox.config(values = self.getusers())
+		users = self.getusers()
+		self.userselectbox.config(values = users)
 		try:
-			self.userselectvar.set(self.getusers()[0])
-		except Exception:
+			self.userselectvar.set(users[0])
+		except IndexError:
 			self.userselectvar.set("") # will trigger self.userchange
 		self.__constructshortdemopath()
 		# self.demo_play_arg_entry.config(width = len(self.playdemoarg.get()) + 2)

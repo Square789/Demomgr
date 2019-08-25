@@ -137,11 +137,7 @@ def tk_secure_str(in_str, repl = None):
 	'''
 	if repl is None:
 		repl = CNST.REPLACEMENT_CHAR
-	in_str = [i for i in in_str]
-	for i, j in enumerate(in_str):
-		if ord(j) > 0xFFFF:
-			in_str[i] = repl
-	return "".join(in_str)
+	return "".join([(i if ord(i) <= 0xFFFF else repl) for i in in_str])
 
 class HeaderFetcher: #used in _thread_filter.py
 	'''Only read a header when the class is accessed.'''

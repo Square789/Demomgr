@@ -29,7 +29,7 @@ from .helpers import (formatdate, readdemoheader, convertunit,
 from .dialogues import *
 from .threads import ThreadFilter, ThreadReadFolder
 
-__version__ = "0.6.2"
+__version__ = "0.6.3"
 __author__ = "Square789"
 
 RCB = "3"
@@ -381,7 +381,6 @@ class MainApp():
 			demmarks += "\n"
 			for i in entry[1]:
 				demmarks += ("\"" + str(i[0]) + "\" bookmark at " + str(i[1]) + "\n")#End bookmarks
-			demmarks = "\n\nNo bookmark information found."
 		self.demoinfbox.insert(tk.END, headerinfo)
 		self.demoinfbox.insert(tk.END, demmarks)
 		
