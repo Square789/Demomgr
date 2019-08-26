@@ -121,7 +121,7 @@ class Deleter(BaseDialog):
 			self.delthread.join()
 
 	def __startthread(self):
-		self.delthread = ThreadDeleter(None, self.queue_out, {
+		self.delthread = ThreadDelete(None, self.queue_out, {
 			"keepeventsfile":	self.keepeventsfile,
 			"demodir":			self.demodir,
 			"files":			self.files,
