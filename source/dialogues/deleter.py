@@ -5,11 +5,11 @@ import os
 import threading
 import queue
 
-from ._base import BaseDialog
+from source.dialogues._base import BaseDialog
 
-from .. import constants as CNST
-from ..helper_tk_widgets import TtkText
-from ..threads import ThreadDelete
+from source import constants as CNST
+from source.helper_tk_widgets import TtkText
+from source.threads import ThreadDelete
 
 class Deleter(BaseDialog):
 	'''A dialog that constructs deletion requests for demos and prompts the

@@ -5,10 +5,11 @@ several colums and easily format, sort and manage them as part of a UI.'''
 # IS TESTED.
 import tkinter as tk
 import tkinter.ttk as ttk
+from bisect import insort
 from operator import itemgetter
 from math import floor
 
-__version__ = "2.2"
+__version__ = "3.0"
 __author__ = "Square789"
 
 BLANK = ""
@@ -34,6 +35,8 @@ COLUMN = "column"
 ROW = "row"
 BORDERWIDTH = 2
 ENTRYHEIGHT = 16
+
+SORTSYM = ("\u25B2", "\u25BC", "\u25A0") #desc, asc, none
 
 class Column():
 	'''Class whose purpose is to store data and information regarding a
@@ -101,7 +104,7 @@ class Column():
 			self.col_id = col_id
 
 		self.data = [BLANK for _ in range(self.mfl.length)]
-		self.sortstate = 0 # 0 if next sort will be descending, else 1
+		self.sortstate = 2 # 0 if next sort will be descending, else 1
 
 		self.cnf = _DEF_COL_OPT.copy()
 		self.cnf.update(kwargs)
@@ -156,9 +159,11 @@ class Column():
 	def __cnf_sort(self):
 		if self.assignedframe is not None:
 			if self.cnf["sort"]:
+				self.set_sortstate(self.sortstate)
 				self.mfl.frames[self.assignedframe][2].bind("<Button-1>",
-					lambda _: self.mfl.sort(_, self) )
+					lambda _: self.mfl.sort(_, self))
 			else:
+				self.mfl.frames[self.assignedframe][3].configure(text = BLANK)
 				self.mfl.frames[self.assignedframe][2].unbind("<Button-1>")
 
 	def __cnf_w_width(self):
@@ -234,10 +239,18 @@ class Column():
 		self.assignedframe = wanted_frame
 		if self.assignedframe is not None:
 			for fnc in self.__cnfcmd.values(): fnc() # configure the frame
+			self.set_sortstate(self.sortstate)
 			self.mfl.frames[self.assignedframe][1].delete(0, tk.END)
 			self.mfl.frames[self.assignedframe][1].insert(tk.END, *self.data)
 			# NOTE: I don't think these two recurring lines warrant their own
 			# "setframetodata" method.
+
+	def set_sortstate(self, to):
+		'''Sets the column's sortstate, causing it to update on the UI.'''
+		if self.assignedframe is not None:
+			if self.cnf["sort"]:
+				self.mfl.frames[self.assignedframe][3].configure(text = SORTSYM[to])
+		self.sortstate = to
 
 class MultiframeList(ttk.Frame):
 	'''Instantiates a multiframe tkinter based list
@@ -293,7 +306,6 @@ class MultiframeList(ttk.Frame):
 		self.bind("<Down>", lambda _: self.__setindex_arr(1))
 		self.bind("<Up>", lambda _: self.__setindex_arr(-1))
 		self.bind("<KeyPress-App>", self.__callback_menu_button)
-		self.bind("asd", lambda _: self.framecontainer.grid_columnconfigure(0, weight = 500))
 
 		self.curcellx = None
 		self.curcelly = None
@@ -364,7 +376,9 @@ class MultiframeList(ttk.Frame):
 			self.frames[curindex].append(tk.Listbox(self.frames[curindex][0],
 				exportselection = False, takefocus = False))
 			self.frames[curindex].append(ttk.Label(self.frames[curindex][0],
-				text = BLANK, anchor = tk.W))#, width = 0))
+				text = BLANK, anchor = tk.W))
+			self.frames[curindex].append(ttk.Label(self.frames[curindex][0],
+				text = BLANK, anchor = tk.W))
 			instance_name = self.frames[curindex][1].bindtags()[0]
 			# REMOVE Listbox bindings from listboxes
 			self.frames[curindex][1].bindtags((instance_name, '.', 'all'))
@@ -423,8 +437,10 @@ if {{"x11" eq [tk windowingsystem]}} {{
 			self.frames[curindex][1].config(yscrollcommand = self.__scrollalllistbox)
 			self.frames[curindex][1].insert(tk.END, *(BLANK for _ in range(self.length)))
 
-			self.frames[curindex][2].grid(row = 0, column = 0, sticky = "news")			#grid label
-			self.frames[curindex][1].grid(row = 1, column = 0, sticky = "news")			#grid listbox
+			self.frames[curindex][3].grid(row = 0, column = 1, sticky = "news")		#grid sort_indicator
+			self.frames[curindex][2].grid(row = 0, column = 0, sticky = "news")		#grid label
+			self.frames[curindex][1].grid(row = 1, column = 0, sticky = "news",		#grid listbox
+				columnspan = 2)
 			self.frames[curindex][0].grid(row = 0, column = curindex, sticky = "news")	#grid frame
 
 	def assigncolumn(self, col_id, req_frame):
@@ -445,6 +461,7 @@ if {{"x11" eq [tk windowingsystem]}} {{
 		if old_frame is None:
 			return
 		old_frameobj = self.frames[old_frame]
+		old_frameobj[3].configure(text = BLANK)
 		old_frameobj[2].configure(text = BLANK)
 		old_frameobj[2].unbind("<Button-1>")
 		old_frameobj[1].delete(0, tk.END)
@@ -535,14 +552,6 @@ if {{"x11" eq [tk windowingsystem]}} {{
 			self.frames[i][0].destroy()
 			self.frames.pop(i)
 
-	def setcell(self, col_to_mod, y, data):
-		'''Sets the cell in col_to_mod at y to data.'''
-		col = self._get_col_by_id(col_to_mod)
-		if y > (self.length - 1):
-			raise IndexError("Cell index does not exist.")
-		col.data_pop(y)
-		col.data_insert(data, y)
-
 	def removerow(self, index):
 		'''Will delete the entire row at index, visible or not visible.'''
 		if index > (self.length - 1):
@@ -552,6 +561,14 @@ if {{"x11" eq [tk windowingsystem]}} {{
 		self.length -= 1
 		self.__lengthmod_callback()
 
+	def setcell(self, col_to_mod, y, data):
+		'''Sets the cell in col_to_mod at y to data.'''
+		col = self._get_col_by_id(col_to_mod)
+		if y > (self.length - 1):
+			raise IndexError("Cell index does not exist.")
+		col.data_pop(y)
+		col.data_insert(data, y)
+
 	#==DATA MODIFICATION, ALL==
 
 	def insertrow(self, data, insindex = None):
@@ -559,8 +576,7 @@ if {{"x11" eq [tk windowingsystem]}} {{
 		column's id and the corresponding value is the element that should
 		be appended to the column.
 		If insindex is not specified, data will be appended, else inserted
-		at the given position.
-		Raises an exception if the lists differ in lengths.
+			at the given position.
 		'''
 		for col in self.columns:
 			if col.col_id in data:
@@ -570,15 +586,20 @@ if {{"x11" eq [tk windowingsystem]}} {{
 		self.length += 1
 		self.__lengthmod_callback()
 
-	def setdata(self, data):
+	def setdata(self, data, reset_sortstate = True):
 		'''Data has to be supplied as a dict where:
 		key is a column id and value is a list of values the column targeted by
 		key should be set to. If the lists are of differing lengths, an
 		exception will be raised.
+		The function takes a reset_sortstate parameter, that, when set to false,
+		will not reset the sortstate on the columns.
 		'''
 		if not data:
 			self.clear(); return
 		ln = len(data[next(iter(data))])
+		if reset_sortstate:
+			for col in self.columns:
+				col.set_sortstate(2)
 		for k in data:
 			if len(data[k]) != ln:
 				raise ValueError("Differing lengths in supplied column data.")
@@ -596,6 +617,8 @@ if {{"x11" eq [tk windowingsystem]}} {{
 		Raises an exception if length differs from the rest of the
 		columns.
 		'''
+		for col in self.columns:
+			col.set_sortstate(2)
 		targetcol = self._get_col_by_id(col_to_mod)
 		datalen = len(data)
 		if len(self.columns) == 1:
@@ -608,59 +631,6 @@ if {{"x11" eq [tk windowingsystem]}} {{
 				raise ValueError("Length of supplied column data is"
 					" different from other lengths.")
 		targetcol.data_set(data)
-
-	#==DATA MODIFICATION, VISIBLE ONLY==
-
-	def insertrow_v(self, data, insindex = None):
-		'''NOTE that only visible columns will be modified, hidden columns
-		will be truncated or filled up with blank strings, for recommended
-		control of invisible columns see the insertrow method.
-		If an iterator is given as an arg, its elements will be appended
-		to the currently visible columns, in order.
-		If the input data is too long, it will be truncated, if too short, the
-		MultiframeList will be filled up with empty strings so that all
-		columns, visible or not, will end up with the same length.
-		'''
-		if data: # Data is specified
-			col_to_mod = self.__getdisplayedcolumns()
-			apd_data = list(data) + [ # extend data
-				BLANK for _ in range(len(col_to_mod) - len(data))]
-			for index, column in enumerate(col_to_mod):
-				column.data_insert(apd_data[index], insindex)
-			for column in self.__gethiddencolumns():
-				column.data_insert(BLANK, insindex)
-		self.length += 1
-		self.__lengthmod_callback()
-
-	def setdata_v(self, data, mode = "row"): #TODO: Update and stop using insertrow_v but who cares this func is garbage anyways
-		'''NOTE that only visible columns will be modified, hidden columns
-		will be truncated or filled up with blank strings, for recommended
-		control of invisible columns see the setdata method.
-		This function will set the data to the supplied data, inserting it
-		following these rules:
-		The mode keyword argument of this function has two forms:
-		row (standard): The data (given through the data arg as a two-
-			dimensional list) will be inserted into the currently visible
-			columns, every sub-element being treated as a row from top to
-			bottom.
-		column: The data (given through the data arg as a two-dimensional
-			list) will be inserted into the currently visible columns, each
-			sub-element being treated as a column. Raises an exception if the
-			supplied columns are not equal in length.
-		'''
-		if mode == "row":
-			ln = len(data)
-		elif mode == "column":
-			if not data: self.clear(); return #On empty data, just clear so below data[0] doesn't raise exception
-			data = list(zip(*data)) #Shift list
-			ln = len(data[0])
-			if not all([len(i) == ln for i in data]) == True:
-				raise ValueError("Inequal column length in supplied data.")
-		self.clear()
-		for i in data:
-			self.insertrow_v(i)
-		self.length = ln
-		self.__lengthmod_callback()
 
 	#==DATA RETRIEVAL, DICT, ALL==
 
@@ -723,9 +693,13 @@ if {{"x11" eq [tk windowingsystem]}} {{
 		if len(self.frames) != 0:
 			scroll = self.frames[0][1].yview()[0]
 		rev = False
-		if sortstate:
+		new_sortstate = abs(int(sortstate) - 1)
+		if new_sortstate:
 			rev = True
-		call_col.sortstate = bool(abs(int(sortstate) - 1))
+		call_col.set_sortstate(new_sortstate)
+		for col in self.getcolumns(): # reset sortstate of other columns
+			if col != caller_id:
+				self._get_col_by_id(col).set_sortstate(2)
 		tmpdat, colidmap = self.getrows(ALL)
 		datacol_index = colidmap[caller_id]
 		try:
@@ -742,7 +716,7 @@ if {{"x11" eq [tk windowingsystem]}} {{
 		for col_id in colidmap:
 			datacol_i = colidmap[col_id]
 			newdat[col_id] = [i[datacol_i] for i in tmpdat]
-		self.setdata(newdat)
+		self.setdata(newdat, reset_sortstate = False)
 		self.format()
 		if scroll is not None:
 			self.__scrollalllistbox(scroll, 1.0)
@@ -791,10 +765,6 @@ if {{"x11" eq [tk windowingsystem]}} {{
 		self.coordx = tmp_x
 		self.coordy = tmp_y
 		self.event_generate("<<MultiframeRightclick>>", when = "tail")
-
-	def __gethiddencolumns(self):
-		'''Get all columns that are not being currently displayed.'''
-		return [col for col in self.columns if col.assignedframe is None]
 
 	def __getemptyframes(self):
 		'''Returns the indexes of all frames that are not assigned a column.'''
@@ -919,7 +889,8 @@ if __name__ == "__main__":
 	from random import randint, sample
 	def test():
 		def adddata():
-			mf.insertrow_v([randint(0,100) for _ in range(10)])
+			mf.insertrow({col_id: randint(0, 100)
+				for col_id in mf.getcolumns()})
 			mf.format()
 
 		def add1col():
@@ -1014,13 +985,14 @@ if __name__ == "__main__":
 		root = tk.Tk()
 		mf = MultiframeList(root, inicolumns=(
 		{"name":"smol col", "w_width":10},
-		{"name":"Sortercol", "sort":True},
+		{"name":"Sortercol", "col_id":"sorter", },
 		{"name":"sickocol", "sort":True, "col_id":"sickocol"},
 		{"name":"-100", "col_id":"sub_col", "formatter":lambda n: n-100},
 		{"name":"Wide col", "w_width":30},
 		{"name":"unconf name","col_id":"cnfcl"} ),
 		listboxstyle = {"background":"#4E4E4E", "foreground":"#EEEEEE"})
 		mf.configcolumn("sickocol", formatter = priceconv)
+		mf.configcolumn("sorter", sort = True)
 		mf.configcolumn("cnfcl", name = "Configured Name", sort = True,
 			fallback_type = lambda x: int("0" + str(x)))
 		mf.pack(expand = 1, fill = tk.BOTH)

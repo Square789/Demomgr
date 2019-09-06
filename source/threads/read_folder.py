@@ -5,10 +5,10 @@ import queue
 import json
 import time
 
-from ._base import _StoppableBaseThread
-from ..helpers import (assignbookmarkdata, getstreakpeaks)
-from ..logchunk_parser import read_events
-from .. import constants as CNST
+from source.threads._base import _StoppableBaseThread
+from source.helpers import (assignbookmarkdata, getstreakpeaks)
+from source.logchunk_parser import read_events
+from source import constants as CNST
 
 class ThreadReadFolder(_StoppableBaseThread):
 	'''Thread takes no queue_inp, but queue_out and as args[0] a dict with the

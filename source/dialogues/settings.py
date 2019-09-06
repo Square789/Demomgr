@@ -2,11 +2,11 @@ import tkinter as tk
 import tkinter.ttk as ttk
 import tkinter.filedialog as tk_fid
 
-from ._base import BaseDialog
+from source.dialogues._base import BaseDialog
 
-from .. import constants as CNST
-from ..helper_tk_widgets import TtkText
-from ..helpers import (frmd_label, convertunit)
+from source import constants as CNST
+from source.helper_tk_widgets import TtkText
+from source.helpers import (frmd_label, convertunit)
 
 _TK_VARTYPES = {
 	"str": tk.StringVar,

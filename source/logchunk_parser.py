@@ -1,7 +1,7 @@
 import re
 
-from .helpers import getstreakpeaks
-from . import handle_events as handle_ev
+from source.helpers import getstreakpeaks
+from source import handle_events as handle_ev
 
 RE_LINE = re.compile(r'\[(\d{4}/\d\d/\d\d \d\d:\d\d)\] (Killstreak|Bookmark)'
 	' (.*) \("([^"]*)" at (\d*)\)')

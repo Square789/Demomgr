@@ -4,8 +4,8 @@ import tkinter.ttk as ttk
 import os
 import json
 
-from ._base import BaseDialog
-from .. import constants as CNST 
+from source.dialogues._base import BaseDialog
+from source import constants as CNST 
 
 class CfgError(BaseDialog):
 	'''Dialog that opens on malformed config and offers three options:

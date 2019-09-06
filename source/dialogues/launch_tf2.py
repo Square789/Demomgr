@@ -12,11 +12,11 @@ try:
 except ImportError:
 	VDF_PRESENT = False
 
-from ._base import BaseDialog
+from source.dialogues._base import BaseDialog
 
-from .. import constants as CNST
-from ..helper_tk_widgets import TtkText
-from ..helpers import (frmd_label, tk_secure_str)
+from source import constants as CNST
+from source.helper_tk_widgets import TtkText
+from source.helpers import (frmd_label, tk_secure_str)
 
 class LaunchTF2(BaseDialog):
 	'''Dialog that reads and displays TF2 launch arguments and steam profile
@@ -322,15 +322,15 @@ class LaunchTF2(BaseDialog):
 				executable = os.path.join(self.steamdir_var.get(), CNST.TF2_EXE_PATH)
 				launch_args = tf2_launch_args
 
-			final_launchoptions = ([executable] + launch_args)
+			final_launchoptions = [executable] + launch_args
 			try:
 				subprocess.Popen(final_launchoptions) #Launch tf2; -steam param may cause conflicts when steam is not open but what do I know?
 				self.result = {"success":True, "steampath":self.steamdir_var.get()}
 			except FileNotFoundError:
 				self.result = {"success":False, "steampath":self.steamdir_var.get()}
-				tk_msg.showerror("Demomgr - Error", "hl2 executable not found.", parent = self)
+				tk_msg.showerror("Demomgr - Error", "Executable not found.", parent = self)
 			except (OSError, PermissionError) as error:
 				self.result = {"success":False, "steampath":self.steamdir_var.get()}
 				tk_msg.showerror("Demomgr - Error",
-					"Could not access hl2.exe :\n{}".format(str(error)), parent = self)
+					"Could not access executable :\n{}".format(str(error)), parent = self)
 		self.destroy()

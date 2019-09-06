@@ -2,10 +2,10 @@ import os
 import time
 import queue
 
-from ._base import _StoppableBaseThread
-from ..helpers import (FileStatFetcher, HeaderFetcher)
-from ..filterlogic import filterstr_to_lambdas
-from .read_folder import ThreadReadFolder
+from source.threads._base import _StoppableBaseThread
+from source.helpers import (FileStatFetcher, HeaderFetcher)
+from source.filterlogic import filterstr_to_lambdas
+from source.threads.read_folder import ThreadReadFolder
 
 class ThreadFilter(_StoppableBaseThread):
 	'''Thread takes no queue_inp, but queue_out and args[0] as a dict with the following keys:

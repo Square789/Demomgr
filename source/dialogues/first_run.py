@@ -1,10 +1,10 @@
 import tkinter as tk
 import tkinter.ttk as ttk
 
-from ._base import BaseDialog
+from source.dialogues._base import BaseDialog
 
-from .. import constants as CNST
-from ..helper_tk_widgets import TtkText
+from source import constants as CNST
+from source.helper_tk_widgets import TtkText
 
 class FirstRun(BaseDialog):
 	'''Will open up when no config file is found on startup, prompts

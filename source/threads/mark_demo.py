@@ -7,9 +7,9 @@ import time
 import re
 from datetime import datetime
 
-from ._base import _StoppableBaseThread
-from .. import constants as CNST
-from .. import handle_events as handle_ev
+from source.threads._base import _StoppableBaseThread
+from source import constants as CNST
+from source import handle_events as handle_ev
 
 RE_DEM_NAME = re.compile(r'\[\d{4}/\d\d/\d\d \d\d:\d\d\] (?:Killstreak|Bookmark)'
 	' .* \("([^"]*)" at \d*\)$')

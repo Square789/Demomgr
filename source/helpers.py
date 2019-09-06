@@ -7,7 +7,7 @@ import datetime
 from tkinter.ttk import Frame, Label
 from math import log10, floor
 
-from . import constants as CNST
+from source import constants as CNST
 
 #LIST HAS TO BE OF SAME LENGTH TO LEFT AND RIGHT SIDE, STARTING AT ""
 _convpref = ["y", "z", "a", "f", "p", "n", "µ", "m", "", "k", "M", "G", "T",

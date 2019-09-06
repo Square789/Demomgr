@@ -3,14 +3,14 @@ import tkinter.ttk as ttk
 
 import os
 
-from ._base import BaseDialog
-from .. import multiframe_list as mfl
-from .. import constants as CNST
-from ..helpers import (assignbookmarkdata, formatdate, convertunit,
+from source.dialogues._base import BaseDialog
+from source import multiframe_list as mfl
+from source import constants as CNST
+from source.helpers import (assignbookmarkdata, formatdate, convertunit,
 	formatbookmarkdata, frmd_label, readdemoheader, HeaderFetcher,
 	FileStatFetcher, format_bm_pair)
-from ..filterlogic import filterstr_to_lambdas
-from .deleter import Deleter
+from source.filterlogic import filterstr_to_lambdas
+from source.dialogues.deleter import Deleter
 
 class Cleanup(BaseDialog): #TODO: Add thread
 	'''Cleanup dialog that allows for a selection of multiple demos and

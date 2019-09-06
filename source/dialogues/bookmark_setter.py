@@ -12,14 +12,14 @@ import re
 import threading
 import queue
 
-from ._base import BaseDialog
+from source.dialogues._base import BaseDialog
 
-from ..helpers import (frmd_label, )
-from .. import multiframe_list as mfl
-from .. import constants as CNST
-from .. import handle_events as handle_ev
-from ..threads import ThreadMarkDemo
-from ..helper_tk_widgets import TtkText
+from source.helpers import (frmd_label, )
+from source import multiframe_list as mfl
+from source import constants as CNST
+from source import handle_events as handle_ev
+from source.threads import ThreadMarkDemo
+from source.helper_tk_widgets import TtkText
 
 class BookmarkSetter(BaseDialog):
 	'''Dialog that manages a bookmark into a demo's json file or _events.txt

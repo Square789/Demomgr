@@ -16,18 +16,18 @@ import queue
 import json
 import time
 
-from . import multiframe_list as mfl
-from .style_helper import StyleHelper
-from . import context_menus
+from source import multiframe_list as mfl
+from source.style_helper import StyleHelper
+from source import context_menus
 
-from .helper_tk_widgets import TtkText
+from source.helper_tk_widgets import TtkText
 
-from . import constants as CNST
-from .helpers import (formatdate, readdemoheader, convertunit,
+from source import constants as CNST
+from source.helpers import (formatdate, readdemoheader, convertunit,
 	formatbookmarkdata, format_bm_pair)
 
-from .dialogues import *
-from .threads import ThreadFilter, ThreadReadFolder
+from source.dialogues import *
+from source.threads import ThreadFilter, ThreadReadFolder
 
 __version__ = "0.6.4"
 __author__ = "Square789"

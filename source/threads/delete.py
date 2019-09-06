@@ -4,9 +4,9 @@ import queue
 import shutil
 import re
 
-from ._base import _StoppableBaseThread
-from .. import handle_events as handle_ev
-from .. import constants as CNST
+from source.threads._base import _StoppableBaseThread
+from source import handle_events as handle_ev
+from source import constants as CNST
 
 class ThreadDelete(_StoppableBaseThread):
 	'''Thread takes no queue_inp, but an additional dict with the following keys:
