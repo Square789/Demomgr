@@ -29,7 +29,7 @@ from source.helpers import (formatdate, readdemoheader, convertunit,
 from source.dialogues import *
 from source.threads import ThreadFilter, ThreadReadFolder
 
-__version__ = "0.6.4"
+__version__ = "0.7"
 __author__ = "Square789"
 
 RCB = "3"
