@@ -4,6 +4,7 @@ if __name__ == "__main__":
 
 import sys
 import os
+import subprocess
 
 import tkinter as tk
 import tkinter.ttk as ttk
@@ -122,9 +123,13 @@ class MainApp():
 		elif self.cfg["demopaths"]:
 			self.spinboxvar.set(self.cfg["demopaths"][0]) # This will call self.__spinboxsel -> self.reloadgui, so the frames are filled.
 		self.root.deiconify() #end startup; show UI
+    	
+	def installreqs(self):
+		return subprocess.call([sys.executable, "-m", "pip", "install", "-r", "requirements.txt"])
 
 	def __startup(self):
 		'''Will go through a startup routine, then return a value whether startup was successful, this is first launch etc.'''
+		self.installreqs()
 		if os.path.exists(self.cfgpath):
 			self.cfg = self.getcfg()
 			if self.cfg["firstrun"]:
