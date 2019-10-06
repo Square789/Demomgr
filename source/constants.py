@@ -54,7 +54,6 @@ LAUNCHOPTIONSKEYS = (
 	'["UserLocalConfigStore"]["Software"]["Valve"]["Steam"]["apps"]["440"]["LaunchOptions"]',
 	'["UserLocalConfigStore"]["Software"]["valve"]["Steam"]["apps"]["440"]["LaunchOptions"]',
 )
-STEAM_CFG_USER_NAME = '["UserLocalConfigStore"]["friends"]["PersonaName"]'
 ERRLOGFILE = "err.log"
 GUI_UPDATE_WAIT = 20 # Setting this to lower values might lock the UI, use with care.
 THEME_SUBDIR = "ui_themes"

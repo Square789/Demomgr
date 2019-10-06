@@ -217,7 +217,7 @@ class LaunchTF2(BaseDialog):
 					cnf_file = os.path.join(toget, user, CNST.STEAM_CFG_PATH1)
 					with open(cnf_file, encoding = "utf-8") as h:
 						vdfdata = vdf.load(h)
-						username = eval("vdfdata" + CNST.STEAM_CFG_USER_NAME)
+						username = vdfdata["UserLocalConfigStore"]["friends"]["PersonaName"]
 					username = tk_secure_str(username)
 					users[index] = users[index] + " // " + username
 				except (OSError, PermissionError, FileNotFoundError):
