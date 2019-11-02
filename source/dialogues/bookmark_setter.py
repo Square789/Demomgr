@@ -32,6 +32,10 @@ class BookmarkSetter(BaseDialog):
 		bm_dat: Bookmarks for the specified demo in the usual bookmark format
 			(((killstreak_peak, tick), ...), ((bookmark_name, tick), ...))
 		styleobj: Instance of tkinter.ttk.Style
+
+		Upon completion, returns 0 or 1 in self.result
+		If self.result is 1, the new bookmark tuple can be found
+		in self.new_bm
 		'''
 		self.targetdemo = targetdemo
 		self.demo_dir = os.path.dirname(targetdemo)
@@ -46,6 +50,7 @@ class BookmarkSetter(BaseDialog):
 		self.queue_out = queue.Queue()
 		
 		self.result = 0
+		self.new_bm = None
 		
 		super().__init__(parent, "Insert bookmark...")
 
@@ -197,6 +202,8 @@ class BookmarkSetter(BaseDialog):
 			self.after_cancel(self.after_handler)
 			self.savebtn.configure(text = "Save", command = self.__mark)
 			self.result = 1
+			self.new_bm = tuple(zip(self.listbox.getcolumn("col_name"),
+				[int(i) for i in self.listbox.getcolumn("col_tick")]))
 
 	def __cancel_mark(self):
 		if self.mark_thread.isAlive():

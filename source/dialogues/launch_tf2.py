@@ -248,7 +248,7 @@ class LaunchTF2(BaseDialog):
 			self.errstates[4] = False
 			return launchopt
 		except (KeyError, FileNotFoundError, OSError, PermissionError,
-			SyntaxError): #SyntaxError raised by vdf module
+				SyntaxError) as e: #SyntaxError raised by vdf module
 			self.errstates[4] = True
 			return ""
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-#Demomgr v0.7
+#Demomgr v0.8
 #Created by Square789, 2018 - 2019
 
 from source.main_app import MainApp

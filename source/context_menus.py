@@ -48,7 +48,7 @@ class PopupMenu(tk.Menu):
 def multiframelist_cb(event, mfl, demo_ops):
 	'''Very specific and hardcoded callback that opens a popup menu on a
 	MultiframeList.
-	
+
 	Arguments:
 	event: The tkinter event that triggered the callback.
 	mfl: The MultiframeList that got clicked.

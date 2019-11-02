@@ -5,7 +5,6 @@ several colums and easily format, sort and manage them as part of a UI.'''
 # IS TESTED.
 import tkinter as tk
 import tkinter.ttk as ttk
-from bisect import insort
 from operator import itemgetter
 from math import floor
 
@@ -108,8 +107,6 @@ class Column():
 
 		self.cnf = _DEF_COL_OPT.copy()
 		self.cnf.update(kwargs)
-
-		# self.setdisplay(kwargs.pop("iniframe", None))
 
 	def __repr__(self):
 		return "<{} of {} at {}, col_id: {}>".format(
@@ -224,14 +221,22 @@ class Column():
 			self.mfl.frames[self.assignedframe][1].delete(0, tk.END)
 			self.mfl.frames[self.assignedframe][1].insert(tk.END, *self.data)
 
-	def format(self):
+	def format(self, exclusively = None):
 		'''If interface frame is specified, runs all data through
 		self.cnf["formatter"] and displays result.
+		If exclusively is set (as an iterable),
+		only specified indices will be formatted.
 		'''
 		if self.cnf["formatter"] is not None and self.assignedframe is not None:
-			f_data = [self.cnf["formatter"](i) for i in self.data]
-			self.mfl.frames[self.assignedframe][1].delete(0, tk.END)
-			self.mfl.frames[self.assignedframe][1].insert(tk.END, *f_data)
+			if exclusively is None:
+				f_data = [self.cnf["formatter"](i) for i in self.data]
+				self.mfl.frames[self.assignedframe][1].delete(0, tk.END)
+				self.mfl.frames[self.assignedframe][1].insert(tk.END, *f_data)
+			else:
+				for i in exclusively:
+					tmp = self.data[i]
+					self.mfl.frames[self.assignedframe][1].delete(i)
+					self.mfl.frames[self.assignedframe][1].insert(i, self.cnf["formatter"](tmp))
 
 	def setdisplay(self, wanted_frame):
 		'''Sets the display frame of the column to wanted_frame. To unregister,
@@ -273,6 +278,9 @@ class MultiframeList(ttk.Frame):
 		configuration options in the current theme's style called
 		"MultiframeList.Listbox" to its listboxes, as those are not available
 		as ttk variants.
+		Further styling options are available to the column title and sort
+		indicator labels: "MultiframeListTitle.TLabel" and
+		"MultiframeListSortInd.TLabel"
 	The list broadcasts the Virtual event "<<MultiframeSelect>>" to its parent
 		whenever something is selected.
 	The list broadcasts the Virtual event "<<MultiframeRightclick>>" to its
@@ -376,9 +384,9 @@ class MultiframeList(ttk.Frame):
 			self.frames[curindex].append(tk.Listbox(self.frames[curindex][0],
 				exportselection = False, takefocus = False))
 			self.frames[curindex].append(ttk.Label(self.frames[curindex][0],
-				text = BLANK, anchor = tk.W))
+				text = BLANK, anchor = tk.W, style = "MultiframeListTitle.TLabel"))
 			self.frames[curindex].append(ttk.Label(self.frames[curindex][0],
-				text = BLANK, anchor = tk.W))
+				text = BLANK, anchor = tk.W, style = "MultiframeListSortInd.TLabel"))
 			instance_name = self.frames[curindex][1].bindtags()[0]
 			# REMOVE Listbox bindings from listboxes
 			self.frames[curindex][1].bindtags((instance_name, '.', 'all'))
@@ -486,18 +494,25 @@ if {{"x11" eq [tk windowingsystem]}} {{
 		col = self._get_col_by_id(col_id)
 		col.config(**cnf)
 
-	def format(self, targetcols = None):
+	def format(self, targetcols = None, indices = None):
 		'''Format the entire list based on the formatter functions in columns.
 		Optionally, a list of columns to be formatted can be supplied by their
 		id, which will leave all non-mentioned columns alone.
+		Also, if index is specified, only the indices included in that list
+		will be formatted.
 
 		! Call this after all input has been performed !'''
+		if indices is not None:
+			for i in indices:
+				tmp = self.length - 1
+				if i > tmp:
+					raise ValueError("Index is out of range.")
 		if targetcols is None:
 			for col in self.columns:
-				col.format()
+				col.format(exclusively = indices)
 		else:
 			for col_id in targetcols:
-				self._get_col_by_id(col_id).format()
+				self._get_col_by_id(col_id).format(exclusively = indices)
 		self.__selectionmod_callback()
 
 	def getcolumns(self):

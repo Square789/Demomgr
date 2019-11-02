@@ -113,7 +113,7 @@ def formatbookmarkdata(filelist, bookmarkdata):
 	return listout
 
 def format_bm_pair(toformat):
-	'''Formats a bookmark pair ((), ()) into readable strings'''
+	'''Formats a bookmark pair ((), ()) into a readable string.'''
 	if toformat is None:
 		return "None"
 	return f"{len(toformat[0])} Killstreaks; {len(toformat[1])} Bookmarks"

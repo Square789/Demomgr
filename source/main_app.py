@@ -29,7 +29,7 @@ from source.helpers import (formatdate, readdemoheader, convertunit,
 from source.dialogues import *
 from source.threads import ThreadFilter, ThreadReadFolder
 
-__version__ = "0.7"
+__version__ = "0.8"
 __author__ = "Square789"
 
 RCB = "3"
@@ -303,7 +303,11 @@ class MainApp():
 			selected = [True], keepeventsfile = False, deluselessjson = False,
 			cfg = self.cfg, styleobj = self.ttkstyle)
 		if dialog.result_["state"] != 0:
-			self.reloadgui()
+			if self.cfg["lazyreload"]:
+				self.listbox.removerow(index)
+				self.__updatedemowindow(None)
+			else:
+				self.reloadgui()
 
 	def __managebookmarks(self):
 		'''Offers dialog to manage a demo's bookmarks.'''
@@ -317,7 +321,14 @@ class MainApp():
 		dialog = BookmarkSetter(self.root, targetdemo = path,
 			bm_dat = demo_bm, styleobj = self.ttkstyle)
 		if dialog.result == 1:
-			self.reloadgui()
+			ksdata = self.listbox.getcell("col_bookmark", index)[0]
+			new_bmdata = (ksdata, list(dialog.new_bm))
+			if self.cfg["lazyreload"]:
+				self.listbox.setcell("col_bookmark", index, new_bmdata)
+				self.listbox.format(("col_bookmark", ), (index, ))
+				self.__updatedemowindow(None)
+			else:
+				self.reloadgui()
 
 	def __applytheme(self):
 		'''Looks at self.cfg, attempts to apply an interface theme using a
@@ -574,7 +585,8 @@ class MainApp():
 
 	def getcfg(self):
 		'''Gets config from self.cfgpath and returns it. On error, blocks until
-		program is closed, config is replaced or fixed.'''
+		program is closed, config is replaced or fixed.
+		'''
 		localcfg = CNST.DEFAULT_CFG.copy()
 		cfg_ok = False
 		while not cfg_ok:

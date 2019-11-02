@@ -13,12 +13,13 @@ DEFAULT_CFG = {
 	"steampath":"",
 	"hlaepath":"",
 	"evtblocksz":65536,
-	"ui_theme":"Dark"
+	"ui_theme":"Dark",
+	"lazyreload":False,
 }
 DEFAULT_CFG_TYPES = {
 	"demopaths":list, "lastpath":str, "firstrun": bool, "__comment":str,
 	"datagrabmode":int, "previewdemos":bool, "steampath":str, "hlaepath":str,
-	"evtblocksz":int, "ui_theme":str
+	"evtblocksz":int, "ui_theme":str, "lazyreload": bool,
 }
 EVENT_BACKUP_FOLDER = "_eventbackup"
 WELCOME = "Hi and Thank You for using DemoManager!\n\nA config file has been " \

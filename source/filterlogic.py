@@ -214,7 +214,7 @@ def _extract_keys_and_params(inp):
 
 def filterstr_to_lambdas(inp):
 	'''Creates a list of lambdas that correspond to the filtering input
-	using constants.FILTERDICT .
+	using this module's FILTERDICT.
 	'''
 	lambdas = []
 

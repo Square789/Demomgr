@@ -29,12 +29,13 @@ class Settings(BaseDialog):
 		self._create_tk_var("str", "steampath_var", cfg["steampath"])
 		self._create_tk_var("str", "hlaepath_var", cfg["hlaepath"])
 		self._create_tk_var("str", "ui_style_var", cfg["ui_theme"])
+		self._create_tk_var("bool", "lazyreload_var", cfg["lazyreload"])
 
 		self.blockszvals = {convertunit(i, "B"): i
 			for i in [2**pw for pw in range(12, 28)]}
 		self.result = None
 
-		super().__init__( parent, "Settings")
+		super().__init__(parent, "Settings")
 
 	def body(self, master):
 		'''UI setup.'''
@@ -45,17 +46,26 @@ class Settings(BaseDialog):
 		display_labelframe.grid_columnconfigure(0, weight = 1)
 		ttk.Checkbutton(display_labelframe, variable = self.preview_var,
 			text = "Preview demos?", style = "Contained.TCheckbutton").grid(
-			sticky = "w", ipadx = 4)
+			sticky = "w", ipadx = 4) # Preview
+		lazyreload_btn = ttk.Checkbutton(display_labelframe,
+			variable = self.lazyreload_var, text = "Lazy reload of main demo view",
+			style = "Contained.TCheckbutton")
+		lazyreload_txt = ttk.Label(display_labelframe,
+			text = "Will not reload the entire directory\non minor" \
+				" changes such as bookmark modification.",
+			justify = tk.LEFT, style = "Contained.TLabel")
+		lazyreload_btn.grid(sticky = "w", ipadx = 4, pady = (2, 0))
+		lazyreload_txt.grid(sticky = "w", padx = (8, 0)) # Lazy reload
 		ui_style_labelframe = ttk.Labelframe(display_labelframe,
 			style = "Contained.TLabelframe", padding = 8,
-			labelwidget = frmd_label(display_labelframe, "UI Style"))
+			labelwidget = frmd_label(display_labelframe, "UI Style")) #Style LF
 		for i in CNST.THEME_PACKAGES.keys():
 			b = ttk.Radiobutton(ui_style_labelframe, variable = self.ui_style_var,
 				text = i, value = i, style = "Contained.TRadiobutton")
-			b.grid(ipadx = 4, sticky = "w")
+			b.grid(ipadx = 4, sticky = "w") # Style btns
 		ttk.Radiobutton(ui_style_labelframe, variable = self.ui_style_var,
 			text = "Default", value = "_DEFAULT", style =
-			"Contained.TRadiobutton").grid(ipadx = 4, sticky = "w")
+			"Contained.TRadiobutton").grid(ipadx = 4, sticky = "w") # Default style
 		ui_style_labelframe.grid(sticky = "news", pady = 4)
 
 		path_labelframe = ttk.LabelFrame(master, padding = 8,
@@ -118,7 +128,8 @@ class Settings(BaseDialog):
 				"steampath":self.steampath_var.get(),
 				"hlaepath":self.hlaepath_var.get(),
 				"evtblocksz":self.blockszvals[self.blockszselector.get()],
-				"ui_theme":self.ui_style_var.get()
+				"ui_theme":self.ui_style_var.get(),
+				"lazyreload":self.lazyreload_var.get(),
 			}
 		else:
 			self.result = None
