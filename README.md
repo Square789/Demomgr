@@ -1,8 +1,8 @@
 # Demomgr
 Demomgr is a python script designed to keep track of, cleanup and play demo files from the Source video game Team Fortress 2, released by Valve Corporation in 2007.
 
-![Main program window](https://github.com/Square789/Demomgr/blob/master/img0.PNG)
-_A folder, filtered to only include demos recorded on localhost, one demo selected._
+> ![Main program window](https://github.com/Square789/Demomgr/blob/master/img0.PNG)  
+> _A folder, filtered to only include demos recorded on localhost, one demo selected._
 ### Current features:
 * List Demos, their filesize, creation date and the amount of Killstreaks/Bookmarks
   * View demo header information
@@ -45,16 +45,8 @@ The filter criteria must be entered as follows:
 **Do not use the same filtering key (Even if negated) in a filter request, as one will replace the other.**  
 **You can enter multiple parameters by seperating them with **`,`**.**
 
-Example: `!map:(mvm_,plr_, tr_, ), killstreaks:2.. , beststreak:5.. , moddate:..1551337886`  
-Returns all demos where: The user has gotten at least two killstreaks, at least one of those streaks were 5 or more; the demo was made before February 28 2019 on 07:11:26 and the game does not take place on maps containing the substrings `mvm_`,`plr_` or `tr_`.  
-
-Accepted parameters are:
- * Quoteless string: `foo`
-   * Quoteless strings may consist out of A-Z, a-z, \_, -
- * Quoteless string tuple: `(foo, bar, baz)`
- * String: `"foo"`, `'b\u0061r'` (*regex module required*)
- * String tuple: `("foo", 'b\u0061r', "b\u0061z", )` (*regex module required*)
- * Range: `1..2`, `10..`, `..50`  
+Example: `!map:(mvm_,plr_, tr_, ), killstreaks:2.. , beststreak:5.. `  
+Returns all demos where: The user has gotten at least two killstreaks, at least one of those streaks were 5 or more and the game does not take place on maps containing the substrings `mvm_`,`plr_` or `tr_`.  
 
 You can currently filter the directory you are in by the following:
  * map : _Name of the map the demo is playing on. (String)_
@@ -68,3 +60,12 @@ You can currently filter the directory you are in by the following:
  * clientid : _Steam community name of the player. (String)_
  * moddate : _Modified (created) after this date. (UNIX Timestamp)_ (Range/Integer)
  * filesize : _Filesize in bytes_ (Integer)
+
+Accepted parameters are:
+ * Quoteless string: `foo`
+   * Quoteless strings may consist out of A-Z, a-z, \_, -
+ * Quoteless string tuple: `(foo, bar, baz)`
+ * String: `"foo"`, `'b\u0061r'` (*regex module required*)
+ * String tuple: `("foo", 'b\u0061r', "b\u0061z", )` (*regex module required*)
+ * Range: `1..2`, `10..`, `..50`  
+ 
