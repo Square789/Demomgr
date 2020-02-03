@@ -29,8 +29,8 @@ from source.helpers import (formatdate, readdemoheader, convertunit,
 from source.dialogues import *
 from source.threads import ThreadFilter, ThreadReadFolder
 
-_version_ = "0.9.0"
-_author_ = "Square789"
+__version__ = "0.9.1"
+__author__ = "Square789"
 
 RCB = "3"
 
@@ -47,7 +47,7 @@ class MainApp():
 			self.RCB = "2"
 
 		self.root.protocol("WM_DELETE_WINDOW", self.quit_app)
-		self.root.wm_title("Demomgr v" + _version_ + " by " + _author_)
+		self.root.wm_title("Demomgr v" + __version__ + " by " + __author__)
 
 		# TODO: add icon
 
