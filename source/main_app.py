@@ -29,7 +29,7 @@ from source.helpers import (formatdate, readdemoheader, convertunit,
 from source.dialogues import *
 from source.threads import ThreadFilter, ThreadReadFolder
 
-__version__ = "0.9.1"
+__version__ = "0.9.2"
 __author__ = "Square789"
 
 RCB = "3"
@@ -384,8 +384,8 @@ class MainApp():
 		for k in self.queues:
 			self.queues[k].queue.clear()
 		self.threads["datafetcher"] = ThreadReadFolder(None,
-			self.queues["datafetcher"], {"curdir":self.curdir,
-			"cfg":self.cfg.copy(), })
+			self.queues["datafetcher"], targetdir = self.curdir,
+			cfg = self.cfg.copy())
 		self.threads["datafetcher"].start()
 		self.after_handlers["datafetcher"] = self.root.after(0,
 			self._after_callback_fetchdata)

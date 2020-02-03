@@ -11,11 +11,16 @@ from source.logchunk_parser import read_events
 from source import constants as CNST
 
 class ThreadReadFolder(_StoppableBaseThread):
-	'''Thread takes no queue_inp, but queue_out and as args[0] a dict with the
-	following keys:
-	curdir <Str>: Full path to the directory to be read out
+	'''Thread takes no queue_inp, but queue_out and the following kwargs:
+	targetdir <Str>: Full path to the directory to be read out
 	cfg <Dict>: Program configuration as in .demomgr/config.cfg
 	'''
+
+	def __init__(self, queue_inp, queue_out, targetdir, cfg, *args, **kwargs):
+		self.options = {"targetdir": targetdir, "cfg": cfg}
+		
+		super().__init__(queue_inp, queue_out, *args, **kwargs)
+
 	def __stop(self, statmesg, result, exitcode):
 		'''Outputs end signals to self.queue_out, every arg will be output
 		as [1] in a tuple where [0] is - in that order - "SetStatusbar",
@@ -29,22 +34,21 @@ class ThreadReadFolder(_StoppableBaseThread):
 
 	def run(self):
 		'''Get data from all the demos in current folder; return in format that can be directly put into listbox'''
-		self.options = self.args[0].copy()
-		if self.options["curdir"] == "":
+		if self.options["targetdir"] == "":
 			self.__stop(None, {}, 0); return
-		self.queue_out.put( ("SetStatusbar", ("Reading demo information from {} ...".format(self.options["curdir"]), None) ) )
+		self.queue_out.put( ("SetStatusbar", ("Reading demo information from {} ...".format(self.options["targetdir"]), None) ) )
 		starttime = time.time()
 
 		try:
-			files = [i for i in os.listdir(self.options["curdir"]) if (os.path.splitext(i)[1] == ".dem") and (os.path.isfile(os.path.join(self.options["curdir"], i)))]
-			datescreated = [os.path.getmtime(os.path.join(self.options["curdir"], i)) for i in files]
+			files = [i for i in os.listdir(self.options["targetdir"]) if (os.path.splitext(i)[1] == ".dem") and (os.path.isfile(os.path.join(self.options["targetdir"], i)))]
+			datescreated = [os.path.getmtime(os.path.join(self.options["targetdir"], i)) for i in files]
 			if self.stoprequest.isSet():
 				self.queue_out.put(("Finish", 2)); return
-			sizes = [os.path.getsize(os.path.join(self.options["curdir"], i)) for i in files]
+			sizes = [os.path.getsize(os.path.join(self.options["targetdir"], i)) for i in files]
 			if self.stoprequest.isSet():
 				self.queue_out.put(("Finish", 2)); return
 		except FileNotFoundError:
-			self.__stop(("ERROR: Current directory \"{}\" does not exist.".format(self.options["curdir"]), None), {}, 0); return
+			self.__stop(("ERROR: Current directory \"{}\" does not exist.".format(self.options["targetdir"]), None), {}, 0); return
 		except (OSError, PermissionError) as error:
 			self.__stop(("ERROR reading directory: {}.".format(str(error)), None), {}, 0); return
 
@@ -58,7 +62,7 @@ class ThreadReadFolder(_StoppableBaseThread):
 		elif datamode == 1: #_events.txt
 			handleopen = False
 			try:
-				h = open(os.path.join(self.options["curdir"], CNST.EVENT_FILE), "r")
+				h = open(os.path.join(self.options["targetdir"], CNST.EVENT_FILE), "r")
 				handleopen = True
 				bookmarklist = read_events(h, self.options["cfg"]["evtblocksz"])
 				#TODO: ADD ERROR TYPE IN handle_events, then make this better!
@@ -71,7 +75,7 @@ class ThreadReadFolder(_StoppableBaseThread):
 				return
 		elif datamode == 2: #.json
 			try: # Get json files
-				jsonfiles = [i for i in os.listdir(self.options["curdir"]) if os.path.splitext(i)[1] == ".json" and os.path.exists(os.path.join(self.options["curdir"], os.path.splitext(i)[0] + ".dem"))]
+				jsonfiles = [i for i in os.listdir(self.options["targetdir"]) if os.path.splitext(i)[1] == ".json" and os.path.exists(os.path.join(self.options["targetdir"], os.path.splitext(i)[0] + ".dem"))]
 			except (OSError, FileNotFoundError, PermissionError) as error:
 				self.__stop( ("Error getting .json files: {}".format(str(error)), 5000),
 					{"col_filename":files, "col_bookmark":[None for _ in files],
@@ -83,7 +87,7 @@ class ThreadReadFolder(_StoppableBaseThread):
 				if self.stoprequest.isSet():
 					self.queue_out.put( ("Finish", 2) ); return
 				try: # Attempt to open the json file
-					h = open(os.path.join(self.options["curdir"], j))
+					h = open(os.path.join(self.options["targetdir"], j))
 				except (OSError, PermissionError, FileNotFoundError) as error:
 					bookmarklist[i] = ("", (), ())
 					continue

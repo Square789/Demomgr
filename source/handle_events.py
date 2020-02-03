@@ -70,11 +70,6 @@ class EventReader():
 	def __iter__(self):
 		self.reset()
 		return self
-		# self.reset()
-		# while True:
-		# 	chk = self.__next__()
-		# 	yield chk
-		# 	if chk.message["last"]: break
 
 	def __exit__(self, *_):
 		self.destroy()

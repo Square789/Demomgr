@@ -9,13 +9,18 @@ from source.threads.read_folder import ThreadReadFolder
 
 class ThreadFilter(_StoppableBaseThread):
 	'''Thread takes no queue_inp, but queue_out and the following kwargs:
-		filterstring <Str>:Raw user input from the entry field
+		filterstring <Str>: Raw user input from the entry field
 		curdir <Str>: Absolute path to current directory
-		silent <Bool>: If True, thread will not drop progress messages
 		cfg <Dict>: Program configuration as in .demomgr/config.cfg
+		silent <Bool>: If True, thread will not drop progress messages
 	'''
+	def __init__(self, queue_inp, queue_out, filterstring, curdir, cfg, silent = False, *args, **kwargs):
+		self.options = {"curdir": curdir, "filterstring": filterstring,
+			"cfg": cfg, "silent": silent}
+
+		super().__init__(queue_inp, queue_out, *args, **kwargs)
+
 	def run(self):
-		self.options = self.kwargs
 		filterstring = self.options["filterstring"]
 		curdir = self.options["curdir"]
 		cfg = self.options["cfg"]
@@ -37,7 +42,7 @@ class ThreadFilter(_StoppableBaseThread):
 		bookmarkdata = None
 		files = None
 		self.datafetcherqueue = queue.Queue()
-		self.datafetcherthread = ThreadReadFolder(None, self.datafetcherqueue, {"curdir":curdir, "cfg":cfg, })
+		self.datafetcherthread = ThreadReadFolder(None, self.datafetcherqueue, targetdir = curdir, cfg = cfg)
 		self.datafetcherthread.start()
 		self.datafetcherthread.join(None, 1) # NOTE: Severe wait time?
 		if self.stoprequest.isSet():

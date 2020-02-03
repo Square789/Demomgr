@@ -19,10 +19,15 @@ class ThreadDelete(_StoppableBaseThread):
 		cfg <Dict>: Program configuration as in .demomgr/config.cfg
 		eventfileupdate <Str; "passive"|"selectivemove">: eventfile update mode.
 	'''
+	def __init__(self, queue_inp, queue_out, demodir, files, selected, filestodel, cfg,
+			eventfileupdate = "passive", *args, **kwargs):
+		self.options = {"demodir": demodir, "files": files, "selected": selected,
+			"filestodel": filestodel, "cfg": cfg, "eventfileupdate": eventfileupdate}
+
+		super().__init__(queue_inp, queue_out, *args, **kwargs)
+
 	def run(self):
-		self.options = self.args[0].copy()
 		evtpath = os.path.join(self.options["demodir"], CNST.EVENT_FILE)
-		del self.args
 		errorsencountered = 0 #---Delete files
 		deletedfiles = 0
 		starttime = time.time()
