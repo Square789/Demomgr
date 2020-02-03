@@ -8,13 +8,14 @@ from source.filterlogic import filterstr_to_lambdas
 from source.threads.read_folder import ThreadReadFolder
 
 class ThreadFilter(_StoppableBaseThread):
-	'''Thread takes no queue_inp, but queue_out and args[0] as a dict with the following keys:
+	'''Thread takes no queue_inp, but queue_out and the following kwargs:
 		filterstring <Str>:Raw user input from the entry field
 		curdir <Str>: Absolute path to current directory
+		silent <Bool>: If True, thread will not drop progress messages
 		cfg <Dict>: Program configuration as in .demomgr/config.cfg
 	'''
 	def run(self):
-		self.options = self.args[0].copy()
+		self.options = self.kwargs
 		filterstring = self.options["filterstring"]
 		curdir = self.options["curdir"]
 		cfg = self.options["cfg"]
@@ -31,7 +32,8 @@ class ThreadFilter(_StoppableBaseThread):
 		if self.stoprequest.isSet():
 			self.queue_out.put(("Finish", 2)); return
 
-		self.queue_out.put(("SetStatusbar", ("Filtering demos; Reading information...",)))
+		if not self.options["silent"]:
+			self.queue_out.put(("SetStatusbar", ("Filtering demos; Reading information...",)))
 		bookmarkdata = None
 		files = None
 		self.datafetcherqueue = queue.Queue()
@@ -60,12 +62,13 @@ class ThreadFilter(_StoppableBaseThread):
 		filteredlist = {"col_filename":[], "col_bookmark":[], "col_ctime":[], "col_filesize":[], }
 		file_amnt = len(files)
 		for i, j in enumerate(files): #Filter
-			self.queue_out.put(  ("SetStatusbar", ("Filtering demos; {} / {}".format(i + 1, file_amnt), ) )  )
+			if not self.options["silent"]:
+				self.queue_out.put(("SetStatusbar", ("Filtering demos; {} / {}".format(i + 1, file_amnt), )))
 			if bookmarkdata[i] == None: # Oh no, an additional if in an often-repeated segment of code
 				tmp_bm = ((), ())
 			else:
 				tmp_bm = bookmarkdata[i]
-			curdataset = {"name":j, "killstreaks":tmp_bm[0], "bookmarks":tmp_bm[1],
+			curdataset = {"name": j, "killstreaks": tmp_bm[0], "bookmarks": tmp_bm[1],
 				"header": HeaderFetcher(os.path.join(curdir, j)),
 				"filedata": FileStatFetcher(os.path.join(curdir, j))}
 			#The Fetcher classes prevent unneccessary drive access when the user i.E. only filters by name
@@ -80,8 +83,8 @@ class ThreadFilter(_StoppableBaseThread):
 			if self.stoprequest.isSet():
 				self.queue_out.put(("Finish", 2)); return
 		del filters
-		self.queue_out.put(("Result", filteredlist))
 		self.queue_out.put(("SetStatusbar",
 			("Filtered {} demos in {} seconds.".format(file_amnt,
 				str(round(time.time() - starttime, 3))), 3000)))
+		self.queue_out.put(("Result", filteredlist))
 		self.queue_out.put(("Finish", 1))

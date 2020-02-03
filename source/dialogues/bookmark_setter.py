@@ -34,8 +34,7 @@ class BookmarkSetter(BaseDialog):
 		styleobj: Instance of tkinter.ttk.Style
 
 		Upon completion, returns 0 or 1 in self.result
-		If self.result is 1, the new bookmark tuple can be found
-		in self.new_bm
+		If self.result is 1, the new bookmark tuple can be found in self.new_bm
 		'''
 		self.targetdemo = targetdemo
 		self.demo_dir = os.path.dirname(targetdemo)

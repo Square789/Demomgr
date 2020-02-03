@@ -9,8 +9,8 @@ from source import handle_events as handle_ev
 from source import constants as CNST
 
 class ThreadDelete(_StoppableBaseThread):
-	'''Thread takes no queue_inp, but an additional dict with the following keys:
-		keepeventsfile <Bool>: Whether to create a backup of _events.txt
+	'''
+	Thread takes no queue_inp, but the following kwargs:
 		demodir <Str>: Absolute directory to delete demos in.
 		files <List[Str]>: List of all files in demodir.
 		selected <List[Bool]>: List of bools of same length as files.
@@ -23,27 +23,6 @@ class ThreadDelete(_StoppableBaseThread):
 		self.options = self.args[0].copy()
 		evtpath = os.path.join(self.options["demodir"], CNST.EVENT_FILE)
 		del self.args
-		if self.options["keepeventsfile"]: #---Backup _events file
-			try:
-				if os.path.exists(evtpath): #This will fail when demodir is blocked
-					backupfolder = os.path.join(os.getcwd(), CNST.CFG_FOLDER, CNST.EVENT_BACKUP_FOLDER)
-					if not os.path.exists(backupfolder):
-						os.makedirs(backupfolder)
-					i = 0
-					while True:
-						if os.path.exists(os.path.join(backupfolder, os.path.splitext(CNST.EVENT_FILE)[0] + str(i) + ".txt" )  ): #enumerate files: _events0.txt; _events1.txt; _events2.txt ...
-							i += 1
-						else:
-							break
-					self.queue_out.put(("ConsoleInfo", "\nCreating eventfile backup at " + os.path.join(os.getcwd(), CNST.CFG_FOLDER, CNST.EVENT_BACKUP_FOLDER, (os.path.splitext(CNST.EVENT_FILE)[0] + str(i) + ".txt") ) + " .\n"  ) )
-					shutil.copy2(os.path.join(self.options["demodir"], CNST.EVENT_FILE), os.path.join(os.getcwd(), CNST.CFG_FOLDER, CNST.EVENT_BACKUP_FOLDER, (os.path.splitext(CNST.EVENT_FILE)[0] + str(i) + ".txt")))
-				else:
-					self.queue_out.put(("ConsoleInfo", "\nEventfile does not exist; can not create backup.\n"))
-			except Exception as error:
-				self.queue_out.put(("ConsoleInfo", "\nError while copying eventfile: {}.\n".format(str(error))))
-		if self.stoprequest.isSet():
-			self.queue_out.put(("Finish", 2))
-			return
 		errorsencountered = 0 #---Delete files
 		deletedfiles = 0
 		starttime = time.time()

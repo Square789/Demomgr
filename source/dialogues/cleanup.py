@@ -138,7 +138,7 @@ class Cleanup(BaseDialog): #TODO: Add thread
 		else:
 			self.selall_var.set(1)
 
-	def __setitem(self, index, value, lazyui = False): #value: bool
+	def __setitem(self, index, value, lazyui = False):
 		self.listbox.setcell("col_sel", index, value)
 		if not lazyui:
 			if False in self.listbox.getcolumn("col_sel"): #~ laggy
@@ -194,7 +194,6 @@ class Cleanup(BaseDialog): #TODO: Add thread
 			dialog_ = Deleter(self.master, demodir = self.curdir,
 				files = self.listbox.getcolumn("col_filename"),
 				selected = self.listbox.getcolumn("col_sel"),
-				keepeventsfile = self.keepevents_var.get(),
 				deluselessjson = self.deluselessjson_var.get(),
 				cfg = self.cfg, styleobj = self.styleobj,
 				eventfileupdate = "selectivemove")

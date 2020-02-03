@@ -57,9 +57,10 @@ class StyleHelper():
 
 		_validate(imagedir, imgvarname)
 
-		localscript = imgloaderscript.format(	imagedir = imagedir,
-												imgvarname = imgvarname,
-												globpattern = globpattern)
+		localscript = imgloaderscript.format(
+			imagedir = imagedir,
+			imgvarname = imgvarname,
+			globpattern = globpattern)
 		self.tk.eval(localscript)
 
 	def generate_theme_script(self, styledict, themename, parent=None):

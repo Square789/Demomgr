@@ -31,6 +31,7 @@ class LaunchTF2(BaseDialog):
 		'''
 
 		self.parent = parent
+		self.result = None
 
 		self.demopath = demopath
 		self.steamdir_var = tk.StringVar()

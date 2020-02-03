@@ -13,7 +13,6 @@ __author__ = "Square789"
 
 BLANK = ""
 
-# _DEF_LABEL_WIDTH = 0
 _DEF_LISTBOX_WIDTH = 20
 
 _DEF_OPT = {"inicolumns": [],
@@ -38,7 +37,8 @@ ENTRYHEIGHT = 16
 SORTSYM = ("\u25B2", "\u25BC", "\u25A0") #desc, asc, none
 
 class Column():
-	'''Class whose purpose is to store data and information regarding a
+	"""
+	Class whose purpose is to store data and information regarding a
 	column. Can be assigned to frames of a MultiframeList, displaying
 	its data in there.
 	##################################################################
@@ -74,7 +74,7 @@ class Column():
 	fallback_type: A datatype that all elements of the column will be converted
 		to in case it has to be sorted. If not specified and elements are of
 		different types, an exception will be raised.
-	'''
+	"""
 	# COLUMNS ARE RESPONSIBLE FOR UI UPDATING. GENERAL FLOW LIKE THIS:
 	# USER INTERFACES WITH THE MFL, MFL KEEPS TRACK OF A FEW LISTS AND
 	# VARS, VALIDATES, GIVES COMMANDS TO COLUMNS, COLUMNS UPDATE UI
@@ -258,8 +258,10 @@ class Column():
 		self.sortstate = to
 
 class MultiframeList(ttk.Frame):
-	'''Instantiates a multiframe tkinter based list
-	arguments:
+	"""
+	Instantiates a multiframe tkinter based list
+	
+	Arguments:
 	master - parent object, should be tkinter root or a tkinter widget
 
 	keyword arguments:
@@ -286,23 +288,23 @@ class MultiframeList(ttk.Frame):
 	The list broadcasts the Virtual event "<<MultiframeRightclick>>" to its
 		parent whenever a right click is performed or the context menu button
 		is pressed.
-	'''
+	"""
 	_DEFAULT_LISTBOX_CONFIG = {
 		"activestyle": "underline",
-		"background": "SystemButtonFace",
+		"background": "#FFFFFF",
 		"borderwidth": 1,
 		"cursor": "",
-		"disabledforeground": "SystemDisabledText",
+		"disabledforeground": "#6D6D6D",
 		"font": "TkDefaultFont",
-		"foreground": "SystemWindowText",
-		"highlightbackground": "SystemButtonFace",
-		"highlightcolor": "SystemWindowFrame",
+		"foreground": "#000000",
+		"highlightbackground": "#FFFFFF",
+		"highlightcolor": "#B4B4B4",
 		"highlightthickness": 1,
 		"justify": "left",
 		"relief": "sunken",
-		"selectbackground": "SystemHightlight",
+		"selectbackground": "#3399FF",
 		"selectborderwidth": 0,
-		"selectforeground": "SystemHighlightText",
+		"selectforeground": "#FFFFFF",
 	}
 
 	def __init__(self, master, **options):
@@ -889,7 +891,7 @@ if {{"x11" eq [tk windowingsystem]}} {{
 		Changes Listbox look, as those are not available as ttk variants.
 		'''
 		conf = self._DEFAULT_LISTBOX_CONFIG.copy()
-		for style in (".", "MultiframeList.Listbox"):
+		for style in (".", "MultiframeList.Listbox", ):
 			cur_style_cnf = self.ttkhookstyle.configure(style)
 			if cur_style_cnf is not None:
 				conf.update(cur_style_cnf)

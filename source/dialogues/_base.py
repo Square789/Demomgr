@@ -6,8 +6,7 @@ from tkinter.simpledialog import Dialog
 class BaseDialog(tk.Toplevel):
 	'''A base dialog that serves as ground for all other dialogs in the
 	program. Override self.body(), call self.cancel() or
-	self.destroy() for closing the dialog. The self.result attribute will stay
-	after the dialogue has closed and given control back to the parent window.
+	self.destroy() for closing the dialog.
 
 	Code "borrowed" from tkinter.simpledialog.Dialog, overrides the 5px
 	border that is unstylable.
@@ -17,7 +16,6 @@ class BaseDialog(tk.Toplevel):
 		self.grab_set()
 		self.focus_set()
 
-		self.result = None
 		self.withdraw()
 		if parent.winfo_viewable():
 			self.transient(parent)

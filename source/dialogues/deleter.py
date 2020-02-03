@@ -16,7 +16,7 @@ class Deleter(BaseDialog):
 	user whether they are sure of the deletion. If yes was selected, starts
 	a stoppable thread and waits for its completion.
 	'''
-	def __init__(self, parent, demodir, files, selected, keepeventsfile,
+	def __init__(self, parent, demodir, files, selected,
 			deluselessjson, cfg, styleobj, eventfileupdate = "passive"):
 		'''Args:
 		parent: Tkinter widget that is the parent of this dialog.
@@ -25,8 +25,6 @@ class Deleter(BaseDialog):
 			evaluation.
 		selected: List of boolean values so that
 			files[n] will be deleted if selected[n] == True
-		keepeventsfile: Boolean value that will tell deletion thread to backup
-			the _events.txt file.
 		deluselessjson: Boolean value that instructs the deletion evaluation
 			to include json files with no demos.
 		cfg: Program configuration.
@@ -45,7 +43,6 @@ class Deleter(BaseDialog):
 		self.demodir = demodir
 		self.files = files
 		self.selected = selected
-		self.keepeventsfile = keepeventsfile
 		self.deluselessjson = deluselessjson
 		self.cfg = cfg
 		self.styleobj = styleobj
@@ -78,7 +75,7 @@ class Deleter(BaseDialog):
 		self.after_handler = None
 		self.queue_out = queue.Queue()
 
-		self.result_ = {"state":0} #exit state. set to 1 if successful
+		self.result = {"state": 0} #exit state. set to 1 if successful
 
 		super().__init__(parent, "Delete...")
 
@@ -121,14 +118,13 @@ class Deleter(BaseDialog):
 			self.delthread.join()
 
 	def __startthread(self):
-		self.delthread = ThreadDelete(None, self.queue_out, {
-			"keepeventsfile":	self.keepeventsfile,
-			"demodir":			self.demodir,
-			"files":			self.files,
-			"selected":			self.selected,
-			"filestodel":		self.filestodel,
-			"cfg":				self.cfg,
-			"eventfileupdate":	self.eventfileupdate} )
+		self.delthread = ThreadDelete(None, self.queue_out,
+			demodir =			self.demodir,
+			files =				self.files,
+			selected =			self.selected,
+			filestodel =		self.filestodel,
+			cfg =				self.cfg,
+			eventfileupdate =	self.eventfileupdate)
 		self.delthread.start()
 		self.after_handler = self.after(0, self.__after_callback)
 
@@ -152,7 +148,7 @@ class Deleter(BaseDialog):
 			return
 		else: #THREAD DONE
 			self.after_cancel(self.after_handler)
-			self.result_["state"] = finished[1]
+			self.result["state"] = finished[1]
 			self.canceloperationbutton.pack_forget()
 			self.closebutton.pack(side = tk.LEFT, fill = tk.X, expand = 1)
 

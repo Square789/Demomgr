@@ -63,7 +63,8 @@ class ThreadReadFolder(_StoppableBaseThread):
 				bookmarklist = read_events(h, self.options["cfg"]["evtblocksz"])
 				#TODO: ADD ERROR TYPE IN handle_events, then make this better!
 				h.close()
-			except Exception:
+			except Exception as exc:
+				print(exc)
 				if handleopen: h.close()
 				self.__stop( ("\"{}\" has not been found, can not be opened or is malformed.".format(CNST.EVENT_FILE), 5000),
 					{"col_filename":files, "col_bookmark":[None for _ in files],

@@ -13,23 +13,23 @@ class TtkText(Text):
 	'''
 	_DEFAULT_CONFIG = {
 		"autoseparators": 1,
-		"background": "SystemWindow",
+		"background": "#FFFFFF",
 		"blockcursor": 0,
 		"borderwidth": 1,
 		"cursor": "xterm",
 		"font": "TkFixedFont",
-		"foreground": "SystemWindowText",
-		"highlightbackground": "SystemButtonFace",
-		"highlightcolor": "SystemWindowFrame",
+		"foreground": "#000000",
+		"highlightbackground": "#FFFFFF",
+		"highlightcolor": "#B4B4B4",
 		"highlightthickness": 0,
 		"inactiveselectbackground": "",
-		"insertbackground": "SystemWindowText",
+		"insertbackground": "#000000",
 		"insertofftime": 300,
 		"insertontime": 600,
 		"insertwidth": 2,
 		"relief": "sunken",
-		"selectbackground": "SystemHighlight",
-		"selectforeground": "SystemHighlightText",
+		"selectbackground": "#3366FF",
+		"selectforeground": "#FFFFFF",
 		"wrap": "word",
 	}
 
@@ -45,7 +45,7 @@ class TtkText(Text):
 	def __themeupdate(self, _):
 		'''Called from event binding. Changes look.'''
 		conf = self._DEFAULT_CONFIG.copy()
-		for style in (".", "TtkHook.Text"):
+		for style in (".", "TtkHook.Text", ):
 			cur_style_cnf = self.styleobj.configure(style)
 			if cur_style_cnf is not None:
 				conf.update(cur_style_cnf)
@@ -61,11 +61,11 @@ class TtkText(Text):
 		# __init__() Reroutes all args to tkinter.Text except for "styleobj"
 	# '''
 	# _DEFAULT_CONFIG = {
-		# "background": "SystemButtonFace",
+		# "background": "#FFFFFF",
 		# "borderwidth": 0,
 		# "cursor": "",
-		# "highlightbackground": "SystemButtonFace",
-		# "highlightcolor": "SystemWindowFrame",
+		# "highlightbackground": "#FFFFFF",
+		# "highlightcolor": "#B4B4B4",
 		# "highlightthickness": 2,
 		# "insertbackground": "SystemButtonText",
 		# "insertofftime": 300,
@@ -74,7 +74,7 @@ class TtkText(Text):
 		# "relief": "flat",
 		# "selectbackground": "SystemHighlight",
 		# "selectborderwidth": 1,
-		# "selectforeground": "SystemHighlightText",
+		# "selectforeground": "#FFFFFF",
 	# }
 
 	# def __init__(self, parent, styleobj, *args, **kwargs):

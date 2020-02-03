@@ -69,16 +69,21 @@ class EventReader():
 
 	def __iter__(self):
 		self.reset()
-		while True:
-			chk = self.__next__()
-			yield chk
-			if chk.message["last"]: break
+		return self
+		# self.reset()
+		# while True:
+		# 	chk = self.__next__()
+		# 	yield chk
+		# 	if chk.message["last"]: break
 
 	def __exit__(self, *_):
 		self.destroy()
 
 	def __next__(self):
-		return self.getchunks(1)[0]
+		chk = self.getchunks(1)[0]
+		if chk.content.isspace() or chk.content == "":
+			raise StopIteration
+		return chk
 
 	def close(self):
 		self.destroy()
