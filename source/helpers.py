@@ -88,15 +88,20 @@ def getstreakpeaks(killstreaks):
 	return streakpeaks
 
 def assignbookmarkdata(files, bookmarkdata):
-	'''Takes a list of files and the bookmarkdata; returns a list that
-	contains the parallel bookmarkdata; None if no match found.
-	'''
-	assignedlogs = [None for _ in files]
-	for i in bookmarkdata:
-		for j in range(len(files)):
-			if i[0] == files[j]:
-				assignedlogs[j] = i
-	return assignedlogs
+	"""
+	Creates a list where each Logchunk in bookmarkdata is sitting next
+	to its file. If a file does not have any bookmarkdata, it will have
+	None matched up instead.
+
+	files : List of file names ["abc.dem", "def.dem", ...]
+	bookmarkdata : List of Logchunk instances.
+	"""
+	assigned_dat = [None for _ in files]
+	for i, file in enumerate(files):
+		for j in bookmarkdata:
+			if j.demo_name == file:
+				assigned_dat[i] = j
+	return assigned_dat
 
 def formatbookmarkdata(filelist, bookmarkdata):
 	'''Converts bookmarkdata into a list of strings:

@@ -26,7 +26,7 @@ class ThreadFilter(_StoppableBaseThread):
 		cfg = self.options["cfg"]
 		starttime = time.time()
 
-		self.queue_out.put(("SetStatusbar", ("Filtering demos; Parsing filter...",)))
+		self.queue_out.put(("SetStatusbar", ("Filtering demos; Parsing filter...", )))
 		try:
 			filters = filterstr_to_lambdas(filterstring)
 		except Exception as error:
@@ -42,9 +42,9 @@ class ThreadFilter(_StoppableBaseThread):
 		bookmarkdata = None
 		files = None
 		self.datafetcherqueue = queue.Queue()
-		self.datafetcherthread = ThreadReadFolder(None, self.datafetcherqueue, targetdir = curdir, cfg = cfg)
+		self.datafetcherthread = ThreadReadFolder(self.datafetcherqueue, targetdir = curdir, cfg = cfg)
 		self.datafetcherthread.start()
-		self.datafetcherthread.join(None, 1) # NOTE: Severe wait time?
+		self.datafetcherthread.join(None, 1) # NOTE: Can't really wait for join to this thread here.
 		if self.stoprequest.isSet():
 			self.queue_out.put(("Finish", 2)); return
 
@@ -64,7 +64,7 @@ class ThreadFilter(_StoppableBaseThread):
 		if self.stoprequest.isSet():
 			self.queue_out.put(("Finish", 2)); return
 
-		filteredlist = {"col_filename":[], "col_bookmark":[], "col_ctime":[], "col_filesize":[], }
+		filteredlist = {"col_filename": [], "col_bookmark": [], "col_ctime": [], "col_filesize":[]}
 		file_amnt = len(files)
 		for i, j in enumerate(files): #Filter
 			if not self.options["silent"]:

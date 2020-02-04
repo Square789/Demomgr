@@ -124,7 +124,7 @@ class EventReader():
 				self.lastchunk = logchunks.pop(0)#Big logchunk
 		else:
 			self.lastchunk = logchunks.pop(-1)
-		self.chunkbuffer = self.chunkbuffer + [Logchunk(i[:-1], {"last":not bool(rawread)}, self.handle.name) for i in logchunks]#Cut off \n @ end; NOTE: THIS MAY BE 2 OR 1 CHARS DEPENDING ON SYSTEM
+		self.chunkbuffer = self.chunkbuffer + [Logchunk(i[:-1], {"last": not bool(rawread)}, self.handle.name) for i in logchunks]#Cut off \n @ end; NOTE: THIS MAY BE 2 OR 1 CHARS DEPENDING ON SYSTEM
 
 class EventWriter():
 	'''Class designed to write to a Source engine demo event log file.

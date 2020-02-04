@@ -16,7 +16,7 @@ class CfgError(BaseDialog):
 	error string <str>
 	mode <int>: 0 for read access error, 1 for write error'''
 	def __init__(self, parent, cfgpath, error, mode):
-		self.result_ = None
+		self.result = None
 		self.cfgpath = cfgpath
 		self.error = error
 		self.mode = mode #0: Read; 1: Write
@@ -56,7 +56,7 @@ class CfgError(BaseDialog):
 		self.__quit()
 
 	def __retry(self):
-		self.result_ = 0
+		self.result = 0
 		self.destroy()
 
 	def __replacecfg(self):
@@ -76,9 +76,9 @@ class CfgError(BaseDialog):
 			self.err_rewrite_fail.pack(side = tk.TOP, expand = 1,
 				fill = tk.BOTH)
 			return
-		self.result_ = 1
+		self.result = 1
 		self.destroy()
 
 	def __quit(self):
-		self.result_ = 2
+		self.result = 2
 		self.destroy()

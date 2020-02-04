@@ -14,24 +14,34 @@ class GROUP:
 	DEMO = 4
 	TICK = 5
 
-class ParsedLogchunk():
-	'''Contains two attributes:
+class Logchunk():
+	"""Container class to hold attributes of a logchunk."""
+	def __init__(self, demo_name, killstreaks, bookmarks):
+		"""
 		demo_name <Str>: The name of the demo that is described in the
 			logchunk.
-		bookmarks <Tuple>: Bookmarks (including killstreaks):
-			((killstreakpeak <Int>, tick <Int>), ...),
-			(bookmarkname <Str>, tick <Int>), ...))
-	'''
-	def __init__(self, demo_name, bookmarks):
+		killstreaks <Tuple/List>: Killstreaks:
+			[(streak <Int>, tick <Int>), ...]
+		bookmarks <Tuple/List>: Bookmarks:
+			[(bookmarkname <Str>, tick <Int>), ...)]
+		"""
 		self.demo_name = demo_name
+		self.killstreaks = killstreaks
 		self.bookmarks = bookmarks
 
 def parse_logchunk(in_chk):
-	'''Takes a handle_events.Logchunk and converts it into a ParsedLogchunk.'''
+	"""
+	Takes a handle_events.Logchunk and converts it into a Logchunk.
+
+	in_chk : Full logchunk as it is read from file.
+	"""
 	loglines = in_chk.content.split("\n")
 	if not loglines:
 		raise ValueError("Logchunks may not be empty.")
-	demo = RE_LINE.search(loglines[0])[GROUP.DEMO] + ".dem"
+	regres = RE_LINE.search(loglines[0])
+	if not regres:
+		raise ValueError("Regex match failed, Logchunk likely malformed.")
+	demo = regres[GROUP.DEMO] + ".dem"
 
 	killstreaks = []
 	bookmarks = []
@@ -45,20 +55,21 @@ def parse_logchunk(in_chk):
 		elif line_type == "Bookmark":
 			bookmarks.append((value, tick))
 	killstreaks = getstreakpeaks(killstreaks)
-	events = (killstreaks, bookmarks)
 
-	return ParsedLogchunk(demo, events)
+	return Logchunk(demo, killstreaks, bookmarks)
 
 def read_events(handle, blocksz):
-	'''This function reads an events.txt file as it's written by the source
-	engine, returns (filename, ( (killstreakpeak, tick)... ),
-		( (bookmarkname, tick)... ) ).
-	May raise exceptions.
-	'''
-	reader = handle_ev.EventReader(handle, blocksz=blocksz)
-	out = []
-	for chk in reader:
-		p_l = parse_logchunk(chk)
-		out.append((p_l.demo_name, p_l.bookmarks[0], p_l.bookmarks[1]))
-	reader.destroy()
+	"""
+	This function reads an events.txt file as it's written by the source
+	engine, returns a list of Logchunk instances containing demo name,
+	killstreaks and bookmarks.
+
+	handle : Open file handle to the events file. Must be readable.
+	blocksz : Block size the handle file should be read in.
+	May raise IOError, PermissionError, ValueError.
+	"""
+	with handle_ev.EventReader(handle, blocksz=blocksz) as reader:
+		out = []
+		for chk in reader:
+			out.append(parse_logchunk(chk))
 	return out

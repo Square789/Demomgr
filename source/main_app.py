@@ -23,13 +23,12 @@ from source import context_menus
 from source.helper_tk_widgets import TtkText
 
 from source import constants as CNST
-from source.helpers import (formatdate, readdemoheader, convertunit,
-	formatbookmarkdata, format_bm_pair)
+from source.helpers import (formatdate, readdemoheader, convertunit, format_bm_pair)
 
 from source.dialogues import *
 from source.threads import ThreadFilter, ThreadReadFolder
 
-__version__ = "0.9.2"
+__version__ = "0.9.3"
 __author__ = "Square789"
 
 RCB = "3"
@@ -383,9 +382,8 @@ class MainApp():
 				self.threads[k].join()
 		for k in self.queues:
 			self.queues[k].queue.clear()
-		self.threads["datafetcher"] = ThreadReadFolder(None,
-			self.queues["datafetcher"], targetdir = self.curdir,
-			cfg = self.cfg.copy())
+		self.threads["datafetcher"] = ThreadReadFolder(self.queues["datafetcher"],
+			targetdir = self.curdir, cfg = self.cfg.copy())
 		self.threads["datafetcher"].start()
 		self.after_handlers["datafetcher"] = self.root.after(0,
 			self._after_callback_fetchdata)
@@ -628,11 +626,11 @@ class MainApp():
 				if handleexists:
 					cfghandle.close()
 				dialog = CfgError(self.root, cfgpath = self.cfgpath, error = error, mode = 0)
-				if dialog.result_ == 0: # Retry
+				if dialog.result == 0: # Retry
 					pass
-				elif dialog.result_ == 1: # Config replaced by dialog
+				elif dialog.result == 1: # Config replaced by dialog
 					pass
-				elif dialog.result_ == 2: # Quit
+				elif dialog.result == 2: # Quit
 					self.quit_app()
 					sys.exit()
 			if handleexists:

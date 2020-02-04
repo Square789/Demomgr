@@ -7,8 +7,7 @@ from source.dialogues._base import BaseDialog
 from source import multiframe_list as mfl
 from source import constants as CNST
 from source.helpers import (assignbookmarkdata, formatdate, convertunit,
-	formatbookmarkdata, frmd_label, readdemoheader, HeaderFetcher,
-	FileStatFetcher, format_bm_pair)
+	frmd_label, readdemoheader, HeaderFetcher, FileStatFetcher, format_bm_pair)
 from source.filterlogic import filterstr_to_lambdas
 from source.dialogues.deleter import Deleter
 
