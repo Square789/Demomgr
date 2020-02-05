@@ -40,17 +40,17 @@ class BookmarkSetter(BaseDialog):
 		self.demo_dir = os.path.dirname(targetdemo)
 		self.bm_dat = bm_dat
 		self.styleobj = styleobj
-		
+
 		self.jsonmark_var = tk.BooleanVar()
 		self.eventsmark_var = tk.BooleanVar()
 
 		self.mark_thread = threading.Thread(target = lambda: False)
 		self.after_handler = None
 		self.queue_out = queue.Queue()
-		
+
 		self.result = 0
 		self.new_bm = None
-		
+
 		super().__init__(parent, "Insert bookmark...")
 
 	def body(self, parent):
@@ -80,8 +80,8 @@ class BookmarkSetter(BaseDialog):
 		widgetcontainer.rowconfigure(4, weight = 1)
 
 		self.listbox = mfl.MultiframeList(widgetcontainer, inicolumns = (
-			{"name":"Name", "col_id":"col_name"},
-			{"name":"Tick", "col_id":"col_tick"}))
+			{"name": "Name", "col_id": "col_name"},
+			{"name": "Tick", "col_id": "col_tick"}))
 		self.listbox.grid(row = 0, column = 0, rowspan = 2, sticky = "news")
 
 		add_bm_btn = ttk.Button(widgetcontainer, text = "Insert bookmark",
@@ -177,7 +177,7 @@ class BookmarkSetter(BaseDialog):
 			self.listbox.getcolumn("col_tick")))
 
 		self.savebtn.configure(text = "Cancel", command = self.__cancel_mark)
-		self.mark_thread = ThreadMarkDemo(None, self.queue_out,
+		self.mark_thread = ThreadMarkDemo(self.queue_out,
 			mark_json = mark_json, mark_events = mark_evts,
 			bookmarks = raw_bookmarks, targetdemo = self.targetdemo)
 		self.mark_thread.start()

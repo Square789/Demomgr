@@ -19,20 +19,24 @@ RE_LOGLINE_IS_BOOKMARK = re.compile(
 	r"\[\d\d\d\d/\d\d/\d\d \d\d:\d\d\] Bookmark ")
 
 class ThreadMarkDemo(_StoppableBaseThread):
-	'''Thread takes no queue_inp, but queue_out and as the following args:
-	mark_json <Bool>: Whether the .json file should be modified
-	mark_events <Bool>: Whether the _events.txt file should be modified
-	bookmarks <Tuple>: Bookmarks in the standard bookmark format.
-	targetdemo <Str>: Absolute path to the demo to be marked.
-	'''
-	def __init__(self, queue_in, queue_out, mark_json, mark_events, bookmarks,
+	"""
+	Thread for modifying the bookmarks of a demo.
+	"""
+	def __init__(self, queue_out, mark_json, mark_events, bookmarks,
 			targetdemo, *args, **kwargs):
+		"""
+		Thread takes an output queue and as the following args:
+		mark_json <Bool>: Whether the .json file should be modified
+		mark_events <Bool>: Whether the _events.txt file should be modified
+		bookmarks <Tuple>: Bookmarks in the standard bookmark format.
+		targetdemo <Str>: Absolute path to the demo to be marked.
+		"""
 		self.mark_json = mark_json
 		self.mark_events = mark_events
 		self.bookmarks = bookmarks
 		self.targetdemo = targetdemo
 
-		super().__init__(queue_in, queue_out, *args, **kwargs)
+		super().__init__(None, queue_out, *args, **kwargs)
 
 	def run(self):
 		if self.mark_json:

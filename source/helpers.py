@@ -103,20 +103,6 @@ def assignbookmarkdata(files, bookmarkdata):
 				assigned_dat[i] = j
 	return assigned_dat
 
-def formatbookmarkdata(filelist, bookmarkdata):
-	'''Converts bookmarkdata into a list of strings:
-	"X Bookmarks, Y Killstreaks". needs filelist to assign bookmarkdata to.
-	'''
-	assignedlogs = assignbookmarkdata(filelist, bookmarkdata)
-	listout = ["" for i in assignedlogs]
-	for i in range(len(assignedlogs)): #convert the correctly assigned logs ("", [], []) into information displaying strings
-		if assignedlogs[i] != ("", [], []):
-			listout[i] = str(len(assignedlogs[i][2])) + " Bookmarks;" \
-				" " + str(len(assignedlogs[i][1])) + " Killstreaks."
-		else:
-			listout[i] = "None"
-	return listout
-
 def format_bm_pair(toformat):
 	'''Formats a bookmark pair ((), ()) into a readable string.'''
 	if toformat is None:
@@ -124,7 +110,7 @@ def format_bm_pair(toformat):
 	return f"{len(toformat[0])} Killstreaks; {len(toformat[1])} Bookmarks"
 
 def frmd_label(parent, text,
-	styles = ("Framed.Contained.TFrame", "Labelframe.Contained.TLabel")):
+		styles = ("Framed.Contained.TFrame", "Labelframe.Contained.TLabel")):
 	'''Returns a ttk.Frame object containing a ttk.Label with text specified
 	that is supposed to be integrated into a Labelframe.
 	styles defaults to a tuple of ("Framed.Contained.TFrame",

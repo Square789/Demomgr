@@ -28,7 +28,7 @@ from source.helpers import (formatdate, readdemoheader, convertunit, format_bm_p
 from source.dialogues import *
 from source.threads import ThreadFilter, ThreadReadFolder
 
-__version__ = "0.9.3"
+__version__ = "0.9.4"
 __author__ = "Square789"
 
 RCB = "3"

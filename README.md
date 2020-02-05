@@ -2,7 +2,7 @@
 Demomgr is a python script designed to keep track of, cleanup and play demo files from the Source video game Team Fortress 2, released by Valve Corporation in 2007.
 
 > ![Main program window](https://github.com/Square789/Demomgr/blob/master/img0.PNG)  
-> _A folder, filtered to only include demos recorded on localhost, one demo selected._
+> _A folder, filtered to only include demos taking place on koth maps._
 ### Current features:
 * List Demos, their filesize, creation date and the amount of Killstreaks/Bookmarks
   * View demo header information

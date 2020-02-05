@@ -71,7 +71,7 @@ class ThreadReadFolder(_StoppableBaseThread):
 			try:
 				h = open(os.path.join(self.options["targetdir"], CNST.EVENT_FILE), "r")
 				handleopen = True
-				bookmarklist = read_events(h, self.options["cfg"]["evtblocksz"])
+				logchunk_list = read_events(h, self.options["cfg"]["evtblocksz"])
 				h.close()
 			except Exception as exc:
 				if handleopen: h.close()
