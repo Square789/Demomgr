@@ -2,7 +2,7 @@
 Demomgr is a python script designed to keep track of, cleanup and play demo files from the Source video game Team Fortress 2, released by Valve Corporation in 2007.
 
 > ![Main program window](https://github.com/Square789/Demomgr/blob/master/img0.PNG)  
-> _A folder, filtered to only include demos taking place on koth maps._
+> _A folder, filtered to only include demos where a killstreak of at least 8 has occurred and the map type is either king of the hill or payload, sorted by creation date._
 ### Current features:
 * List Demos, their filesize, creation date and the amount of Killstreaks/Bookmarks
   * View demo header information
@@ -14,14 +14,11 @@ Demomgr is a python script designed to keep track of, cleanup and play demo file
 * Cleanup entire folders by multiple criteria
   * Removes unneccessary entries from \_events.txt and also deletes useless .json files
 
-The script works (tested on Python 3.7.4) with the standard library, installing the [vdf module](https://pypi.org/project/vdf/) however will allow it to work with standard launch information for TF2. Installing the [regex module](https://pypi.org/project/regex/) will add two additional parameter structures in the filtering syntax.
+The script has so far only been tested on python 3.8.1.
 
 ### Progress and (hopefully) upcoming features:
 - [x] Basic filtering mechanism
-- [ ] Help/About dialog window
 - [x] Broader filtering options
-- [x] Better Cleanup item selector
-- [ ] Improve Cleanup dialog filter
 - [ ] Remove hassle with UNIX Timestamps
 - [x] Add stats after deletion
 - [x] Thread demo accessing and processing for responsive UI
@@ -32,9 +29,12 @@ The script works (tested on Python 3.7.4) with the standard library, installing 
 - [x] Add HLAE support
 
 ### Start Instructions:
-Optionally install the [vdf module](https://pypi.org/project/vdf/).  
-Optionally install the [regex module](https://pypi.org/project/regex/).
-Make sure you extract all files into a directory where the script will have write access, and then launch `demomgr.py`.  
+Run `pip install demomgr`. This should create an entry point script in your python
+installations's `Scripts` directory. You should now be able to run `demomgr.exe`.
+
+If that does not work out for you, create a procedure that invokes the python commands
+`from demomgr.main_app import MainApp; MainApp()`
+
 After accepting the license, you will be presented with an empty UI. In order to view your demos, click "Add demo path" and select the directory containing your demos.  
 You can switch between directories using the Selection box at the top of the window.  
 
@@ -65,7 +65,7 @@ Accepted parameters are:
  * Quoteless string: `foo`
    * Quoteless strings may consist out of A-Z, a-z, \_, -
  * Quoteless string tuple: `(foo, bar, baz)`
- * String: `"foo"`, `'b\u0061r'` (*regex module required*)
- * String tuple: `("foo", 'b\u0061r', "b\u0061z", )` (*regex module required*)
+ * String: `"foo"`, `'b\u0061r'`
+ * String tuple: `("foo", 'b\u0061r', "b\u0061z", )`
  * Range: `1..2`, `10..`, `..50`  
  
