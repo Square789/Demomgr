@@ -4,7 +4,7 @@ from setuptools import setup
 # Thanks: https://stackoverflow.com/questions/2058802/
 # 	how-can-i-get-the-version-defined-in-setup-py-setuptools-in-my-package
 __version__ = None
-with open("multiframe_list/multiframe_list.py") as h:
+with open("demomgr/main_app.py") as h:
 	for line in h.readlines():
 		if line.startswith("__version__"):
 			__version__ = ast.parse(line).body[0].value.s
