@@ -26,7 +26,14 @@ setup(
 	description = "TF2 demo file management tool written in Python and Tcl, using tkinter.",
 	long_description = long_desc,
 	long_description_content_type = "text/markdown",
-	packages = ["demomgr"],
+	packages = [
+		"demomgr",
+		"demomgr.threads",
+		"demomgr.dialogues",
+	],
+	package_data = {
+		"demomgr": ["ui_themes/*.tcl", "ui_themes/*/*.png"],
+	},
 	install_requires = reqs,
 	classifiers = [
 		"Topic :: Desktop Environment :: File Managers",

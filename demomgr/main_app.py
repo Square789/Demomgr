@@ -26,7 +26,7 @@ from demomgr.helpers import (formatdate, readdemoheader, convertunit, format_bm_
 from demomgr.style_helper import StyleHelper
 from demomgr.threads import ThreadFilter, ThreadReadFolder
 
-__version__ = "1.0.0"
+__version__ = "1.0.1"
 __author__ = "Square789"
 
 RCB = "3"
