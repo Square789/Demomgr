@@ -325,12 +325,14 @@ class LaunchTF2(BaseDialog):
 			final_launchoptions = [executable] + launch_args
 			try:
 				subprocess.Popen(final_launchoptions) #Launch tf2; -steam param may cause conflicts when steam is not open but what do I know?
-				self.result = {"success": True, "steampath":self.steamdir_var.get()}
+				self.result = {"success": True}
 			except FileNotFoundError:
-				self.result = {"success": False, "steampath":self.steamdir_var.get()}
+				self.result = {"success": False}
 				tk_msg.showerror("Demomgr - Error", "Executable not found.", parent = self)
 			except (OSError, PermissionError) as error:
-				self.result = {"success": False, "steampath":self.steamdir_var.get()}
+				self.result = {"success": False}
 				tk_msg.showerror("Demomgr - Error",
 					"Could not access executable :\n{}".format(str(error)), parent = self)
+			self.result["steampath"] = self.steamdir_var.get()
+			self.result["hlaepath"] = self.hlaedir_var.get()
 		self.destroy()

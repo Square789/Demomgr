@@ -29,7 +29,7 @@ from demomgr.threads import ThreadFilter, ThreadReadFolder
 THREADSIG = CNST.THREADSIG
 RCB = "3"
 
-__version__ = "1.1.0"
+__version__ = "1.1.1"
 __author__ = "Square789"
 
 def decorate_callback(hdlr_slot):
@@ -290,11 +290,15 @@ class MainApp():
 		dialog = LaunchTF2(self.mainframe, demopath = path,
 			cfg = self.cfg)
 		if dialog.result is not None:
-			if "steampath" in dialog.result:
-				if dialog.result["steampath"] != self.cfg["steampath"]:
-					self.cfg["steampath"] = dialog.result["steampath"]
-					self.writecfg(self.cfg)
-					self.cfg = self.getcfg()
+			update_needed = False
+			for i in ("steampath", "hlaepath"):
+				if i in dialog.result:
+					if dialog.result[i] != self.cfg[i]:
+						update_needed = True
+						self.cfg[i] = dialog.result[i]
+			if update_needed:
+				self.writecfg(self.cfg)
+				self.cfg = self.getcfg()
 
 	def _deldem(self):
 		'''Deletes the currently selected demo.'''
