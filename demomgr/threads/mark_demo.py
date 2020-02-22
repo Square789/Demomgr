@@ -7,6 +7,7 @@ import time
 import re
 from datetime import datetime
 
+from demomgr.constants import THREADSIG
 from demomgr.threads._base import _StoppableBaseThread
 from demomgr import constants as CNST
 from demomgr import handle_events as handle_ev
@@ -42,30 +43,33 @@ class ThreadMarkDemo(_StoppableBaseThread):
 		if self.mark_json:
 			try:
 				self.__mark_json()
-				self.queue_out.put(("ConsoleInfo",
-					"Successfully modified json file."))
+				self.queue_out_put(THREADSIG.INFO_CONSOLE,
+					"Successfully modified json file.")
 			except (OSError, PermissionError) as err: # File problems
-				self.queue_out.put(("ConsoleInfo", str(err)))
+				self.queue_out_put(THREADSIG.INFO_CONSOLE, str(err))
 			except json.decoder.JSONDecodeError as err: # Json malformed
-				self.queue_out.put(("ConsoleInfo", str(err)))
+				self.queue_out_put(THREADSIG.INFO_CONSOLE, str(err))
 			except (KeyError, IndexError, TypeError) as err: # Json garbage
-				self.queue_out.put(("ConsoleInfo", str(err)))
+				self.queue_out_put(THREADSIG.INFO_CONSOLE, str(err))
 
 		if self.stoprequest.isSet():
-			self.queue_out.put(("Finish", 2))
+			self.queue_out_put(THREADSIG.ABORTED)
 			return
 
 		if self.mark_events:
 			try:
 				self.__mark_events()
-				self.queue_out.put(("ConsoleInfo",
-					"Successfully modified " + CNST.EVENT_FILE))
+				if self.stoprequest.is_set(): # Method may return due to user abort
+					self.queue_out_put(THREADSIG.ABORTED)
+					return
+				self.queue_out_put(THREADSIG.INFO_CONSOLE,
+					"Successfully modified " + CNST.EVENT_FILE)
 			except (PermissionError, OSError) as err:
-				self.queue_out.put(("ConsoleInfo", str(err)))
+				self.queue_out_put(THREADSIG.INFO_CONSOLE, str(err))
 			except (TypeError, ValueError) as err:
-				self.queue_out.put(("ConsoleInfo", str(err))) # Something is wrong with _events.txt
+				self.queue_out_put(THREADSIG.INFO_CONSOLE, str(err)) # Something is wrong with _events.txt
 
-		self.queue_out.put(("Finish", 1))
+		self.queue_out_put(THREADSIG.SUCCESS)
 
 	def __mark_json(self):
 		formatted_bookmarks = []
@@ -81,16 +85,16 @@ class ThreadMarkDemo(_StoppableBaseThread):
 			with open(full_json, "r") as handle: # Load it
 				json_data = json.load(handle)
 		else:
-			self.queue_out.put(("ConsoleInfo",
-				"JSON file not found; Creating new."))
+			self.queue_out_put(THREADSIG.INFO_CONSOLE,
+				"JSON file not found; Creating new.")
 		json_data["events"] = [i for i in json_data["events"]
 			if not i["name"] == CNST.EVENTFILE_BOOKMARK]
 		json_data["events"].extend(formatted_bookmarks)
 		json_data["events"] = sorted(json_data["events"],
 			key = lambda elem: elem["tick"])
 		if not json_data["events"]:
-			self.queue_out.put(("ConsoleInfo",
-				"JSON is empty, not writing/deleting file."))
+			self.queue_out_put(THREADSIG.INFO_CONSOLE,
+				"JSON is empty, not writing/deleting file.")
 			if os.path.exists(full_json):
 				os.remove(full_json)
 		else:
@@ -109,10 +113,10 @@ class ThreadMarkDemo(_StoppableBaseThread):
 
 		evtpath = os.path.join(demo_dir, CNST.EVENT_FILE)
 		if not os.path.exists(evtpath):
-			self.queue_out.put(("ConsoleInfo",
-				CNST.EVENT_FILE + " does not exist, creating empty."))
+			self.queue_out_put(THREADSIG.INFO_CONSOLE,
+				CNST.EVENT_FILE + " does not exist, creating empty.")
 			open(evtpath, "w").close()
-		
+
 		tmpevtpath = os.path.join(demo_dir, "." + CNST.EVENT_FILE)
 		with handle_ev.EventReader(evtpath) as event_reader, \
 				handle_ev.EventWriter(tmpevtpath,
@@ -120,8 +124,8 @@ class ThreadMarkDemo(_StoppableBaseThread):
 			chunkfound = False
 			for chk in event_reader:
 				if self.stoprequest.isSet():
-					self.queue_out.put(("Finish", 2))
-					return
+					self.queue_out_put(THREADSIG.ABORTED)
+					raise InterruptedError()
 				regres = RE_DEM_NAME.search(chk.content)
 				towrite = chk.content
 				if regres is not None:

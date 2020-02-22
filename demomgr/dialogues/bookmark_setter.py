@@ -22,6 +22,8 @@ from demomgr import handle_events as handle_ev
 from demomgr.threads import ThreadMarkDemo
 from demomgr.helper_tk_widgets import TtkText
 
+THREADSIG = CNST.THREADSIG
+
 class BookmarkSetter(BaseDialog):
 	'''Dialog that manages a bookmark into a demo's json file or _events.txt
 	entry.
@@ -46,7 +48,6 @@ class BookmarkSetter(BaseDialog):
 		self.eventsmark_var = tk.BooleanVar()
 
 		self.mark_thread = threading.Thread(target = lambda: False)
-		self.after_handler = None
 		self.queue_out = queue.Queue()
 
 		self.result = 0
@@ -189,9 +190,9 @@ class BookmarkSetter(BaseDialog):
 		while True:
 			try:
 				queueobj = self.queue_out.get_nowait()
-				if queueobj[0] == "Finish":
+				if queueobj[0] < 0x100: # Finish
 					finished = True
-				elif queueobj[0] == "ConsoleInfo":
+				elif queueobj[0] == THREADSIG.INFO_CONSOLE:
 					self.__log(queueobj[1])
 			except queue.Empty:
 				break
@@ -208,6 +209,9 @@ class BookmarkSetter(BaseDialog):
 	def __cancel_mark(self):
 		if self.mark_thread.isAlive():
 			self.mark_thread.join()
-		self.after_cancel(self.after_handler)
-		self.queue_out.clear()
+		self.queue_out.queue.clear()
 		self.savebtn.configure(text = "Save", command = self.__mark)
+
+	def cancel(self):
+		self.__cancel_mark()
+		self.destroy()

@@ -1,8 +1,5 @@
-#Values. These are more or less static, but should not be configured.
-
 CFG_FOLDER = ".demomgr"
 CFG_NAME = "config.cfg"
-# ICONNAME = "demmgr.ico",
 DEFAULT_CFG = {
 	"demopaths": [],
 	"lastpath": "",
@@ -33,8 +30,6 @@ DATE_FORMAT = "%d.%m.%Y  %H:%M:%S"
 EVENTFILE_FILENAMEFORMAT = "(?<= \\(\").+(?=\" at)" #regex
 EVENTFILE_BOOKMARK = "Bookmark"
 EVENTFILE_KILLSTREAK = "Killstreak"
-EVENTFILE_TICKLOGSEP = "(?<= at )\\d+(?=\\))" # regex
-EVENTFILE_ARGIDENT = r"(?<= ).+(?= \()" # regex
 STATUSBARDEFAULT = "Ready."
 TF2_EXE_PATH = "steamapps/common/team fortress 2/hl2.exe"
 TF2_HEAD_PATH = "steamapps/common/team fortress 2/tf/"
@@ -52,7 +47,6 @@ LAUNCHOPTIONSKEYS = (
 	"UserLocalConfigStore", "Software", "Valve", "Steam", "Apps", "440", "LaunchOptions",
 )
 STEAM_CFG_USER_NAME = '["UserLocalConfigStore"]["friends"]["PersonaName"]'
-ERRLOGFILE = "err.log"
 GUI_UPDATE_WAIT = 20 # Setting this to lower values might lock the UI, use with care.
 THEME_SUBDIR = "ui_themes"
 THEME_PACKAGES = {
@@ -62,3 +56,16 @@ THEME_PACKAGES = {
 FALLBACK_HEADER = {"dem_prot":3, "net_prot":24, "hostname":"",
 	"clientid":"", "map_name":"", "game_dir":"", "playtime":0,
 	"tick_num":0, "framenum":0, "tickrate":0}
+
+# Zero-Parameter values: 0x0   - 0xFF
+# One-Parameter values:  0x100 - 0xFFFF
+# |---Info level:        0x100 - 0x1FF
+# '---Result level:      0x200 - ?
+# etc.
+class THREADSIG:
+	SUCCESS = 0x0
+	FAILURE = 0x1
+	ABORTED = 0x2
+	INFO_CONSOLE = 0x100
+	INFO_STATUSBAR = 0x101
+	RESULT_DEMODATA = 0x200

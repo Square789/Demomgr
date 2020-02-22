@@ -72,7 +72,8 @@ class CfgError(BaseDialog):
 		except Exception as exception:
 			self.inf_updating.pack_forget()
 			self.err_rewrite_fail.config(text = "Rewrite failed: {}".format(
-				str(exception)) )
+				str(exception)
+			))
 			self.err_rewrite_fail.pack(side = tk.TOP, expand = 1,
 				fill = tk.BOTH)
 			return

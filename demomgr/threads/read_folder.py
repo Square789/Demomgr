@@ -5,9 +5,10 @@ import queue
 import json
 import time
 
-from demomgr.threads._base import _StoppableBaseThread
+from demomgr.constants import THREADSIG
 from demomgr.helpers import (assignbookmarkdata, getstreakpeaks)
 from demomgr.logchunk_parser import read_events, Logchunk
+from demomgr.threads._base import _StoppableBaseThread
 from demomgr import constants as CNST
 
 class ThreadReadFolder(_StoppableBaseThread):
@@ -27,21 +28,24 @@ class ThreadReadFolder(_StoppableBaseThread):
 		super().__init__(None, queue_out, *args, **kwargs)
 
 	def __stop(self, statmesg, result, exitcode):
-		'''Outputs end signals to self.queue_out, every arg will be output
-		as [1] in a tuple where [0] is - in that order - "SetStatusbar",
-		"Result", "Finish". If the first arg is None, the "SetStatusbar"
-		tuple will not be output.
-		'''
+		"""
+		Outputs end signals to self.queue_out.
+		If the first arg is None, the Statusbar tuple will not be output.
+		"""
 		if statmesg is not None:
-			self.queue_out.put(("SetStatusbar", statmesg))
-		self.queue_out.put(("Result", result))
-		self.queue_out.put(("Finish", exitcode))
+			self.queue_out_put(THREADSIG.INFO_STATUSBAR, statmesg)
+		self.queue_out_put(THREADSIG.RESULT_DEMODATA, result)
+		self.queue_out_put(exitcode)
 
 	def run(self):
-		'''Get data from all the demos in current folder; return in format that can be directly put into listbox'''
+		'''
+		Get data from all the demos in current folder;
+		return it in a format that can be directly fed into listbox.
+		'''
 		if self.options["targetdir"] == "":
-			self.__stop(None, {}, 0); return
-		self.queue_out.put(("SetStatusbar", ("Reading demo information from {} ...".format(self.options["targetdir"]), None)))
+			self.__stop(None, {}, THREADSIG.FAILURE); return
+		self.queue_out_put(THREADSIG.INFO_STATUSBAR,
+			("Reading demo information from {} ...".format(self.options["targetdir"]), None))
 		starttime = time.time()
 
 		try:
@@ -49,37 +53,42 @@ class ThreadReadFolder(_StoppableBaseThread):
 				and (os.path.isfile(os.path.join(self.options["targetdir"], i)))]
 			datescreated = [os.path.getmtime(os.path.join(self.options["targetdir"], i)) for i in files]
 			if self.stoprequest.isSet():
-				self.queue_out.put(("Finish", 2)); return
+				self.queue_out_put(THREADSIG.ABORTED); return
 			sizes = [os.path.getsize(os.path.join(self.options["targetdir"], i)) for i in files]
 			if self.stoprequest.isSet():
-				self.queue_out.put(("Finish", 2)); return
+				self.queue_out_put(THREADSIG.ABORTED); return
 		except FileNotFoundError:
-			self.__stop(("ERROR: Current directory \"{}\" does not exist.".format(self.options["targetdir"]), None), {}, 0); return
+			self.__stop(
+				("ERROR: Current directory \"{}\" does not exist.".format(
+					self.options["targetdir"]), None),
+				{}, THREADSIG.FAILURE)
+			return
 		except (OSError, PermissionError) as error:
-			self.__stop(("ERROR reading directory: {}.".format(str(error)), None), {}, 0); return
+			self.__stop(("ERROR reading directory: {}.".format(str(error)), None),
+				{}, THREADSIG.FAILURE)
+			return
 
 		# Grab bookmarkdata (returned through col_bookmark)
 		datamode = self.options["cfg"]["datagrabmode"]
 		if datamode == 0: #Disabled
 			self.__stop(
-				("Bookmark information disabled.", 2000),
+				("Bookmark information disabled.", 3000),
 				{"col_filename": files, "col_bookmark": [None for _ in files],
 					"col_ctime": datescreated, "col_filesize": sizes},
-				1); return
+				THREADSIG.SUCCESS)
+			return
 		elif datamode == 1: #_events.txt
 			handleopen = False
 			try:
-				h = open(os.path.join(self.options["targetdir"], CNST.EVENT_FILE), "r")
-				handleopen = True
-				logchunk_list = read_events(h, self.options["cfg"]["evtblocksz"])
-				h.close()
+				with open(os.path.join(self.options["targetdir"], CNST.EVENT_FILE), "r") as h:
+					logchunk_list = read_events(h, self.options["cfg"]["evtblocksz"])
 			except Exception as exc:
-				if handleopen: h.close()
 				self.__stop(
-					("\"{}\" has not been found, can not be opened or is malformed.".format(CNST.EVENT_FILE), 5000),
-					{"col_filename":files, "col_bookmark":[None for _ in files],
-						"col_ctime":datescreated, "col_filesize":sizes},
-					0); return
+					("\"{}\" has not been found, can not be opened or is malformed.".format(
+						CNST.EVENT_FILE), 5000),
+					{"col_filename": files, "col_bookmark": [None for _ in files],
+						"col_ctime": datescreated, "col_filesize": sizes}, THREADSIG.FAILURE)
+				return
 		elif datamode == 2: #.json
 			try: # Get json files
 				jsonfiles = [i for i in os.listdir(self.options["targetdir"]) if os.path.splitext(i)[1] == ".json"]
@@ -89,14 +98,15 @@ class ThreadReadFolder(_StoppableBaseThread):
 					("Error getting .json files: {}".format(str(error)), 5000),
 					{"col_filename": files, "col_bookmark": [None for _ in files],
 						"col_ctime": datescreated, "col_filesize": sizes},
-					0); return
+					THREADSIG.FAILURE)
+				return
 
 			logchunk_list = []
 			for json_file in jsonfiles:
 				cur_ks = []
 				cur_bm = []
 				if self.stoprequest.isSet():
-					self.queue_out.put(("Finish", 2)); return
+					self.queue_out_put(THREADSIG.ABORTED); return
 				try: # Attempt to open the json file
 					h = open(os.path.join(self.options["targetdir"], json_file))
 				except (OSError, PermissionError, FileNotFoundError) as error:
@@ -127,12 +137,17 @@ class ThreadReadFolder(_StoppableBaseThread):
 				))
 
 		if self.stoprequest.isSet():
-			self.queue_out.put(("Finish", 2)); return
+			self.queue_out_put(THREADSIG.ABORTED)
+			return
 
 		listout = assignbookmarkdata(files, logchunk_list) #PARALLELIZE BOOKMARKDATA WITH FILES
 		listout = [((i.killstreaks, i.bookmarks) if i is not None else None) for i in listout] # Reduce to just the relevant data
 
 		self.__stop(
-			("Processed data from {} files in {} seconds.".format(len(files), round(time.time() - starttime, 4)), 3000),
-			{"col_filename":files, "col_bookmark":listout, "col_ctime":datescreated, "col_filesize":sizes},
-			1); return
+			("Processed data from {} files in {} seconds.".format(
+				len(files), round(time.time() - starttime, 4)
+			), 3000),
+			{"col_filename": files, "col_bookmark": listout,
+				"col_ctime": datescreated, "col_filesize": sizes},
+			THREADSIG.SUCCESS)
+		return

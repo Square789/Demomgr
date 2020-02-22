@@ -26,10 +26,28 @@ from demomgr.helpers import (formatdate, readdemoheader, convertunit, format_bm_
 from demomgr.style_helper import StyleHelper
 from demomgr.threads import ThreadFilter, ThreadReadFolder
 
-__version__ = "1.0.1"
+THREADSIG = CNST.THREADSIG
+RCB = "3"
+
+__version__ = "1.1.0"
 __author__ = "Square789"
 
-RCB = "3"
+def decorate_callback(hdlr_slot):
+	def actual_decorator(func):
+		def decorated(self):
+			finished = False
+			while True:
+				try:
+					if func(self):
+						break
+				except queue.Empty:
+					break
+			if not finished:
+				self.after_handlers[hdlr_slot] = \
+					self.root.after(CNST.GUI_UPDATE_WAIT,
+					lambda: decorated(self))
+		return decorated
+	return actual_decorator
 
 class MainApp():
 	def __init__(self):
@@ -287,7 +305,7 @@ class MainApp():
 		dialog = Deleter(self.root, demodir = self.curdir, files = [filename],
 			selected = [True], deluselessjson = False, cfg = self.cfg,
 			styleobj = self.ttkstyle)
-		if dialog.result != 0:
+		if dialog.result == 0:
 			if self.cfg["lazyreload"]:
 				self.listbox.removerow(index)
 				self._updatedemowindow(None)
@@ -400,30 +418,22 @@ class MainApp():
 			self._after_callback_fetchdata)
 		self._updatedemowindow(None)
 
+	@decorate_callback("datafetcher")
 	def _after_callback_fetchdata(self):
-		'''A code snippet that grabs elements from the datafetcher queue and
-		configures the UI based on what is returned. This method is supposed
-		to be run as a Tk after function and will call itself until the thread
-		has sent a termination signal.
-		'''
-		finished = False
-		while True:
-			try:
-				queueobj = self.queues["datafetcher"].get_nowait()
-				if queueobj[0] == "SetStatusbar":
-					self.setstatusbar(*queueobj[1])
-				elif queueobj[0] == "Finish":
-					finished = True
-				elif queueobj[0] == "Result":
-					self.listbox.setdata(queueobj[1])
-					self.listbox.format()
-			except queue.Empty:
-				break
-		if not finished:
-			self.after_handlers["datafetcher"] = self.root.after(
-				CNST.GUI_UPDATE_WAIT, self._after_callback_fetchdata)
-		else:
-			self.root.after_cancel(self.after_handlers["datafetcher"])
+		"""
+		Loop worker for the after handler decorator stub.
+		Grabs thread signals from the datafetcher queue and
+		acts accordingly.
+		"""
+		queueobj = self.queues["datafetcher"].get_nowait()
+		if queueobj[0] == THREADSIG.INFO_STATUSBAR:
+			self.setstatusbar(*queueobj[1])
+		elif queueobj[0] < 0x100: # Finish
+			return True
+		elif queueobj[0] == THREADSIG.RESULT_DEMODATA:
+			self.listbox.setdata(queueobj[1])
+			self.listbox.format()
+		return False
 
 	def _cleanup(self):
 		'''
@@ -440,35 +450,38 @@ class MainApp():
 		self.after_handlers["cleanup"] = \
 			self.root.after(0, self._after_callback_cleanup)
 
+	@decorate_callback("cleanup")
 	def _after_callback_cleanup(self):
-		finished = False
-		while True:
-			try:
-				queueobj = self.queues["cleanup"].get_nowait()
-				if queueobj[0] == "Finish":
-					finished = True
-				elif queueobj[0] == "SetStatusbar":
-					self.setstatusbar(*queueobj[1])
-				elif queueobj[0] == "Result":
-					del_diag = Deleter(
-						parent = self.root,
-						demodir = self.curdir,
-						files = queueobj[1]["col_filename"],
-						selected = [True for _ in queueobj[1]["col_filename"]],
-						deluselessjson = False,
-						cfg = self.cfg.copy(),
-						styleobj = self.ttkstyle,
-						eventfileupdate = "selectivemove",
-					)
-					if del_diag.result == 1:
-						self.reloadgui()
-			except queue.Empty:
-				break
-		if not finished:
-			self.after_handlers["cleanup"] = self.root.after(
-				CNST.GUI_UPDATE_WAIT, self._after_callback_cleanup)
-		else:
-			self.cleanupbtn.config(text = "Cleanup by filter...", state = tk.NORMAL)
+		"""
+		Loop worker for the after handler decorator stub.
+		Grabs thread signals from the cleanup queue and acts
+		accordingly, opening a Deletion dialog once the thread is done.
+		"""
+		queueobj = self.queues["cleanup"].get_nowait()
+		if queueobj[0] < 0x100: # Finish
+			self.cleanupbtn.config(
+				text = "Cleanup by filter...", state = tk.NORMAL
+			)
+			return True
+		elif queueobj[0] == THREADSIG.INFO_STATUSBAR:
+			self.setstatusbar(*queueobj[1])
+		elif queueobj[0] == THREADSIG.RESULT_DEMODATA:
+			del_diag = Deleter(
+				parent = self.root,
+				demodir = self.curdir,
+				files = queueobj[1]["col_filename"],
+				selected = [True for _ in queueobj[1]["col_filename"]],
+				deluselessjson = False,
+				cfg = self.cfg.copy(),
+				styleobj = self.ttkstyle,
+				eventfileupdate = "passive",
+			)
+			self.cleanupbtn.config(
+				text = "Cleanup by filter...", state = tk.NORMAL
+			) # queues are cleared below, hacky workaround
+			if del_diag.result == 0:
+				self.reloadgui()
+
 
 	def _filter(self):
 		'''Starts a filtering thread and configures the filtering button.'''
@@ -497,30 +510,24 @@ class MainApp():
 		self.filterbtn.config(text = "Apply Filter", command = self._filter)
 		self._updatedemowindow(None)
 
+	@decorate_callback("filter")
 	def _after_callback_filter(self):
-		'''Grabs elements from the filter queue and updates the statusbar with
-		the filtering progress. This method is supposed to be run as a Tk after
-		function and will call itself until the thread has sent a termination
-		signal.
-		'''
-		finished = False
-		while True:
-			try:
-				queueobj = self.queues["filter"].get_nowait()
-				if queueobj[0] == "Finish":
-					finished = True
-				elif queueobj[0] == "SetStatusbar":
-					self.setstatusbar(*queueobj[1])
-				elif queueobj[0] == "Result":
-					self.listbox.setdata(queueobj[1])
-					self.listbox.format()
-			except queue.Empty:
-				break
-		if not finished:
-			self.after_handlers["filter"] = self.root.after(
-				CNST.GUI_UPDATE_WAIT, self._after_callback_filter)
-		else:
+		"""
+		Loop worker for the after handler decorator stub.
+		Grabs elements from the filter queue and updates the statusbar with
+		the filtering progress. If the thread is done, fills listbox with new
+		dataset.
+		"""
+		queueobj = self.queues["filter"].get_nowait()
+		if queueobj[0] < 0x100: # Finish
+			finished = True
 			self._stopfilter()
+			return True
+		elif queueobj[0] == THREADSIG.INFO_STATUSBAR:
+			self.setstatusbar(*queueobj[1])
+		elif queueobj[0] == THREADSIG.RESULT_DEMODATA:
+			self.listbox.setdata(queueobj[1])
+			self.listbox.format()
 
 	def _spinboxsel(self, *_):
 		'''Observer callback to self.spinboxvar; is called whenever
@@ -543,9 +550,9 @@ class MainApp():
 		self.statusbarlabel.after_cancel(self.after_handlers["statusbar"])
 		self.statusbarlabel.config(text = str(data))
 		self.statusbarlabel.update()
-		if timeout != None:
+		if timeout is not None:
 			self.after_handlers["statusbar"] = self.statusbarlabel.after(
-				timeout, lambda: self.setstatusbar(CNST.STATUSBARDEFAULT) )
+				timeout, lambda: self.setstatusbar(CNST.STATUSBARDEFAULT))
 
 	def _addpath(self):
 		'''Offers a directory selection dialog and writes the selected

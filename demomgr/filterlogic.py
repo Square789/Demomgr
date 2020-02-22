@@ -17,7 +17,6 @@ Valid parameters include:
 	An unquoted string [ a ]
 	A numeric range [ 1..2 ] [ ..2 ]
 		(Ranges are inclusive.)
-
 '''
 
 from ast import literal_eval
@@ -181,7 +180,7 @@ def _ident_and_extract_param(inp):
 		tmp_params = [re_unesc_dbl_quotes.sub(r"\g<slashes>\\", i)
 			for i in tmp_params]
 		final_params = [escapeinput(
-			literal_eval('"' + i + '"' )) for i in tmp_params]
+			literal_eval('"' + i + '"')) for i in tmp_params]
 		# As the string is encased with double quotes for the literal eval,
 		# which allows for parsing of escape characters, non-escaped double
 		# quotes would raise a parser error within literal_eval. Those are
@@ -243,9 +242,14 @@ def filterstr_to_lambdas(inp):
 		else: # Regular comparision
 			lambdastubs = [lambdastub.format(req_type(i), sign = SIGNS.EQ)
 				for i in params]
-			lambdas.append(eval("lambda x: {}{}{}".format(
-				"not (" * is_negated,
-				" or ".join(lambdastubs),
-				")" * is_negated, )))
+			lambdas.append(
+				eval(
+					"lambda x: {}{}{}".format(
+						"not (" * is_negated,
+						" or ".join(lambdastubs),
+						")" * is_negated
+					)
+				)
+			)
 
 	return lambdas

@@ -89,7 +89,7 @@ class EventReader():
 
 	def getchunks(self, toget = 1):
 		'''Method that returns the number of specified datachunks in the file.'''
-		while len(self.chunkbuffer) <= toget:
+		while len(self.chunkbuffer) < toget:
 			self.__read()
 		returnbfr = []
 		for _ in range(toget):
@@ -108,15 +108,21 @@ class EventReader():
 		rawread = ""
 		logchunks = []
 		done = False
-		if done: return
+		if done:
+			return
 		rawread = self.handle.read(self.cnf["blocksz"])
 		if rawread == "": #we can be sure the file is over.
 			done = True
 		raw = self.lastchunk + rawread
 		logchunks = raw.split(self.cnf["sep"])
+		if (self.handle.tell() - 1) <= self.cnf["blocksz"]: # This was the first read
+			if len(logchunks) != 0:
+				if logchunks[0] == "":
+					logchunks.pop(0)
 		if len(logchunks) == 0:
-			self.chunkbuffer = self.chunkbuffer + Logchunk("", {"last":True}, self.handle.name)
+			self.chunkbuffer.append(Logchunk("", {"last": True}, self.handle.name))
 			return
+		# Sometimes, the file starts with >, in which case the first logchunk may be empty.
 		elif len(logchunks) == 1:
 			if rawread == "":
 				self.lastchunk = ""
@@ -124,7 +130,9 @@ class EventReader():
 				self.lastchunk = logchunks.pop(0)#Big logchunk
 		else:
 			self.lastchunk = logchunks.pop(-1)
-		self.chunkbuffer = self.chunkbuffer + [Logchunk(i[:-1], {"last": not bool(rawread)}, self.handle.name) for i in logchunks]#Cut off \n @ end; NOTE: THIS MAY BE 2 OR 1 CHARS DEPENDING ON SYSTEM
+		self.chunkbuffer.extend(
+			[Logchunk(i[:-1], {"last": not bool(rawread)}, self.handle.name) for i in logchunks]
+		)
 
 class EventWriter():
 	'''Class designed to write to a Source engine demo event log file.

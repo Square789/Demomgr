@@ -11,6 +11,8 @@ from demomgr import constants as CNST
 from demomgr.helper_tk_widgets import TtkText
 from demomgr.threads import ThreadDelete
 
+THREADSIG = CNST.THREADSIG
+
 class Deleter(BaseDialog):
 	'''A dialog that constructs deletion requests for demos and prompts the
 	user whether they are sure of the deletion. If yes was selected, starts
@@ -75,7 +77,7 @@ class Deleter(BaseDialog):
 		self.after_handler = None
 		self.queue_out = queue.Queue()
 
-		self.result = 0 #exit state. set to 1 if successful
+		self.result = -1 #exit state. set to something from 0x00 - 0xFF if successful
 
 		super().__init__(parent, "Delete...")
 
@@ -115,7 +117,7 @@ class Deleter(BaseDialog):
 
 	def __stopoperation(self):
 		if self.delthread.isAlive():
-			self.delthread.join()
+			self.delthread.join() # Let after callback do the rest
 
 	def __startthread(self):
 		self.delthread = ThreadDelete(None, self.queue_out,
@@ -132,23 +134,23 @@ class Deleter(BaseDialog):
 		'''Gets stuff from self.queue_out that the thread writes to, then
 		modifies UI based on queue elements.
 		'''
-		finished = [False, 0]
+		finished = -1
 		while True:
 			try:
 				procelem = self.queue_out.get_nowait()
-				if procelem[0] == "ConsoleInfo":
+				if procelem[0] == THREADSIG.INFO_CONSOLE:
 					self.appendtextbox(procelem[1])
-				elif procelem[0] == "Finish":
-					finished = [True, procelem[1]]
+				elif procelem[0] < 0x100: # Finish
+					finished = procelem[0]
 			except queue.Empty:
 				break
-		if not finished[0]:
+		if finished == -1:
 			self.after_handler = self.after(CNST.GUI_UPDATE_WAIT,
 				self.__after_callback)
 			return
 		else: #THREAD DONE
 			self.after_cancel(self.after_handler)
-			self.result = finished[1]
+			self.result = finished
 			self.canceloperationbutton.pack_forget()
 			self.closebutton.pack(side = tk.LEFT, fill = tk.X, expand = 1)
 

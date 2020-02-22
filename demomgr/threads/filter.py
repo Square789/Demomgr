@@ -2,9 +2,10 @@ import os
 import time
 import queue
 
-from demomgr.threads._base import _StoppableBaseThread
-from demomgr.helpers import (FileStatFetcher, HeaderFetcher)
+from demomgr.constants import THREADSIG
 from demomgr.filterlogic import filterstr_to_lambdas
+from demomgr.helpers import (FileStatFetcher, HeaderFetcher)
+from demomgr.threads._base import _StoppableBaseThread
 from demomgr.threads.read_folder import ThreadReadFolder
 
 class ThreadFilter(_StoppableBaseThread):
@@ -26,35 +27,35 @@ class ThreadFilter(_StoppableBaseThread):
 		cfg = self.options["cfg"]
 		starttime = time.time()
 
-		self.queue_out.put(("SetStatusbar", ("Filtering demos; Parsing filter...", )))
+		self.queue_out_put(THREADSIG.INFO_STATUSBAR, ("Filtering demos; Parsing filter...", ))
 		try:
 			filters = filterstr_to_lambdas(filterstring)
 		except Exception as error:
-			self.queue_out.put(("SetStatusbar",
-				("Error parsing filter request: " + str(error), 4000)))
-			self.queue_out.put(("Finish", 0)); return
+			self.queue_out_put(THREADSIG.INFO_STATUSBAR,
+				("Error parsing filter request: " + str(error), 4000))
+			self.queue_out_put(THREADSIG.FAILURE); return
 
 		if self.stoprequest.isSet():
-			self.queue_out.put(("Finish", 2)); return
+			self.queue_out_put(THREADSIG.ABORTED); return
 
 		if not self.options["silent"]:
-			self.queue_out.put(("SetStatusbar", ("Filtering demos; Reading information...",)))
+			self.queue_out_put(THREADSIG.INFO_STATUSBAR, ("Filtering demos; Reading information...",))
 		bookmarkdata = None
 		files = None
 		self.datafetcherqueue = queue.Queue()
 		self.datafetcherthread = ThreadReadFolder(self.datafetcherqueue, targetdir = curdir, cfg = cfg)
 		self.datafetcherthread.start()
-		self.datafetcherthread.join(None, 1) # NOTE: Can't really wait for join to this thread here.
+		self.datafetcherthread.join(None, dontstop = True) # NOTE: Can't really wait for join to this thread here.
 		if self.stoprequest.isSet():
-			self.queue_out.put(("Finish", 2)); return
+			self.queue_out_put(THREADSIG.ABORTED); return
 
 		while True:
 			try:
 				queueobj = self.datafetcherqueue.get_nowait()
-				if queueobj[0] == "Result":
+				if queueobj[0] == THREADSIG.RESULT_DEMODATA:
 					files = queueobj[1]["col_filename"]
 					bookmarkdata = queueobj[1]["col_bookmark"]
-				elif queueobj[0] == "Finish":
+				elif queueobj[0] < 0x100: # Finish signal
 					break
 			except queue.Empty:
 				break
@@ -62,14 +63,14 @@ class ThreadFilter(_StoppableBaseThread):
 		if bookmarkdata == None:
 			bookmarkdata = ()
 		if self.stoprequest.isSet():
-			self.queue_out.put(("Finish", 2)); return
+			self.queue_out_put(THREADSIG.ABORTED); return
 
 		filteredlist = {"col_filename": [], "col_bookmark": [], "col_ctime": [], "col_filesize":[]}
 		file_amnt = len(files)
 		for i, j in enumerate(files): #Filter
 			if not self.options["silent"]:
-				self.queue_out.put(("SetStatusbar", ("Filtering demos; {} / {}".format(i + 1, file_amnt), )))
-			if bookmarkdata[i] == None: # Oh no, an additional if in an often-repeated segment of code
+				self.queue_out_put(THREADSIG.INFO_STATUSBAR, ("Filtering demos; {} / {}".format(i + 1, file_amnt), ))
+			if bookmarkdata[i] == None:
 				tmp_bm = ((), ())
 			else:
 				tmp_bm = bookmarkdata[i]
@@ -86,10 +87,10 @@ class ThreadFilter(_StoppableBaseThread):
 				filteredlist["col_ctime"   ].append(curdataset["filedata"]["modtime"])
 				filteredlist["col_filesize"].append(curdataset["filedata"]["filesize"])
 			if self.stoprequest.isSet():
-				self.queue_out.put(("Finish", 2)); return
+				self.queue_out_put(THREADSIG.ABORTED); return
 		del filters
-		self.queue_out.put(("SetStatusbar",
+		self.queue_out_put(THREADSIG.INFO_STATUSBAR,
 			("Filtered {} demos in {} seconds.".format(file_amnt,
-				str(round(time.time() - starttime, 3))), 3000)))
-		self.queue_out.put(("Result", filteredlist))
-		self.queue_out.put(("Finish", 1))
+				str(round(time.time() - starttime, 3))), 3000))
+		self.queue_out_put(THREADSIG.RESULT_DEMODATA, filteredlist)
+		self.queue_out_put(THREADSIG.SUCCESS)
