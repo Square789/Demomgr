@@ -39,6 +39,7 @@ def decorate_callback(hdlr_slot):
 			while True:
 				try:
 					if func(self):
+						finished = True
 						break
 				except queue.Empty:
 					break
@@ -478,10 +479,13 @@ class MainApp():
 			)
 			self.cleanupbtn.config(
 				text = "Cleanup by filter...", state = tk.NORMAL
-			) # queues are cleared below, hacky workaround
+			)
+			# queues are cleared below, above is hacky workaround by copy pasting finish
+			# which realistically will never be called if thread completes successfully.
 			if del_diag.result == 0:
 				self.reloadgui()
-
+			return True
+		return False
 
 	def _filter(self):
 		'''Starts a filtering thread and configures the filtering button.'''
@@ -528,6 +532,7 @@ class MainApp():
 		elif queueobj[0] == THREADSIG.RESULT_DEMODATA:
 			self.listbox.setdata(queueobj[1])
 			self.listbox.format()
+		return False
 
 	def _spinboxsel(self, *_):
 		'''Observer callback to self.spinboxvar; is called whenever
