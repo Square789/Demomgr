@@ -3,6 +3,7 @@ import tkinter.ttk as ttk
 import tkinter.filedialog as tk_fid
 
 from demomgr.dialogues._base import BaseDialog
+from demomgr.dialogues._diagresult import DIAGSIG
 
 from demomgr import constants as CNST
 from demomgr.helper_tk_widgets import TtkText
@@ -16,12 +17,31 @@ _TK_VARTYPES = {
 }
 
 class Settings(BaseDialog):
-	'''Settings dialog that offers a bunch of configuration options.'''
+	"""
+	Settings dialog that offers a bunch of configuration options.
+
+	After the dialog is closed:
+	`self.result.state` will be SUCCESS if user hit OK, else FAILURE.
+	`self.result.data` will be a dict with the following keys:
+		"datagrabmode": How the demo information should be gathered.
+			0 for None, 1 for _events.txt, 2 for .json .
+		"previewdemos": Whether to preview demos in the main view. (bool)
+		"steampath": Path to steam (str)
+		"hlaepath": Path to HLAE (str)
+		"evtblocksz": Chunk size _events.txt should be read in. (int)
+		"ui_theme": Interface theme. Key of same name must be in
+			constants. (str)
+		"lazyreload": Whether to lazily refresh singular UI elements instead
+			of reloading entire UI on changes as single demo deletion or
+			bookmark setting. (bool)
+	"""
 	def __init__(self, parent, cfg):
-		'''Args:
+		"""
 		parent: Tkinter widget that is the parent of this dialog.
-		cfg: Program configuration.
-		'''
+		cfg: Program configuration. (dict)
+		"""
+		super().__init__(parent, "Settings")
+
 		self.cfg = cfg
 
 		self._create_tk_var("int", "datagrabmode_var", cfg["datagrabmode"])
@@ -33,12 +53,9 @@ class Settings(BaseDialog):
 
 		self.blockszvals = {convertunit(i, "B"): i
 			for i in [2**pw for pw in range(12, 28)]}
-		self.result = None
-
-		super().__init__(parent, "Settings")
 
 	def body(self, master):
-		'''UI setup.'''
+		"""UI setup."""
 		master.grid_columnconfigure((0, 1), weight = 1)
 
 		display_labelframe = ttk.LabelFrame(master, padding = 8,
@@ -122,7 +139,8 @@ class Settings(BaseDialog):
 		self.withdraw()
 		self.update_idletasks()
 		if param:
-			self.result = {
+			self.result.state = DIAGSIG.SUCCESS
+			self.result.data = {
 				"datagrabmode": self.datagrabmode_var.get(),
 				"previewdemos": self.preview_var.get(),
 				"steampath": self.steampath_var.get(),
@@ -132,23 +150,23 @@ class Settings(BaseDialog):
 				"lazyreload": self.lazyreload_var.get(),
 			}
 		else:
-			self.result = None
+			self.result.state = DIAGSIG.FAILURE
 		self.destroy()
 
 	def _sel_dir(self, variable):
-		'''Prompt the user to select a directory, then modify the tkinter
+		"""Prompt the user to select a directory, then modify the tkinter
 		variable variable with the selected value.
-		'''
+		"""
 		sel = tk_fid.askdirectory()
 		if sel == "":
 			return
 		variable.set(sel)
 
 	def _create_tk_var(self, type_, name, inivalue):
-		'''Creates a tkinter variable of type "str", "int", "bool", "double",
+		"""Creates a tkinter variable of type "str", "int", "bool", "double",
 		registers it as an attribute of the dialog with name name and sets
 		it to inivalue.
-		'''
+		"""
 		try:
 			getattr(self, name)
 			raise ValueError("Variable {} already exists.".format(name))

@@ -1,8 +1,9 @@
-'''This module contains the BookmarkSetter dialog which offers the ability
+"""
+This module contains the BookmarkSetter dialog which offers the ability
 to modify a demo's bookmarks in both json file and _events.txt.
 If a bookmark container would end up completely empty (neither killstreaks
 nor bookmarks), it is ignored / not written.
-'''
+"""
 
 import tkinter as tk
 import tkinter.ttk as ttk
@@ -15,6 +16,7 @@ import queue
 import multiframe_list as mfl
 
 from demomgr.dialogues._base import BaseDialog
+from demomgr.dialogues._diagresult import DIAGSIG
 
 from demomgr.helpers import (frmd_label, )
 from demomgr import constants as CNST
@@ -25,20 +27,27 @@ from demomgr.helper_tk_widgets import TtkText
 THREADSIG = CNST.THREADSIG
 
 class BookmarkSetter(BaseDialog):
-	'''Dialog that manages a bookmark into a demo's json file or _events.txt
-	entry.
-	'''
-	def __init__(self, parent, targetdemo, bm_dat, styleobj):
-		'''Args: parent tkinter window, keyword args:
+	"""
+	Dialog that offers ability to modify and then write demo
+	information into a demo's json file or _events.txt entry.
 
+	After the dialog is closed:
+	If the thread succeeded at least once, `self.result.state` is SUCCESS,
+	the new bookmark tuple can be found in `self.result.data` in the usual
+	primitive format.
+	Else the thread failed or wasn't even started, in which case the data
+	is None.
+	"""
+	def __init__(self, parent, targetdemo, bm_dat, styleobj):
+		"""
+		parent: Parent widget, should be a `Tk` or `Toplevel` instance.
 		targetdemo: Full path to the demo that should be marked.
 		bm_dat: Bookmarks for the specified demo in the usual bookmark format
 			(((killstreak_peak, tick), ...), ((bookmark_name, tick), ...))
-		styleobj: Instance of tkinter.ttk.Style
+		styleobj: Instance of `tkinter.ttk.Style`
+		"""
+		super().__init__(parent, "Insert bookmark...")
 
-		Upon completion, returns 0 or 1 in self.result
-		If self.result is 1, the new bookmark tuple can be found in self.new_bm
-		'''
 		self.targetdemo = targetdemo
 		self.demo_dir = os.path.dirname(targetdemo)
 		self.bm_dat = bm_dat
@@ -49,14 +58,10 @@ class BookmarkSetter(BaseDialog):
 
 		self.mark_thread = threading.Thread(target = lambda: False)
 		self.queue_out = queue.Queue()
-
-		self.result = 0
-		self.new_bm = None
-
-		super().__init__(parent, "Insert bookmark...")
+		self.after_handler = self.after(0, lambda: None)
 
 	def body(self, parent):
-		'''UI setup, listbox filling.'''
+		"""UI setup, listbox filling."""
 		def tick_validator(inp, ifallowed):
 			if len(ifallowed) > 10:
 				return False
@@ -87,9 +92,9 @@ class BookmarkSetter(BaseDialog):
 		self.listbox.grid(row = 0, column = 0, rowspan = 2, sticky = "news")
 
 		add_bm_btn = ttk.Button(widgetcontainer, text = "Insert bookmark",
-			command = self.__add_bookmark)
+			command = self._add_bookmark)
 		rem_bm_btn = ttk.Button(widgetcontainer, text = "Remove bookmark",
-			command = self.__rem_bookmark)
+			command = self._rem_bookmark)
 
 		self.listbox.grid(row = 0, column = 0, rowspan = 5, sticky = "news")
 		add_bm_btn.grid(row = 0, column = 1, sticky = "ew", padx = 5, pady = 5)
@@ -132,17 +137,17 @@ class BookmarkSetter(BaseDialog):
 		self.textbox.grid(row = 1, column = 0, columnspan = 2, sticky = "news")
 		self.textbox.lower()
 
-		self.savebtn = ttk.Button(parent, text = "Save", command = self.__mark)
-		cancelbtn = ttk.Button(parent, text = "Close", command = self.cancel)
+		self.savebtn = ttk.Button(parent, text = "Save", command = self._mark)
+		cancelbtn = ttk.Button(parent, text = "Close", command = self.destroy)
 
 		self.savebtn.grid(row = 2, column = 0, padx = (0, 3), sticky = "ew")
 		cancelbtn.grid(row = 2, column = 1, padx = (3, 0), sticky = "ew")
 
-		self.__fill_gui()
-		self.__log("Marking " + os.path.split(self.targetdemo)[1] + "\n")
+		self._fill_gui()
+		self._log("Marking " + os.path.split(self.targetdemo)[1] + "\n")
 
-	def __log(self, tolog):
-		'''Inserts "\n" + tolog into self.textbox .'''
+	def _log(self, tolog):
+		"""Inserts "\n" + tolog into self.textbox ."""
 		self.textbox.configure(state = tk.NORMAL)
 		self.textbox.insert(tk.END, "\n" + tolog)
 		if self.textbox.yview()[1] < 1.0:
@@ -150,68 +155,67 @@ class BookmarkSetter(BaseDialog):
 			self.textbox.yview_moveto(1.0)
 		self.textbox.configure(state = tk.DISABLED)
 
-	def __fill_gui(self):
-		'''Called by body, loads bookmarks into the listbox.'''
+	def _fill_gui(self):
+		"""Called by body, loads bookmarks into the listbox."""
 		if self.bm_dat == None:
 			return
 		for i in self.bm_dat[1]:
 			self.listbox.insertrow({"col_name":i[0], "col_tick":i[1]})
 
-	def __add_bookmark(self):
+	def _add_bookmark(self):
 		name = self.name_entry.get()
 		tick = self.tick_entry.get()
 		if name == "" or tick == "":
-			self.__log("Please specify a name and tick.")
+			self._log("Please specify a name and tick.")
 			return
 		self.listbox.insertrow({"col_name":name, "col_tick":tick})
 
-	def __rem_bookmark(self):
+	def _rem_bookmark(self):
 		index = self.listbox.getselectedcell()[1]
 		if index is None:
-			self.__log("No bookmark to remove selected.")
+			self._log("No bookmark to remove selected.")
 			return
 		self.listbox.removerow(index)
 
-	def __mark(self):
+	def _mark(self):
 		mark_json = self.jsonmark_var.get()
 		mark_evts = self.eventsmark_var.get()
 		raw_bookmarks = tuple(zip(self.listbox.getcolumn("col_name"),
 			self.listbox.getcolumn("col_tick")))
 
-		self.savebtn.configure(text = "Cancel", command = self.__cancel_mark)
+		self.savebtn.configure(text = "Cancel", command = self._cancel_mark)
 		self.mark_thread = ThreadMarkDemo(self.queue_out,
 			mark_json = mark_json, mark_events = mark_evts,
 			bookmarks = raw_bookmarks, targetdemo = self.targetdemo)
 		self.mark_thread.start()
-		self.after_handler = self.after(0, self.__mark_after_callback)
+		self.after_handler = self.after(0, self._mark_after_callback)
 
-	def __mark_after_callback(self):
+	def _mark_after_callback(self, call_once = False):
 		finished = False
 		while True:
 			try:
 				queueobj = self.queue_out.get_nowait()
 				if queueobj[0] < 0x100: # Finish
 					finished = True
+					self.savebtn.configure(text = "Save", command = self._mark)
+					if queueobj[0] == 0x0:
+						self.result.state = DIAGSIG.SUCCESS
+						self.result.data = tuple(zip(self.listbox.getcolumn("col_name"),
+							[int(i) for i in self.listbox.getcolumn("col_tick")]))
 				elif queueobj[0] == THREADSIG.INFO_CONSOLE:
-					self.__log(queueobj[1])
+					self._log(queueobj[1])
 			except queue.Empty:
 				break
-		if not finished:
-			self.after_handler = self.after(CNST.GUI_UPDATE_WAIT,
-				self.__mark_after_callback)
-		else:
-			self.after_cancel(self.after_handler)
-			self.savebtn.configure(text = "Save", command = self.__mark)
-			self.result = 1
-			self.new_bm = tuple(zip(self.listbox.getcolumn("col_name"),
-				[int(i) for i in self.listbox.getcolumn("col_tick")]))
+		if (not finished) and (not call_once):
+			self.after_handler = self.after(CNST.GUI_UPDATE_WAIT, self._mark_after_callback)
 
-	def __cancel_mark(self):
+	def _cancel_mark(self):
+		self.after_cancel(self.after_handler)
 		if self.mark_thread.isAlive():
 			self.mark_thread.join()
+		self._mark_after_callback(call_once = True)
 		self.queue_out.queue.clear()
-		self.savebtn.configure(text = "Save", command = self.__mark)
 
-	def cancel(self):
-		self.__cancel_mark()
-		self.destroy()
+	def destroy(self):
+		self._cancel_mark()
+		super().destroy()

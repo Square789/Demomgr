@@ -1,4 +1,4 @@
-'''Contains the ThreadReadFolder class.'''
+"""Contains the ThreadReadFolder class."""
 
 import os
 import queue
@@ -38,10 +38,10 @@ class ThreadReadFolder(_StoppableBaseThread):
 		self.queue_out_put(exitcode)
 
 	def run(self):
-		'''
+		"""
 		Get data from all the demos in current folder;
 		return it in a format that can be directly fed into listbox.
-		'''
+		"""
 		if self.options["targetdir"] == "":
 			self.__stop(None, {}, THREADSIG.FAILURE); return
 		self.queue_out_put(THREADSIG.INFO_STATUSBAR,

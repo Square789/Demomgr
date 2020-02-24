@@ -13,25 +13,35 @@ except ImportError:
 	VDF_PRESENT = False
 
 from demomgr.dialogues._base import BaseDialog
+from demomgr.dialogues._diagresult import DIAGSIG
 
 from demomgr import constants as CNST
 from demomgr.helper_tk_widgets import TtkText
 from demomgr.helpers import (frmd_label, tk_secure_str)
 
 class LaunchTF2(BaseDialog):
-	'''Dialog that reads and displays TF2 launch arguments and steam profile
-	information, offers ability to change those and launch tf2 with an
-	additional command that plays the demo on the game's startup.
-	'''
-	def __init__(self, parent, demopath, cfg):
-		'''Args:
-		parent: Tkinter widget that is the parent of this dialog.
-		demopath: Absolute file path to the demo to be played.
-		cfg: The program configuration.
-		'''
+	"""
+	Dialog that reads and displays TF2 launch arguments and steam profile
+	information, offers ability to change those and launch TF2 with an
+	additional command that plays the demo on the game's startup, or
+	directly hook HLAE into the game.
 
-		self.parent = parent
-		self.result = None
+	After the dialog is closed:
+	`self.result.state` will be SUCCESS if user hit launch, else FAILURE.
+	`self.result.data` will be a dict where:
+		"game_launched": Whether tf2 was launched (bool)
+		"steampath": The text in the steampath entry, may have been
+			changed by the user. (str)
+		"hlaepath": The text in the hlaepath entry, may have been changed
+			by the user. (str)
+	"""
+	def __init__(self, parent, demopath, cfg):
+		"""
+		parent: Parent widget, should be a `Tk` or `Toplevel` instance.
+		demopath: Absolute file path to the demo to be played. (str)
+		cfg: The program configuration. (dict)
+		"""
+		super().__init__(parent, "Play demo / Launch TF2...")
 
 		self.demopath = demopath
 		self.steamdir_var = tk.StringVar()
@@ -52,12 +62,10 @@ class LaunchTF2(BaseDialog):
 		self.launchoptionsvar = tk.StringVar()
 
 		self.shortdemopath = ""
-		self.__constructshortdemopath()
-
-		super().__init__(self.parent, "Play demo / Launch TF2...")
+		self._constructshortdemopath()
 
 	def body(self, master):
-		'''UI'''
+		"""UI"""
 		master.grid_columnconfigure((0, 1), weight = 1)
 
 		dir_sel_lblfrm = ttk.LabelFrame(master, padding = (10, 8, 10, 8), 
@@ -168,13 +176,16 @@ class LaunchTF2(BaseDialog):
 
 		self.userchange()
 
-		self.__showerrs()
+		self._showerrs()
 		self._toggle_hlae_cb()
 		self.userselectvar.trace("w", self.userchange) # If applied before,
 		# method would be triggered and UI elements would be accessed that do not exist yet.
 
-	def __showerrs(self):#NOTE: Could update that, do in case you ever change this dialog
-		'''Update all error labels after looking at conditions'''
+	def _showerrs(self):
+		"""
+		Go through all error conditions and update their respective error
+		labels.
+		"""
 		if self.errstates[0]:
 			self.error_steamdir_invalid.grid()
 		else:
@@ -197,14 +208,15 @@ class LaunchTF2(BaseDialog):
 			self.info_launchoptions_not_found.grid_forget()
 
 	def getusers(self):
-		'''Retrieve users from the current steam directory. If vdf module is
-		present, returns a list of strings where "[FOLDER_NAME] // [USER_NAME]"
-		, if an error getting the user name occurs or if the vdf module is
-		missing, only "[FOLDER_NAME]".
+		"""
+		Retrieve users from the current steam directory. If vdf module is
+		present, returns a list of strings where
+		"[FOLDER_NAME] // [USER_NAME]"; if an error getting the user name
+		occurs, only "[FOLDER_NAME]".
 
 		Executed once by body(), by _sel_dir(), and used to insert value
 		into self.userselectvar.
-		'''
+		"""
 		toget = os.path.join(self.steamdir_var.get(), CNST.STEAM_CFG_PATH0)
 		try:
 			users = os.listdir(toget)
@@ -225,7 +237,7 @@ class LaunchTF2(BaseDialog):
 		self.errstates[0] = False
 		return users
 
-	def __getlaunchoptions(self):
+	def _getlaunchoptions(self):
 		if not VDF_PRESENT:
 			self.errstates[2] = True
 			self.errstates[4] = False
@@ -252,9 +264,9 @@ class LaunchTF2(BaseDialog):
 			return ""
 
 	def _sel_dir(self, variable): #Triggered by user clicking on the Dir choosing btn
-		'''Opens up a file selection dialog. If the changed variable was the
+		"""Opens up a file selection dialog. If the changed variable was the
 		steam dir one, updates related widgets.
-		'''
+		"""
 		sel = tk_fid.askdirectory()
 		if sel == "":
 			return
@@ -267,12 +279,12 @@ class LaunchTF2(BaseDialog):
 			self.userselectvar.set(users[0])
 		except IndexError:
 			self.userselectvar.set("") # will trigger self.userchange
-		self.__constructshortdemopath()
+		self._constructshortdemopath()
 		# self.demo_play_arg_entry.config(width = len(self.playdemoarg.get()) + 2)
-		self.__showerrs()
+		self._showerrs()
 
 	def _toggle_hlae_cb(self):
-		'''Changes some labels.'''
+		"""Changes some labels."""
 		if self.usehlae_var.get():
 			self.head_args_lbl.configure(text = "[...]/hlae.exe [...] "
 				"-cmdLine \" -steam -game tf -insecure +sv_lan 1")
@@ -282,11 +294,11 @@ class LaunchTF2(BaseDialog):
 			self.end_q_mark_label.configure(text = "")
 
 	def userchange(self, *_): # Triggered by observer on combobox variable.
-		launchopt = self.__getlaunchoptions()
+		launchopt = self._getlaunchoptions()
 		self.launchoptionsvar.set(launchopt)
-		self.__showerrs()
+		self._showerrs()
 
-	def __constructshortdemopath(self):
+	def _constructshortdemopath(self):
 		try:
 			self.shortdemopath = os.path.relpath(self.demopath,
 				os.path.join(self.steamdir_var.get(), CNST.TF2_HEAD_PATH))
@@ -302,6 +314,7 @@ class LaunchTF2(BaseDialog):
 		self.playdemoarg.set("playdemo " + self.shortdemopath)
 
 	def done(self, param):
+		self.result.state = DIAGSIG.SUCCESS if param else DIAGSIG.FAILURE
 		if param:
 			USE_HLAE = self.usehlae_var.get()
 			user_args = self.launchoptionsvar.get().split()
@@ -321,18 +334,21 @@ class LaunchTF2(BaseDialog):
 			else:
 				executable = os.path.join(self.steamdir_var.get(), CNST.TF2_EXE_PATH)
 				launch_args = tf2_launch_args
-
 			final_launchoptions = [executable] + launch_args
+
+			self.result.data = {"steampath": self.steamdir_var.get(), 
+				"hlaepath": self.hlaedir_var.get()}
+
 			try:
-				subprocess.Popen(final_launchoptions) #Launch tf2; -steam param may cause conflicts when steam is not open but what do I know?
-				self.result = {"success": True}
+				subprocess.Popen(final_launchoptions)
+				#-steam param may cause conflicts when steam is not open but what do I know?
+				self.result.data["game_launched"] = True
 			except FileNotFoundError:
-				self.result = {"success": False}
+				self.result.data["game_launched"] = False
 				tk_msg.showerror("Demomgr - Error", "Executable not found.", parent = self)
 			except (OSError, PermissionError) as error:
-				self.result = {"success": False}
+				self.result.data["game_launched"] = False
 				tk_msg.showerror("Demomgr - Error",
 					"Could not access executable :\n{}".format(str(error)), parent = self)
-			self.result["steampath"] = self.steamdir_var.get()
-			self.result["hlaepath"] = self.hlaedir_var.get()
+
 		self.destroy()

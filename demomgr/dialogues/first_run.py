@@ -2,16 +2,24 @@ import tkinter as tk
 import tkinter.ttk as ttk
 
 from demomgr.dialogues._base import BaseDialog
+from demomgr.dialogues._diagresult import DIAGSIG
 
 from demomgr import constants as CNST
 from demomgr.helper_tk_widgets import TtkText
 
 class FirstRun(BaseDialog):
-	'''Will open up when no config file is found on startup, prompts
-	user to accept a text.'''
-	def __init__(self, parent = None):
-		if not parent:
-			parent = tk._default_root
+	"""
+	Will open up when no config file is found on startup, prompts
+	user to accept a text.
+
+	After the dialog is closed:
+	`self.result.state` will be SUCCESS if user accepted, else FAILURE.
+	`self.result.data` will be None.
+	"""
+	def __init__(self, parent):
+		"""
+		parent: Parent widget, should be a `Tk` or `Toplevel` instance.
+		"""
 		super().__init__(parent, "Welcome!")
 
 	def body(self, master):
@@ -33,9 +41,9 @@ class FirstRun(BaseDialog):
 		scrlbar_h.grid(column = 0, columnspan = 2, row = 1, sticky = "ew")
 
 		btconfirm = ttk.Button(master, text = "I am okay with that and I"
-			" accept.", command = lambda: self.done(1))
+			" accept.", command = lambda: self.done(DIAGSIG.SUCCESS))
 		btcancel = ttk.Button(master, text = "Cancel!",
-			command = lambda: self.done(0))
+			command = lambda: self.done(DIAGSIG.FAILURE))
 		btconfirm.grid(column = 0, row = 2, padx = (0, 3), sticky = "ew")
 		btcancel.grid(column = 1, row = 2, padx = (3, 0), sticky = "ew",
 			columnspan = 2)
@@ -43,5 +51,5 @@ class FirstRun(BaseDialog):
 	def done(self, param):
 		self.withdraw()
 		self.update_idletasks()
-		self.result = param
+		self.result.state = param
 		self.destroy()

@@ -29,7 +29,7 @@ from demomgr.threads import ThreadFilter, ThreadReadFolder
 THREADSIG = CNST.THREADSIG
 RCB = "3"
 
-__version__ = "1.1.1"
+__version__ = "1.1.2"
 __author__ = "Square789"
 
 def decorate_callback(hdlr_slot):
@@ -52,9 +52,10 @@ def decorate_callback(hdlr_slot):
 
 class MainApp():
 	def __init__(self):
-		'''Init values, variables, read config, go through startup routine,
-		applies UI style, sets up interface, then show main window.
-		'''
+		"""
+		Initializes values, variables, reads config, checks for firstrun,
+		applies UI style, sets up interface, then shows main window.
+		"""
 		self.root = tk.Tk()
 		self.root.withdraw()
 
@@ -69,7 +70,7 @@ class MainApp():
 
 		self.demooperations = (("Play", " selected demo...", self._playdem),
 			("Delete", " selected demo...", self._deldem),
-			("Manage bookmarks", " of selected demo...", self._managebookmarks), )
+			("Manage bookmarks", " of selected demo...", self._managebookmarks))
 
 		self.cfgpath = get_cfg_storage_path()
 		self.curdir = "" # This path should not be in self.cfg["demopaths"] at any time!
@@ -120,8 +121,9 @@ class MainApp():
 		self._applytheme()
 
 		if is_firstrun:
-			d = FirstRun(self.root)
-			if not d.result: # Is either None; 1 or 0
+			fr_dialog = FirstRun(self.root)
+			fr_dialog.show()
+			if fr_dialog.result.state == DIAGSIG.FAILURE:
 				self.quit_app()
 				sys.exit()
 			self.cfg["firstrun"] = False
@@ -157,7 +159,7 @@ class MainApp():
 		self.root.focus()
 
 	def _setupgui(self):
-		'''Sets up UI inside of the self.mainframe widget.'''
+		"""Sets up UI inside of the self.mainframe widget."""
 		self.filterentry_var = tk.StringVar()
 
 		widgetframe0 = ttk.Frame(self.mainframe) #Directory Selection, Settings/About #NOTE: Resquash into tkinter.Menu ?
@@ -269,18 +271,19 @@ class MainApp():
 		self.root.quit()
 
 	def _opensettings(self):
-		'''Opens settings, acts based on results'''
+		"""Opens settings, acts based on results"""
 		dialog = Settings(self.mainframe, self.getcfg())
-		if dialog.result is not None:
+		dialog.show()
+		if dialog.result.state == DIAGSIG.SUCCESS:
 			localcfg = self.cfg
-			localcfg.update(dialog.result)
+			localcfg.update(dialog.result.data)
 			self.writecfg(localcfg)
 			self.cfg = self.getcfg()
 			self.reloadgui()
 			self._applytheme()
 
 	def _playdem(self):
-		'''Opens dialog which arranges for tf2 launch.'''
+		"""Opens dialog which arranges for TF2 launch."""
 		index = self.listbox.getselectedcell()[1]
 		if index == None:
 			self.setstatusbar("Please select a demo file.", 1500)
@@ -289,19 +292,21 @@ class MainApp():
 		path = os.path.join(self.curdir, filename)
 		dialog = LaunchTF2(self.mainframe, demopath = path,
 			cfg = self.cfg)
-		if dialog.result is not None:
+		dialog.show()
+		if dialog.result.state == DIAGSIG.SUCCESS:
 			update_needed = False
 			for i in ("steampath", "hlaepath"):
-				if i in dialog.result:
+				if i in dialog.result.data:
 					if dialog.result[i] != self.cfg[i]:
 						update_needed = True
 						self.cfg[i] = dialog.result[i]
+						# accesses dialog.result.data[i]
 			if update_needed:
 				self.writecfg(self.cfg)
 				self.cfg = self.getcfg()
 
 	def _deldem(self):
-		'''Deletes the currently selected demo.'''
+		"""Deletes the currently selected demo."""
 		index = self.listbox.getselectedcell()[1]
 		if index == None:
 			self.setstatusbar("Please select a demo file.", 1500)
@@ -310,7 +315,8 @@ class MainApp():
 		dialog = Deleter(self.root, demodir = self.curdir, files = [filename],
 			selected = [True], deluselessjson = False, cfg = self.cfg,
 			styleobj = self.ttkstyle)
-		if dialog.result == 0:
+		dialog.show()
+		if dialog.result.state == DIAGSIG.SUCCESS:
 			if self.cfg["lazyreload"]:
 				self.listbox.removerow(index)
 				self._updatedemowindow(None)
@@ -318,7 +324,7 @@ class MainApp():
 				self.reloadgui()
 
 	def _managebookmarks(self):
-		'''Offers dialog to manage a demo's bookmarks.'''
+		"""Offers dialog to manage a demo's bookmarks."""
 		index = self.listbox.getselectedcell()[1]
 		if index == None:
 			self.setstatusbar("Please select a demo file.", 1500)
@@ -328,20 +334,23 @@ class MainApp():
 		path = os.path.join(self.curdir, filename)
 		dialog = BookmarkSetter(self.root, targetdemo = path,
 			bm_dat = demo_bm, styleobj = self.ttkstyle)
-		if dialog.result == 1:
-			ksdata = self.listbox.getcell("col_bookmark", index)[0]
-			new_bmdata = (ksdata, list(dialog.new_bm))
+		dialog.show()
+		if dialog.result.state == DIAGSIG.SUCCESS:
 			if self.cfg["lazyreload"]:
-				self.listbox.setcell("col_bookmark", index, new_bmdata)
-				self.listbox.format(("col_bookmark", ), (index, ))
-				self._updatedemowindow(None)
+				if self.cfg["datagrabmode"] != 0:
+					ksdata = self.listbox.getcell("col_bookmark", index)
+					ksdata = ksdata[0] if ksdata is not None else ()
+					new_bmdata = (ksdata, list(dialog.result.data))
+					self.listbox.setcell("col_bookmark", index, new_bmdata)
+					self.listbox.format(("col_bookmark", ), (index, ))
+					self._updatedemowindow(None)
 			else:
 				self.reloadgui()
 
 	def _applytheme(self):
-		'''Looks at self.cfg, attempts to apply an interface theme using a
+		"""Looks at self.cfg, attempts to apply an interface theme using a
 		StyleHelper.
-		'''
+		"""
 		if self.cfg["ui_theme"] == "_DEFAULT":
 			self.root.tk.call("ttk::setTheme", self._DEFAULT_THEME)
 			return
@@ -368,7 +377,7 @@ class MainApp():
 				"or a permission problem occurred:\n{}".format(error))
 
 	def _updatedemowindow(self, _):
-		'''Renew contents of demo information window'''
+		"""Renew contents of demo information window"""
 		index = self.listbox.getselectedcell()[1]
 		self.demoinfbox.config(state = tk.NORMAL)
 		self.demoinfbox.delete("0.0", tk.END)
@@ -406,9 +415,9 @@ class MainApp():
 		self.demoinfbox.config(state = tk.DISABLED)
 
 	def reloadgui(self):
-		'''Should be called to re-fetch a directory's contents.
+		"""Should be called to re-fetch a directory's contents.
 		This function starts the datafetcher thread.
-		'''
+		"""
 		self.root.after_cancel(self.after_handlers["datafetcher"])
 		self.listbox.clear()
 		for k in self.threads:
@@ -426,7 +435,7 @@ class MainApp():
 	@decorate_callback("datafetcher")
 	def _after_callback_fetchdata(self):
 		"""
-		Loop worker for the after handler decorator stub.
+		Loop worker for the after callback decorator stub.
 		Grabs thread signals from the datafetcher queue and
 		acts accordingly.
 		"""
@@ -441,10 +450,10 @@ class MainApp():
 		return False
 
 	def _cleanup(self):
-		'''
-		Starts a filtering thread and calls the cleanup after handler to open
-		a Deleter dialog once the thread finishes.
-		'''
+		"""
+		Starts a filtering thread and calls the cleanup after callback
+		to open a Deleter dialog once the thread finishes.
+		"""
 		if self.filterentry_var.get() == "":
 			return
 		self.threads["cleanup"] = ThreadFilter(None, self.queues["cleanup"],
@@ -458,7 +467,7 @@ class MainApp():
 	@decorate_callback("cleanup")
 	def _after_callback_cleanup(self):
 		"""
-		Loop worker for the after handler decorator stub.
+		Loop worker for the after callback decorator stub.
 		Grabs thread signals from the cleanup queue and acts
 		accordingly, opening a Deletion dialog once the thread is done.
 		"""
@@ -481,6 +490,7 @@ class MainApp():
 				styleobj = self.ttkstyle,
 				eventfileupdate = "passive",
 			)
+			del_diag.show()
 			self.cleanupbtn.config(
 				text = "Cleanup by filter...", state = tk.NORMAL
 			)
@@ -492,7 +502,7 @@ class MainApp():
 		return False
 
 	def _filter(self):
-		'''Starts a filtering thread and configures the filtering button.'''
+		"""Starts a filtering thread and configures the filtering button."""
 		if self.filterentry_var.get() == "":
 			return
 		self.filterbtn.config(text = "Stop Filtering",
@@ -506,9 +516,10 @@ class MainApp():
 			self._after_callback_filter)
 
 	def _stopfilter(self, called_by_user = False):
-		'''Stops the filtering thread by setting its stop flag, then blocking
+		"""
+		Stops the filtering thread by setting its stop flag, then blocking
 		until it returns.
-		'''
+		"""
 		self.threads["filterer"].join()
 		self.queues["filter"].queue.clear()
 		self.root.after_cancel(self.after_handlers["filter"])
@@ -521,7 +532,7 @@ class MainApp():
 	@decorate_callback("filter")
 	def _after_callback_filter(self):
 		"""
-		Loop worker for the after handler decorator stub.
+		Loop worker for the after handler callback stub.
 		Grabs elements from the filter queue and updates the statusbar with
 		the filtering progress. If the thread is done, fills listbox with new
 		dataset.
@@ -539,11 +550,12 @@ class MainApp():
 		return False
 
 	def _spinboxsel(self, *_):
-		'''Observer callback to self.spinboxvar; is called whenever
+		"""
+		Observer callback to self.spinboxvar; is called whenever
 		self.spinboxvar (so the combobox) is updated.
 		Also triggered by self._rempath.
 		Kicks off the process of reading the current directory.
-		'''
+		"""
 		selpath = self.spinboxvar.get()
 		if selpath != self.curdir:
 			if self.cfg["lastpath"] != selpath: #Update lastpath entry
@@ -555,7 +567,7 @@ class MainApp():
 			self.reloadgui()
 
 	def setstatusbar(self, data, timeout = None):
-		'''Set statusbar text to data (str).'''
+		"""Set statusbar text to data (str)."""
 		self.statusbarlabel.after_cancel(self.after_handlers["statusbar"])
 		self.statusbarlabel.config(text = str(data))
 		self.statusbarlabel.update()
@@ -564,9 +576,10 @@ class MainApp():
 				timeout, lambda: self.setstatusbar(CNST.STATUSBARDEFAULT))
 
 	def _addpath(self):
-		'''Offers a directory selection dialog and writes the selected
+		"""
+		Offers a directory selection dialog and writes the selected
 		directory path to config after validating.
-		'''
+		"""
 		dirpath = tk_fid.askdirectory(initialdir = "C:\\",
 			title = "Select the folder containing your demos.")
 		if dirpath == "":
@@ -582,10 +595,11 @@ class MainApp():
 		self.reloadgui()
 
 	def _rempath(self):
-		'''Removes the current directory from the registered directories,
+		"""
+		Removes the current directory from the registered directories,
 		automatically moves to another one or sets the current directory
 		to "" if none are available anymore.
-		'''
+		"""
 		localcfg = self.cfg
 		if len(localcfg["demopaths"]) == 0:
 			return
@@ -601,10 +615,11 @@ class MainApp():
 		self.pathsel_spinbox.config(values = tuple(localcfg["demopaths"]))
 
 	def writecfg(self, data):
-		'''Writes config dict specified in data to self.cfgpath, converted
+		"""
+		Writes config dict specified in data to self.cfgpath, converted
 		to JSON. On write error, calls the CfgError dialog, blocking until
 		the issue is fixed.
-		'''
+		"""
 		write_ok = False
 		while not write_ok:
 			handleexists = False
@@ -618,19 +633,21 @@ class MainApp():
 			except Exception as error:
 				if handleexists:
 					handle.close()
-				dialog = CfgError(self.root, cfgpath = self.cfgpath, error = error, mode =  1)
-				if dialog.result_ == 0: # Retry
+				dialog = CfgError(self.root, cfgpath = self.cfgpath, error = error, mode = 1)
+				dialog.show()
+				if dialog.result.data == 0: # Retry
 					pass
-				elif dialog.result_ == 1: # Config replaced by dialog
+				elif dialog.result.data == 1: # Config replaced by dialog
 					pass
-				elif dialog.result_ == 2: # Quit
+				elif dialog.result.data == 2: # Quit
 					self.quit_app()
 					sys.exit()
 
 	def getcfg(self):
-		'''Gets config from self.cfgpath and returns it. On error, blocks until
-		program is closed, config is replaced or fixed.
-		'''
+		"""
+		Gets config from self.cfgpath and returns it. On error, blocks
+		until program is closed, config is replaced or fixed.
+		"""
 		localcfg = CNST.DEFAULT_CFG.copy()
 		cfg_ok = False
 		while not cfg_ok:
@@ -645,11 +662,12 @@ class MainApp():
 				if handleexists:
 					cfghandle.close()
 				dialog = CfgError(self.root, cfgpath = self.cfgpath, error = exc, mode = 0)
-				if dialog.result == 0: # Retry
+				dialog.show()
+				if dialog.result.data == 0: # Retry
 					pass
-				elif dialog.result == 1: # Config replaced by dialog
+				elif dialog.result.data == 1: # Config replaced by dialog
 					pass
-				elif dialog.result == 2: # Quit
+				elif dialog.result.data == 2: # Quit
 					self.quit_app()
 					sys.exit()
 			if handleexists:

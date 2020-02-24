@@ -8,22 +8,28 @@ from demomgr.dialogues._base import BaseDialog
 from demomgr import constants as CNST 
 
 class CfgError(BaseDialog):
-	'''Dialog that opens on malformed config and offers three options:
+	"""
+	Dialog that opens on malformed config and offers three options:
 	Retry, Replace, Quit.
-	Takes:
-	tkinter parent element
-	cfgpath <str>
-	error string <str>
-	mode <int>: 0 for read access error, 1 for write error'''
+
+	After the dialog is closed:
+	`self.result.data` will contain 0: Retry; 1: Replace; 2: Quit
+	"""
 	def __init__(self, parent, cfgpath, error, mode):
-		self.result = None
+		"""
+		parent: Parent widget, should be a `Tk` or `Toplevel` instance.
+		cfgpath: Path to program configuration. (str)
+		error: The error that caused this dialog. (str)
+		mode: 0 for read access error, 1 for write error
+		"""
+		super().__init__(parent, "Configuration error!")
+
 		self.cfgpath = cfgpath
 		self.error = error
 		self.mode = mode #0: Read; 1: Write
-		super().__init__(parent, "Configuration error!")
 
 	def body(self, parent):
-		'''UI'''
+		"""UI"""
 		ifread = abs(self.mode - 1)
 		msg = ("The configuration file could not be " +
 			("read from" * ifread + "written to" * self.mode) +
@@ -42,9 +48,9 @@ class CfgError(BaseDialog):
 			text = "Attempting to rewrite default config...")
 		self.err_rewrite_fail = ttk.Label(slickframe,
 			font = ("TkDefaultFont", 10), wrap = 400, style = "Contained.TLabel")
-		retrybtn = ttk.Button(parent, text = "Retry", command = self.__retry)
-		replbtn = ttk.Button(parent, text = "Replace", command = self.__replacecfg)
-		quitbtn = ttk.Button(parent, text = "Quit", command = self.__quit)
+		retrybtn = ttk.Button(parent, text = "Retry", command = self._retry)
+		replbtn = ttk.Button(parent, text = "Replace", command = self._replacecfg)
+		quitbtn = ttk.Button(parent, text = "Quit", command = self._quit)
 
 		slickframe.pack(expand = 1, fill = tk.BOTH)
 		msg_label.pack(side = tk.TOP, expand = 1, fill = tk.BOTH)
@@ -52,14 +58,15 @@ class CfgError(BaseDialog):
 		replbtn.pack(fill = tk.X, side = tk.LEFT, expand = 1, padx = 3)
 		quitbtn.pack(fill = tk.X, side = tk.LEFT, expand = 1, padx = (3, 0))
 
-	def cancel(self):
-		self.__quit()
+	def destroy(self):
+		self._quit()
+		super().destroy()
 
-	def __retry(self):
+	def _retry(self):
 		self.result = 0
 		self.destroy()
 
-	def __replacecfg(self):
+	def _replacecfg(self):
 		cfgtowrite = CNST.DEFAULT_CFG
 		try:
 			self.err_rewrite_fail.pack_forget()
@@ -80,6 +87,6 @@ class CfgError(BaseDialog):
 		self.result = 1
 		self.destroy()
 
-	def __quit(self):
+	def _quit(self):
 		self.result = 2
 		self.destroy()

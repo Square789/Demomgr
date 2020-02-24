@@ -1,3 +1,5 @@
+from schema import And
+
 CFG_FOLDER = ".demomgr"
 CFG_NAME = "config.cfg"
 DEFAULT_CFG = {
@@ -14,7 +16,7 @@ DEFAULT_CFG = {
 	"lazyreload": False,
 }
 DEFAULT_CFG_SCHEMA = {
-	"demopaths": [str], "lastpath": str, "firstrun": bool, "__comment": str,
+	"demopaths": [And(str, lambda x: x != "")], "lastpath": str, "firstrun": bool, "__comment": str,
 	"datagrabmode": int, "previewdemos": bool, "steampath": str, "hlaepath": str,
 	"evtblocksz": int, "ui_theme": str, "lazyreload": bool,
 }

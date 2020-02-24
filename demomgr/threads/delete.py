@@ -10,7 +10,7 @@ from demomgr import handle_events as handle_ev
 from demomgr import constants as CNST
 
 class ThreadDelete(_StoppableBaseThread):
-	'''
+	"""
 	Thread takes no queue_inp, but the following kwargs:
 		demodir <Str>: Absolute directory to delete demos in.
 		files <List[Str]>: List of all files in demodir.
@@ -19,7 +19,7 @@ class ThreadDelete(_StoppableBaseThread):
 			[j for i, j in enumerate(files) if selected[i]];
 		cfg <Dict>: Program configuration as in .demomgr/config.cfg
 		eventfileupdate <Str; "passive"|"selectivemove">: eventfile update mode.
-	'''
+	"""
 	def __init__(self, queue_inp, queue_out, demodir, files, selected, filestodel, cfg,
 			eventfileupdate = "passive", *args, **kwargs):
 		self.options = {"demodir": demodir, "files": files, "selected": selected,

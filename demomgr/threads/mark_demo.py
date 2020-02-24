@@ -1,4 +1,4 @@
-'''Contains the ThreadMarkDemo class.'''
+"""Contains the ThreadMarkDemo class."""
 
 import os
 import queue

@@ -6,6 +6,7 @@ import threading
 import queue
 
 from demomgr.dialogues._base import BaseDialog
+from demomgr.dialogues._diagresult import DIAGSIG
 
 from demomgr import constants as CNST
 from demomgr.helper_tk_widgets import TtkText
@@ -14,15 +15,22 @@ from demomgr.threads import ThreadDelete
 THREADSIG = CNST.THREADSIG
 
 class Deleter(BaseDialog):
-	'''A dialog that constructs deletion requests for demos and prompts the
+	"""
+	A dialog that constructs deletion requests for demos and prompts the
 	user whether they are sure of the deletion. If yes was selected, starts
 	a stoppable thread and waits for its completion.
-	'''
+
+	After the dialog is closed:
+	`self.result.state` will be SUCCESS if the thread was started, else
+		FAILURE.
+	`self.result.data` will be None if the thread was not started, else the
+		thread's termination signal.
+	"""
 	def __init__(self, parent, demodir, files, selected,
 			deluselessjson, cfg, styleobj, eventfileupdate = "passive"):
-		'''Args:
-		parent: Tkinter widget that is the parent of this dialog.
-		demodir: Absolute path to the directory containing the demos.
+		"""
+		parent: Parent widget, should be a `Tk` or `Toplevel` instance.
+		demodir: Absolute path to the directory containing the demos. (str)
 		files: List of files that shall be included in the deletion
 			evaluation.
 		selected: List of boolean values so that
@@ -36,11 +44,13 @@ class Deleter(BaseDialog):
 			"selectivemove" only writes Logchunks from the old eventfile to
 				the new one if it can be assigned to a file in a previously
 				declared list of acceptable files.
-				This mode requires the every demo of demodir to be present in
-				files!
+				!!!This mode requires every demo of demodir to be present in
+				files!!!
 			"passive" moves all Logchunks from the old eventfile to the
 				new one unless their demo was explicitly deleted.
-		'''
+		"""
+		super().__init__(parent, "Delete...")
+
 		self.master = parent
 		self.demodir = demodir
 		self.files = files
@@ -73,20 +83,16 @@ class Deleter(BaseDialog):
 		except (OSError, PermissionError, FileNotFoundError) as error:
 			self.startmsg = "! Error getting JSON files: !\n{}{}\n\n{}".format(error.__class__.__name__, str(error), self.startmsg)
 
-		self.delthread = threading.Thread() #Dummy thread in case self.cancel is called through window manager
-		self.after_handler = None
+		self.delthread = threading.Thread() #Dummy thread in case self.destroy is called through window manager
+		self.after_handler = self.after(0, lambda: None)
 		self.queue_out = queue.Queue()
-
-		self.result = -1 #exit state. set to something from 0x00 - 0xFF if successful
-
-		super().__init__(parent, "Delete...")
 
 	def body(self, master):
 		'''UI'''
 		self.okbutton = ttk.Button(master, text = "Delete!", command = lambda: self.confirm(1) )
 		self.cancelbutton = ttk.Button(master, text = "Cancel", command = self.destroy )
 		self.closebutton = ttk.Button(master, text = "Close", command = self.destroy )
-		self.canceloperationbutton = ttk.Button(master, text = "Abort", command = self.__stopoperation)
+		self.canceloperationbutton = ttk.Button(master, text = "Abort", command = self._stopoperation)
 		textframe = ttk.Frame(master, padding = (5, 5, 5, 5))
 		textframe.grid_columnconfigure(0, weight = 1)
 		textframe.grid_rowconfigure(0, weight = 1)
@@ -113,13 +119,15 @@ class Deleter(BaseDialog):
 			self.okbutton.pack_forget()
 			self.cancelbutton.pack_forget()
 			self.canceloperationbutton.pack(side = tk.LEFT, fill = tk.X, expand = 1)
-			self.__startthread()
+			self._startthread()
 
-	def __stopoperation(self):
+	def _stopoperation(self):
+		self.after_cancel(self.after_handler)
 		if self.delthread.isAlive():
-			self.delthread.join() # Let after callback do the rest
+			self.delthread.join()
+		self._after_callback()
 
-	def __startthread(self):
+	def _startthread(self):
 		self.delthread = ThreadDelete(None, self.queue_out,
 			demodir =			self.demodir,
 			files =				self.files,
@@ -128,31 +136,29 @@ class Deleter(BaseDialog):
 			cfg =				self.cfg,
 			eventfileupdate =	self.eventfileupdate)
 		self.delthread.start()
-		self.after_handler = self.after(0, self.__after_callback)
+		self.after_handler = self.after(0, self._after_callback)
 
-	def __after_callback(self):
-		'''Gets stuff from self.queue_out that the thread writes to, then
+	def _after_callback(self, call_once = False):
+		"""
+		Gets stuff from self.queue_out that the thread writes to, then
 		modifies UI based on queue elements.
-		'''
-		finished = -1
+		"""
+		finished = False
 		while True:
 			try:
 				procelem = self.queue_out.get_nowait()
 				if procelem[0] == THREADSIG.INFO_CONSOLE:
 					self.appendtextbox(procelem[1])
 				elif procelem[0] < 0x100: # Finish
-					finished = procelem[0]
+					finished = True
+					self.result.state = DIAGSIG.SUCCESS
+					self.result.data = procelem[0]
+					self.canceloperationbutton.pack_forget()
+					self.closebutton.pack(side = tk.LEFT, fill = tk.X, expand = 1)
 			except queue.Empty:
 				break
-		if finished == -1:
-			self.after_handler = self.after(CNST.GUI_UPDATE_WAIT,
-				self.__after_callback)
-			return
-		else: #THREAD DONE
-			self.after_cancel(self.after_handler)
-			self.result = finished
-			self.canceloperationbutton.pack_forget()
-			self.closebutton.pack(side = tk.LEFT, fill = tk.X, expand = 1)
+		if (not finished) and (not call_once):
+			self.after_handler = self.after(CNST.GUI_UPDATE_WAIT, self._after_callback)
 
 	def appendtextbox(self, _inp):
 		self.textbox.config(state = tk.NORMAL)
@@ -161,6 +167,6 @@ class Deleter(BaseDialog):
 		self.textbox.update()
 		self.textbox.config(state = tk.DISABLED)
 
-	def cancel(self):
-		self.__stopoperation()
-		self.destroy()
+	def destroy(self):
+		self._stopoperation()
+		super().destroy()
