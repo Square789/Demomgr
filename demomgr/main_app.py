@@ -29,7 +29,7 @@ from demomgr.threads import ThreadFilter, ThreadReadFolder
 THREADSIG = CNST.THREADSIG
 RCB = "3"
 
-__version__ = "1.1.2"
+__version__ = "1.1.3"
 __author__ = "Square789"
 
 def decorate_callback(hdlr_slot):
@@ -173,7 +173,7 @@ class MainApp():
 		self.listbox = mfl.MultiframeList(self.listboxframe, inicolumns = (
 			{"name": "Filename", "col_id": "col_filename", "sort": True,
 				"weight": 5, "minsize": 100, "w_width": 20},
-			{"name": "Bookmarks", "col_id": "col_bookmark", "sort": False,
+			{"name": "Information", "col_id": "col_demo_info", "sort": False,
 				"minsize": 26, "weight": 1, "w_width": 26,
 				"formatter": format_bm_pair},
 			{"name": "Date created", "col_id": "col_ctime", "sort": True,
@@ -330,7 +330,7 @@ class MainApp():
 			self.setstatusbar("Please select a demo file.", 1500)
 			return
 		filename = self.listbox.getcell("col_filename", index)
-		demo_bm = self.listbox.getcell("col_bookmark", index)
+		demo_bm = self.listbox.getcell("col_demo_info", index)
 		path = os.path.join(self.curdir, filename)
 		dialog = BookmarkSetter(self.root, targetdemo = path,
 			bm_dat = demo_bm, styleobj = self.ttkstyle)
@@ -338,11 +338,11 @@ class MainApp():
 		if dialog.result.state == DIAGSIG.SUCCESS:
 			if self.cfg["lazyreload"]:
 				if self.cfg["datagrabmode"] != 0:
-					ksdata = self.listbox.getcell("col_bookmark", index)
+					ksdata = self.listbox.getcell("col_demo_info", index)
 					ksdata = ksdata[0] if ksdata is not None else ()
 					new_bmdata = (ksdata, list(dialog.result.data))
-					self.listbox.setcell("col_bookmark", index, new_bmdata)
-					self.listbox.format(("col_bookmark", ), (index, ))
+					self.listbox.setcell("col_demo_info", index, new_bmdata)
+					self.listbox.format(("col_demo_info", ), (index, ))
 					self._updatedemowindow(None)
 			else:
 				self.reloadgui()
@@ -399,16 +399,16 @@ class MainApp():
 		except Exception:
 			headerinfo = "Error reading demo; file is likely corrupted :("
 
-		entry = self.listbox.getcell("col_bookmark", index) # Get bookmarks
+		entry = self.listbox.getcell("col_demo_info", index) # Get info
 		if entry == None:
-			demmarks = "\n\nNo bookmark container found."
+			demmarks = "\n\nNo information on demo found."
 		else:
 			demmarks = "\n\n"
 			for i in entry[0]:
 				demmarks += (str(i[0]) + " streak at " + str(i[1]) + "\n")
 			demmarks += "\n"
 			for i in entry[1]:
-				demmarks += ("\"" + str(i[0]) + "\" bookmark at " + str(i[1]) + "\n")#End bookmarks
+				demmarks += ("\"" + str(i[0]) + "\" bookmark at " + str(i[1]) + "\n") # End info
 		self.demoinfbox.insert(tk.END, headerinfo)
 		self.demoinfbox.insert(tk.END, demmarks)
 		

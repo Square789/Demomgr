@@ -1,7 +1,7 @@
 """
 This module contains the BookmarkSetter dialog which offers the ability
 to modify a demo's bookmarks in both json file and _events.txt.
-If a bookmark container would end up completely empty (neither killstreaks
+If an info container would end up completely empty (neither killstreaks
 nor bookmarks), it is ignored / not written.
 """
 
@@ -42,7 +42,7 @@ class BookmarkSetter(BaseDialog):
 		"""
 		parent: Parent widget, should be a `Tk` or `Toplevel` instance.
 		targetdemo: Full path to the demo that should be marked.
-		bm_dat: Bookmarks for the specified demo in the usual bookmark format
+		bm_dat: Bookmarks for the specified demo in the usual info format
 			(((killstreak_peak, tick), ...), ((bookmark_name, tick), ...))
 		styleobj: Instance of `tkinter.ttk.Style`
 		"""

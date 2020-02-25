@@ -1,23 +1,24 @@
-'''Classes designed to ease up the handling of a _events.txt file as written
+"""
+Classes designed to ease up the handling of a _events.txt file as written
 by the source engine.
-'''
+"""
 
-_DEF = {"sep":">\n"}
+_DEF = {"sep": ">\n"}
 
-read_DEF = {"blocksz":65536, "resethandle":True}
-write_DEF = {"clearfile":False, "forceflush":False, "empty_ok":False}
+read_DEF = {"blocksz": 65536, "resethandle": True}
+write_DEF = {"clearfile": False, "forceflush": False, "empty_ok": False}
 
-class Logchunk():
-	'''Logchunk class, stores the following attributes:
-	content: String; Content read directly from the file.
-	message: Dict;
-		"last": Boolean; True if the logchunk is either empty or the last
-		one in the file, else False.
-	fromfile: String; Absolute path to file that the chunk was read from.
-	'''
-	def __init__(self, content, message, fromfile):
+class RawLogchunk():
+	"""
+	Class to contain a raw logchunk and the following attributes:
+
+	content: Content read directly from the file. (str)
+	is_last: Whether the chunk is the last one in the file. (bool)
+	fromfile: Absolute path to file that the chunk was read from. (str)
+	"""
+	def __init__(self, content, is_last, fromfile):
 		self.content = content
-		self.message = message
+		self.is_last = is_last
 		self.fromfile = fromfile
 
 	def __bool__(self):
@@ -30,21 +31,19 @@ class Logchunk():
 		return self.content
 
 class EventReader():
-	'''Class designed to read a Source engine demo event log file.
+	"""
+	Class designed to read a Source engine demo event log file.
 
 	handle: Must either be a file handle object or a string to a file.
-	If a file handle, must be opened in r, w+, a+ so it can be read.
-	If a file handle, it will not be closed after destruction of the reader.
-
-	Keyword args:
-
-	sep: String; Seperator for individual logchunks.
-	resethandle: Bool; Will reset the file handle's position to 0 upon creation.
-	blocksz: Integer; Blocksize to read files in. Default is 65536.
-	'''
-	def __init__(self, handle, cnf=None, **cnfargs):
-		if cnf is None:
-			cnf = {}
+		If a file handle, must be opened in r, w+, a+ so it can be read.
+		If a file handle, it will not be closed after destruction
+		of the reader.
+	sep: Seperator of individual logchunks. (Default '>\\n', str)
+	resethandle: Will reset the file handle's position to 0 upon
+		creation. (Default True, bool)
+	blocksz: Blocksize to read files in. (Default 65536, int)
+	"""
+	def __init__(self, handle, sep = None, resethandle = None, blocksz = None):
 		self.isownhandle = False
 		if isinstance(handle, str):
 			self.isownhandle = True
@@ -52,8 +51,11 @@ class EventReader():
 		self.handle = handle
 		self.cnf = _DEF
 		self.cnf.update(read_DEF)
-		self.cnf.update(cnfargs)
-		self.cnf.update(cnf)
+		for t in ((sep, "sep"), (resethandle, "resethandle"),
+				(blocksz, "blocksz")):
+			if t[0] is None:
+				continue
+			self.cnf[t[1]] = t[0]
 
 		self.filename = self.handle.name
 
@@ -88,7 +90,16 @@ class EventReader():
 		del self
 
 	def getchunks(self, toget = 1):
-		'''Method that returns the number of specified datachunks in the file.'''
+		"""
+		Gets specified amout of chunks from the file.
+		Returns a list of RawLogchunks.
+
+		toget: How many RawLogchunks the list should contain.
+			(Default 1, int)
+
+		Warning: The amount of returned chunks may be lower than
+			the requested amount if the file has ended.
+		"""
 		while len(self.chunkbuffer) < toget:
 			self.__read()
 		returnbfr = []
@@ -97,13 +108,16 @@ class EventReader():
 		return returnbfr
 
 	def reset(self):
-		'''Resets the EventReader to the start of the file.'''
+		"""Resets the EventReader to the start of the file."""
 		self.handle.seek(0)
 		self.lastchunk = ""
 		self.chunkbuffer = []
 
 	def __read(self):
-		'''Internal method reading logchunks and adding them to self.chunkbuffer.'''
+		"""
+		Internal method reading logchunks and adding them to
+		`self.chunkbuffer`.
+		"""
 		raw = ""
 		rawread = ""
 		logchunks = []
@@ -120,7 +134,7 @@ class EventReader():
 				if logchunks[0] == "":
 					logchunks.pop(0)
 		if len(logchunks) == 0:
-			self.chunkbuffer.append(Logchunk("", {"last": True}, self.handle.name))
+			self.chunkbuffer.append(RawLogchunk("", True, self.handle.name))
 			return
 		# Sometimes, the file starts with >, in which case the first logchunk may be empty.
 		elif len(logchunks) == 1:
@@ -131,34 +145,36 @@ class EventReader():
 		else:
 			self.lastchunk = logchunks.pop(-1)
 		self.chunkbuffer.extend(
-			[Logchunk(i[:-1], {"last": not bool(rawread)}, self.handle.name) for i in logchunks]
+			[RawLogchunk(i[:-1], not bool(rawread), self.handle.name) for i in logchunks]
 		)
 
 class EventWriter():
-	'''Class designed to write to a Source engine demo event log file.
+	"""
+	Class designed to write to a Source engine demo event log file.
 
 	handle: Must either be a file handle object or a string to a file.
-	If a file handle, must be opened in a+ mode.
-	If a file handle, it will not be closed after destruction of the writer.
-
-	Keyword args:
-
-	sep: String; Seperator for individual logchunks.
-	clearfile: Bool; Will delete the file's contents once as soon as the
-		handler is created.
-	forceflush: Bool; Will call the flush() method on the file handle after
-		every written logchunk.
-	empty_ok: Bool; If false, raises a ValueError if an empty chunk is
+		If a file handle, must be opened in a+ mode.
+		If a file handle, it will not be closed after destruction
+		of the writer.
+	sep: Seperator of individual logchunks. (str)
+	clearfile: Whether to delete the file's contents once as soon as the
+		handler is created. (Default False, bool)
+	forceflush: Will call the flush() method on the file handle after
+		every written logchunk. (Default False, bool)
+	empty_ok: If false, raises a ValueError if an empty chunk is
 		written. If true, does not write the chunk, but continues without
-		raising an exception.
-	'''
-	def __init__(self, handle, cnf=None, **cnfargs):
-		if cnf is None:
-			cnf = {}
+		raising an exception. (Default False, bool)
+	"""
+	def __init__(self, handle, sep = None, clearfile = None, forceflush = None,
+			empty_ok = None):
 		self.cnf = _DEF
 		self.cnf.update(write_DEF)
-		self.cnf.update(cnfargs)
-		self.cnf.update(cnf)
+		for t in (
+				(sep, "sep"), (clearfile, "clearfile"),
+				(forceflush, "forceflush"), (empty_ok, "empty_ok")):
+			if t[0] is None:
+				continue
+			self.cnf[t[1]] = t[0]
 		self.isownhandle = False
 		if isinstance(handle, str):
 			self.isownhandle = True
@@ -184,9 +200,9 @@ class EventWriter():
 		self.destroy()
 
 	def writechunk(self, in_chk):
-		'''Writes a string or Logchunk to the file following options specified.'''
-		if not isinstance(in_chk, (Logchunk, str) ):
-			raise ValueError("Expected Logchunk or str, not " + type(in_chk).__name__)
+		"""Writes a string or RawLogchunk to the file following options specified."""
+		if not isinstance(in_chk, (RawLogchunk, str)):
+			raise ValueError("Expected RawLogchunk or str, not " + type(in_chk).__name__)
 		if not in_chk:
 			if self.cnf["empty_ok"]:
 				return
@@ -204,16 +220,16 @@ class EventWriter():
 			self.handle.flush()
 
 	def writechunks(self, in_chks):
-		'''Accepts a list of Strings or Logchunks and writes them to file.'''
+		"""Accepts a list of Strings or Logchunks and writes them to file."""
 		for i in in_chks:
 			self.writechunk(i)
 
 	def close(self):
-		'''Alias for self.destroy()'''
+		"""Alias for self.destroy()"""
 		self.destroy()
 
 	def destroy(self):
-		'''Closes handle if it was created inside of the EventWriter.'''
+		"""Closes handle if it was created inside of the EventWriter."""
 		if self.isownhandle:
 			self.handle.close()
 		del self

@@ -1,3 +1,9 @@
+"""
+Contains the DemoInfo class and offers ability to construct it
+from either a handle_events.RawLogchunk or a json file.
+"""
+
+import json
 import re
 
 from demomgr.helpers import getstreakpeaks
@@ -13,12 +19,12 @@ class GROUP:
 	DEMO = 4
 	TICK = 5
 
-class Logchunk():
-	"""Container class to hold attributes of a logchunk."""
+class DemoInfo():
+	"""Container class to hold information regarding a demo."""
 	def __init__(self, demo_name, killstreaks, bookmarks):
 		"""
-		demo_name <Str>: The name of the demo that is described in the
-			logchunk.
+		demo_name: The name of the demo that is described in the
+			logchunk. (str)
 		killstreaks <Tuple/List>: Killstreaks:
 			[(streak <Int>, tick <Int>), ...]
 		bookmarks <Tuple/List>: Bookmarks:
@@ -28,11 +34,35 @@ class Logchunk():
 		self.killstreaks = killstreaks
 		self.bookmarks = bookmarks
 
+def parse_json(handle, demo_name):
+	"""
+	Parses the file handle which should contain a json file of a
+	standard format and turns the contained data into DemoInfo.
+
+	handle: Handle to read json from.
+	demo_name: Name of associated demo file; i.e. "foo.dem". (str)
+
+	May raise: IOError, json.decoder.JSONDecodeError, KeyError, ValueError
+	"""
+	cur_bm = []
+	cur_ks = []
+
+	curjson = json.load(handle)
+	for k in curjson["events"]:
+		if k["name"] == "Killstreak":
+			cur_ks.append((int(k["value"]), int(k["tick"])))
+		elif k["name"] == "Bookmark":
+			cur_bm.append((k["value"], int(k["tick"])))
+	cur_ks = getstreakpeaks(cur_ks)
+	return DemoInfo(demo_name, cur_ks, cur_bm)
+
 def parse_logchunk(in_chk):
 	"""
-	Takes a handle_events.Logchunk and converts it into a Logchunk.
+	Takes a handle_events.RawLogchunk and converts it into DemoInfo.
 
-	in_chk : Full logchunk as it is read from file.
+	in_chk : RawLogchunk to process, as returned by an EventReader.
+
+	May raise: ValueError on bad logchunks.
 	"""
 	loglines = in_chk.content.split("\n")
 	if not loglines:
@@ -55,16 +85,16 @@ def parse_logchunk(in_chk):
 			bookmarks.append((value, tick))
 	killstreaks = getstreakpeaks(killstreaks)
 
-	return Logchunk(demo, killstreaks, bookmarks)
+	return DemoInfo(demo, killstreaks, bookmarks)
 
-def read_events(handle, blocksz):
+def parse_events(handle, blocksz):
 	"""
 	This function reads an events.txt file as it's written by the source
-	engine, returns a list of Logchunk instances containing demo name,
+	engine, returns a list of DemoInfo instances containing demo name,
 	killstreaks and bookmarks.
 
 	handle : Open file handle to the events file. Must be readable.
-	blocksz : Block size the handle file should be read in.
+	blocksz : Block size the handle file should be read in. (int)
 	May raise IOError, PermissionError, ValueError.
 	"""
 	with handle_ev.EventReader(handle, blocksz=blocksz) as reader:

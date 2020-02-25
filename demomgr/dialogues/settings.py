@@ -103,7 +103,7 @@ class Settings(BaseDialog):
 			change_btn.grid(row = i, column = 2, padx = (3, 0))
 
 		datagrab_labelframe = ttk.LabelFrame(master, padding = 8,
-			labelwidget = frmd_label(master, "Get bookmark information via..."))
+			labelwidget = frmd_label(master, "Get demo information via..."))
 		datagrab_labelframe.grid_columnconfigure(0, weight = 1)
 		for i, j in ((".json files", 2), (CNST.EVENT_FILE, 1), ("None", 0)):
 			b = ttk.Radiobutton(datagrab_labelframe, value = j,

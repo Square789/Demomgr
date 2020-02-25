@@ -87,45 +87,50 @@ def getstreakpeaks(killstreaks):
 			prv = i
 	return streakpeaks
 
-def assignbookmarkdata(files, bookmarkdata):
+def assign_demo_info(files, demo_info):
 	"""
-	Creates a list where each Logchunk in bookmarkdata is sitting next
-	to its file. If a file does not have any bookmarkdata, it will have
-	None matched up instead.
+	Creates a list where each DemoInfo object in demo_info is sitting next
+	to its file. If a file does not have a relevant entry in demo_info,
+	it will have None matched up instead.
 
 	files : List of file names ["abc.dem", "def.dem", ...]
-	bookmarkdata : List of Logchunk instances.
+	demo_info : List of DemoInfo instances.
 	"""
 	assigned_dat = [None for _ in files]
 	for i, file in enumerate(files):
-		for j in bookmarkdata:
+		for j in demo_info:
 			if j.demo_name == file:
 				assigned_dat[i] = j
 	return assigned_dat
 
 def format_bm_pair(toformat):
-	'''Formats a bookmark pair ((), ()) into a readable string.'''
+	"""
+	Formats a primitive killstreak/bookmark pair ((), ())
+	into a readable string.
+	"""
 	if toformat is None:
 		return "None"
 	return f"{len(toformat[0])} Killstreaks; {len(toformat[1])} Bookmarks"
 
 def frmd_label(parent, text,
 		styles = ("Framed.Contained.TFrame", "Labelframe.Contained.TLabel")):
-	'''Returns a ttk.Frame object containing a ttk.Label with text specified
+	"""
+	Returns a ttk.Frame object containing a ttk.Label with text specified
 	that is supposed to be integrated into a Labelframe.
 	styles defaults to a tuple of ("Framed.Contained.TFrame",
 	"Labelframe.Contained.TLabel").
-	'''
+	"""
 	frm = Frame(parent, style = styles[0], padding = 1)
 	lbl = Label(frm, text = text, style = styles[1], padding = (3, 0))
 	lbl.pack()
 	return frm
 
 def tk_secure_str(in_str, repl = None):
-	'''If any character in in_str is out of tkinter's char displaying range
+	"""
+	If any character in in_str is out of tkinter's char displaying range
 	(0x0000 - 0xFFFF), it will be replaced with the constant REPLACEMENT_CHAR.
 	This can be overridden by passing repl as an additional parameter.
-	'''
+	"""
 	if repl is None:
 		repl = CNST.REPLACEMENT_CHAR
 	return "".join([(i if ord(i) <= 0xFFFF else repl) for i in in_str])

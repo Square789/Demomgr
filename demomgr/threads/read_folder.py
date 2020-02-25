@@ -6,15 +6,15 @@ import json
 import time
 
 from demomgr.constants import THREADSIG
-from demomgr.helpers import (assignbookmarkdata, getstreakpeaks)
-from demomgr.logchunk_parser import read_events, Logchunk
+from demomgr.helpers import assign_demo_info, getstreakpeaks
+from demomgr.demo_info import parse_events, parse_json, DemoInfo
 from demomgr.threads._base import _StoppableBaseThread
 from demomgr import constants as CNST
 
 class ThreadReadFolder(_StoppableBaseThread):
 	"""
 	Thread to read a directory containing demos and return a list of names,
-	creation dates, bookmarkdata and filesizes.
+	creation dates, demo information and filesizes.
 	"""
 
 	def __init__(self, queue_out, targetdir, cfg, *args, **kwargs):
@@ -68,86 +68,70 @@ class ThreadReadFolder(_StoppableBaseThread):
 				{}, THREADSIG.FAILURE)
 			return
 
-		# Grab bookmarkdata (returned through col_bookmark)
+		# Grab demo information (returned through col_demo_info)
 		datamode = self.options["cfg"]["datagrabmode"]
 		if datamode == 0: #Disabled
 			self.__stop(
-				("Bookmark information disabled.", 3000),
-				{"col_filename": files, "col_bookmark": [None for _ in files],
+				("Demo information disabled.", 3000),
+				{"col_filename": files, "col_demo_info": [None for _ in files],
 					"col_ctime": datescreated, "col_filesize": sizes},
 				THREADSIG.SUCCESS)
 			return
+
 		elif datamode == 1: #_events.txt
 			handleopen = False
 			try:
 				with open(os.path.join(self.options["targetdir"], CNST.EVENT_FILE), "r") as h:
-					logchunk_list = read_events(h, self.options["cfg"]["evtblocksz"])
+					logchunk_list = parse_events(h, self.options["cfg"]["evtblocksz"])
 			except Exception as exc:
 				self.__stop(
 					("\"{}\" has not been found, can not be opened or is malformed.".format(
 						CNST.EVENT_FILE), 5000),
-					{"col_filename": files, "col_bookmark": [None for _ in files],
+					{"col_filename": files, "col_demo_info": [None for _ in files],
 						"col_ctime": datescreated, "col_filesize": sizes}, THREADSIG.FAILURE)
 				return
+
 		elif datamode == 2: #.json
 			try: # Get json files
-				jsonfiles = [i for i in os.listdir(self.options["targetdir"]) if os.path.splitext(i)[1] == ".json"]
-				jsonfiles = [i for i in jsonfiles if os.path.exists(os.path.join(self.options["targetdir"], os.path.splitext(i)[0] + ".dem"))]
+				jsonfiles = [i for i in os.listdir(self.options["targetdir"])
+					if os.path.splitext(i)[1] == ".json"]
+				jsonfiles = [i for i in jsonfiles if os.path.exists(
+					os.path.join(self.options["targetdir"], os.path.splitext(i)[0] + ".dem"))]
 			except (OSError, FileNotFoundError, PermissionError) as error:
 				self.__stop(
 					("Error getting .json files: {}".format(str(error)), 5000),
-					{"col_filename": files, "col_bookmark": [None for _ in files],
+					{"col_filename": files, "col_demo_info": [None for _ in files],
 						"col_ctime": datescreated, "col_filesize": sizes},
 					THREADSIG.FAILURE)
 				return
 
 			logchunk_list = []
 			for json_file in jsonfiles:
-				cur_ks = []
-				cur_bm = []
 				if self.stoprequest.isSet():
 					self.queue_out_put(THREADSIG.ABORTED); return
 				try: # Attempt to open the json file
-					h = open(os.path.join(self.options["targetdir"], json_file))
+					with open(os.path.join(self.options["targetdir"], json_file)) as h:
+						logchunk_list.append(parse_json(h,
+							os.path.splitext(json_file)[0] + ".dem"))
 				except (OSError, PermissionError, FileNotFoundError) as error:
-					logchunk_list.append(Logchunk("", (), ()))
 					continue
-				try: # Attempt to parse the json
-					curjson = json.load(h)
-				except json.decoder.JSONDecodeError as error:
-					logchunk_list.append(Logchunk("", (), ()))
-					h.close()
+				except (json.decoder.JSONDecodeError, KeyError, ValueError) as error:
 					continue
-				h.close() # JSON now loaded and present in curjson.
-
-				for k in curjson["events"]: # {"name":"Killstreak/Bookmark","value":"int/Name","tick":"int"}
-					try:
-						if k["name"] == "Killstreak":
-							cur_ks.append((int(k["value"]), int(k["tick"])))
-						elif k["name"] == "Bookmark":
-							cur_bm.append((k["value"], int(k["tick"])))
-					except (ValueError, TypeError, KeyError):
-						cur_ks = []
-						cur_bm = []
-						break
-				else: # When loop completes normally
-					cur_ks = getstreakpeaks(cur_ks)
-				logchunk_list.append(Logchunk(
-					os.path.splitext(json_file)[0] + ".dem", cur_ks, cur_bm
-				))
 
 		if self.stoprequest.isSet():
 			self.queue_out_put(THREADSIG.ABORTED)
 			return
 
-		listout = assignbookmarkdata(files, logchunk_list) #PARALLELIZE BOOKMARKDATA WITH FILES
-		listout = [((i.killstreaks, i.bookmarks) if i is not None else None) for i in listout] # Reduce to just the relevant data
+		# Parallelize, order of _events.txt uncertain; json likely retrieved in bad order.
+		logchunk_list = assign_demo_info(files, logchunk_list)
+		listout = [((i.killstreaks, i.bookmarks) if i is not None else None)
+			for i in logchunk_list] # Reduce to just the relevant data
 
 		self.__stop(
 			("Processed data from {} files in {} seconds.".format(
 				len(files), round(time.time() - starttime, 4)
 			), 3000),
-			{"col_filename": files, "col_bookmark": listout,
+			{"col_filename": files, "col_demo_info": listout,
 				"col_ctime": datescreated, "col_filesize": sizes},
 			THREADSIG.SUCCESS)
 		return

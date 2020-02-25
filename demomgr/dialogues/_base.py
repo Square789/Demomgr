@@ -60,7 +60,7 @@ class BaseDialog(tk.Toplevel):
 	def destroy(self):
 		"""
 		Destroy the dialog and if not taken care of set the state to FAILURE.
-		
+
 		This may be overridden, be sure to call super().destroy() then.
 		"""
 		if self.result.state == DIAGSIG.OPEN:
