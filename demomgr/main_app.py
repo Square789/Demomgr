@@ -22,14 +22,15 @@ from demomgr import context_menus
 from demomgr.dialogues import *
 from demomgr.get_cfg_location import get_cfg_storage_path
 from demomgr.helper_tk_widgets import TtkText
-from demomgr.helpers import (formatdate, readdemoheader, convertunit, format_bm_pair)
+from demomgr.helpers import (formatdate, readdemoheader, convertunit,
+	format_bm_pair, reduce_cfg)
 from demomgr.style_helper import StyleHelper
 from demomgr.threads import ThreadFilter, ThreadReadFolder
 
 THREADSIG = CNST.THREADSIG
 RCB = "3"
 
-__version__ = "1.1.3"
+__version__ = "1.2.0-dev-0"
 __author__ = "Square789"
 
 def decorate_callback(hdlr_slot):
@@ -291,7 +292,8 @@ class MainApp():
 		filename = self.listbox.getcell("col_filename", index)
 		path = os.path.join(self.curdir, filename)
 		dialog = LaunchTF2(self.mainframe, demopath = path,
-			cfg = self.cfg)
+			cfg = reduce_cfg(self.cfg),
+			remember = self.cfg["ui_remember"]["launch_tf2"])
 		dialog.show()
 		if dialog.result.state == DIAGSIG.SUCCESS:
 			update_needed = False
@@ -313,8 +315,8 @@ class MainApp():
 			return
 		filename = self.listbox.getcell("col_filename", index)
 		dialog = Deleter(self.root, demodir = self.curdir, files = [filename],
-			selected = [True], deluselessjson = False, cfg = self.cfg,
-			styleobj = self.ttkstyle)
+			selected = [True], deluselessjson = False,
+			cfg = reduce_cfg(self.cfg), styleobj = self.ttkstyle)
 		dialog.show()
 		if dialog.result.state == DIAGSIG.SUCCESS:
 			if self.cfg["lazyreload"]:
@@ -333,9 +335,13 @@ class MainApp():
 		demo_bm = self.listbox.getcell("col_demo_info", index)
 		path = os.path.join(self.curdir, filename)
 		dialog = BookmarkSetter(self.root, targetdemo = path,
-			bm_dat = demo_bm, styleobj = self.ttkstyle)
+			bm_dat = demo_bm, styleobj = self.ttkstyle,
+			remember = self.cfg["ui_remember"]["bookmark_setter"])
 		dialog.show()
 		if dialog.result.state == DIAGSIG.SUCCESS:
+			if self.cfg["ui_remember"]["bookmark_setter"] != dialog.result.remember:
+				self.cfg["ui_remember"]["bookmark_setter"] = dialog.result.remember
+				self.writecfg(self.cfg)
 			if self.cfg["lazyreload"]:
 				if self.cfg["datagrabmode"] != 0:
 					ksdata = self.listbox.getcell("col_demo_info", index)
@@ -348,7 +354,8 @@ class MainApp():
 				self.reloadgui()
 
 	def _applytheme(self):
-		"""Looks at self.cfg, attempts to apply an interface theme using a
+		"""
+		Looks at self.cfg, attempts to apply an interface theme using a
 		StyleHelper.
 		"""
 		if self.cfg["ui_theme"] == "_DEFAULT":
@@ -486,7 +493,7 @@ class MainApp():
 				files = queueobj[1]["col_filename"],
 				selected = [True for _ in queueobj[1]["col_filename"]],
 				deluselessjson = False,
-				cfg = self.cfg.copy(),
+				cfg = reduce_cfg(self.cfg),
 				styleobj = self.ttkstyle,
 				eventfileupdate = "passive",
 			)
