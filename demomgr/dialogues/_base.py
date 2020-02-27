@@ -11,6 +11,9 @@ class BaseDialog(tk.Toplevel):
 	program. Override self.body(), call self.destroy() for closing the dialog.
 	The `result` attribute will contain a DiagState instance, whose `state` is
 	set to FAILURE if it is still OPEN on exit.
+	The `result`s `data` will be None, as this is the base dialog, but in
+	inheriting dialogs the returned data should be documented in the class
+	docstring. 
 
 	Code "borrowed" from tkinter.simpledialog.Dialog, overrides the 5px
 	border that is unstylable.

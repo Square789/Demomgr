@@ -21,7 +21,7 @@ class DiagResult():
 	How the value should be expected is to be described in each dialog's
 	class docstring.
 	"""
-	def __init__(self, state = None):
+	def __init__(self, state = None, remember = None):
 		"""
 		The DiagResult will have a `data` attribute that is set to `None`
 			at initialization. A dialog may store custom data here. It is
