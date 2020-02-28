@@ -59,11 +59,10 @@ class CfgError(BaseDialog):
 		quitbtn.pack(fill = tk.X, side = tk.LEFT, expand = 1, padx = (3, 0))
 
 	def destroy(self):
-		self._quit()
 		super().destroy()
 
 	def _retry(self):
-		self.result = 0
+		self.result.data = 0
 		self.destroy()
 
 	def _replacecfg(self):
@@ -84,9 +83,9 @@ class CfgError(BaseDialog):
 			self.err_rewrite_fail.pack(side = tk.TOP, expand = 1,
 				fill = tk.BOTH)
 			return
-		self.result = 1
+		self.result.data = 1
 		self.destroy()
 
 	def _quit(self):
-		self.result = 2
+		self.result.data = 2
 		self.destroy()

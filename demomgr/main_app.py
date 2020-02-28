@@ -30,7 +30,7 @@ from demomgr.threads import ThreadFilter, ThreadReadFolder
 THREADSIG = CNST.THREADSIG
 RCB = "3"
 
-__version__ = "1.2.0-dev-2"
+__version__ = "1.2.0-dev-3"
 __author__ = "Square789"
 
 def decorate_callback(hdlr_slot):
@@ -632,17 +632,11 @@ class MainApp():
 		"""
 		write_ok = False
 		while not write_ok:
-			handleexists = False
 			try:
-				handle = open(self.cfgpath, "w")
-				handleexists = True
-				handle.write(json.dumps(data, indent = 4))
-				if handleexists:
-					handle.close()
+				with open(self.cfgpath, "w") as handle:
+					handle.write(json.dumps(data, indent = 4))
 				write_ok = True
 			except Exception as error:
-				if handleexists:
-					handle.close()
 				dialog = CfgError(self.root, cfgpath = self.cfgpath, error = error, mode = 1)
 				dialog.show()
 				if dialog.result.data == 0: # Retry
@@ -661,16 +655,12 @@ class MainApp():
 		localcfg = CNST.DEFAULT_CFG.copy()
 		cfg_ok = False
 		while not cfg_ok:
-			handleexists = False
 			try:
-				cfghandle = open(self.cfgpath, "r")
-				handleexists = True
-				localcfg.update(json.load(cfghandle))
+				with open(self.cfgpath, "r") as cfghandle:
+					localcfg.update(json.load(cfghandle))
 				schema.Schema(CNST.DEFAULT_CFG_SCHEMA).validate(localcfg)
 				cfg_ok = True
 			except (json.decoder.JSONDecodeError, FileNotFoundError, OSError, SchemaError) as exc:
-				if handleexists:
-					cfghandle.close()
 				dialog = CfgError(self.root, cfgpath = self.cfgpath, error = exc, mode = 0)
 				dialog.show()
 				if dialog.result.data == 0: # Retry
@@ -680,6 +670,4 @@ class MainApp():
 				elif dialog.result.data == 2: # Quit
 					self.quit_app()
 					sys.exit()
-			if handleexists:
-				cfghandle.close()
 		return localcfg
