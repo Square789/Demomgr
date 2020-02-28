@@ -38,18 +38,17 @@ class BaseDialog(tk.Toplevel):
 
 	def show(self):
 		"""Show the dialog."""
+		self.rootframe = ttk.Frame(self)
+		self._mainframe = ttk.Frame(self.rootframe)
+		self.body(self._mainframe)
+		self._mainframe.pack(expand = 1, fill = tk.BOTH, padx = 5, pady = 5)
+		self.rootframe.pack(expand = 1, fill = tk.BOTH)
 		self.grab_set()
 		self.focus_set()
 
 		self.withdraw()
 		if self.parent.winfo_viewable():
 			self.transient(self.parent)
-
-		rootframe = ttk.Frame(self, padding = (5, 5, 5, 5))
-		rootframe.pack(expand = 1, fill = tk.BOTH)
-		mainframe = ttk.Frame(rootframe)
-		self.body(mainframe)
-		mainframe.pack(expand = 1, fill = tk.BOTH)
 
 		self.protocol("WM_DELETE_WINDOW", self.destroy)
 

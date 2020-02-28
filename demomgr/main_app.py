@@ -30,7 +30,7 @@ from demomgr.threads import ThreadFilter, ThreadReadFolder
 THREADSIG = CNST.THREADSIG
 RCB = "3"
 
-__version__ = "1.2.0-dev-0"
+__version__ = "1.2.0-dev-1"
 __author__ = "Square789"
 
 def decorate_callback(hdlr_slot):
@@ -297,6 +297,9 @@ class MainApp():
 		dialog.show()
 		if dialog.result.state == DIAGSIG.SUCCESS:
 			update_needed = False
+			if self.cfg["ui_remember"]["launch_tf2"] != dialog.result.remember:
+				update_needed = True
+				self.cfg["ui_remember"]["launch_tf2"] = dialog.result.remember
 			for i in ("steampath", "hlaepath"):
 				if i in dialog.result.data:
 					if dialog.result[i] != self.cfg[i]:
