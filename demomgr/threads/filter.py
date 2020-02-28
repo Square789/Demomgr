@@ -57,6 +57,8 @@ class ThreadFilter(_StoppableBaseThread):
 					files = queueobj[1]["col_filename"]
 					demo_info = queueobj[1]["col_demo_info"]
 				elif queueobj[0] < 0x100: # Finish signal
+					if queueobj[0] == THREADSIG.FAILURE:
+						self.queue_out_put(THREADSIG.FAILURE); return
 					break
 			except queue.Empty:
 				break

@@ -30,7 +30,7 @@ from demomgr.threads import ThreadFilter, ThreadReadFolder
 THREADSIG = CNST.THREADSIG
 RCB = "3"
 
-__version__ = "1.2.0-dev-1"
+__version__ = "1.2.0-dev-2"
 __author__ = "Square789"
 
 def decorate_callback(hdlr_slot):
@@ -513,7 +513,7 @@ class MainApp():
 
 	def _filter(self):
 		"""Starts a filtering thread and configures the filtering button."""
-		if self.filterentry_var.get() == "":
+		if self.filterentry_var.get() == "" or self.curdir == "":
 			return
 		self.filterbtn.config(text = "Stop Filtering",
 			command = lambda: self._stopfilter(True))
