@@ -22,14 +22,15 @@ from demomgr import context_menus
 from demomgr.dialogues import *
 from demomgr.get_cfg_location import get_cfg_storage_path
 from demomgr.helper_tk_widgets import TtkText
-from demomgr.helpers import (formatdate, readdemoheader, convertunit, format_bm_pair)
+from demomgr.helpers import (formatdate, readdemoheader, convertunit,
+	format_bm_pair, reduce_cfg)
 from demomgr.style_helper import StyleHelper
 from demomgr.threads import ThreadFilter, ThreadReadFolder
 
 THREADSIG = CNST.THREADSIG
 RCB = "3"
 
-__version__ = "1.1.3"
+__version__ = "1.2.0"
 __author__ = "Square789"
 
 def decorate_callback(hdlr_slot):
@@ -84,7 +85,7 @@ class MainApp():
 		# Used to access output queues filled by threads
 		self.threads = {
 			"datafetcher": threading.Thread(target = lambda: True),
-			"filterer": threading.Thread(target = lambda: True),
+			"filter": threading.Thread(target = lambda: True),
 			"cleanup": threading.Thread(target = lambda: True),
 		} # Dummies
 		self.queues = {
@@ -154,7 +155,8 @@ class MainApp():
 		if os.path.exists(self.cfg["lastpath"]):
 			self.spinboxvar.set(self.cfg["lastpath"])
 		elif self.cfg["demopaths"]:
-			self.spinboxvar.set(self.cfg["demopaths"][0]) # This will call self._spinboxsel -> self.reloadgui, so the frames are filled.
+			# This will call self._spinboxsel -> self.reloadgui, so the frames are filled.
+			self.spinboxvar.set(self.cfg["demopaths"][0])
 		self.root.deiconify() #end startup; show UI
 		self.root.focus()
 
@@ -245,12 +247,12 @@ class MainApp():
 		demoinfframe.pack(fill = tk.BOTH, expand = 1)
 
 	def quit_app(self):
-		for k in self.threads:
-			if self.threads[k].isAlive():
-				self.threads[k].join()
 		for a_h in self.after_handlers:
 			self.root.after_cancel(self.after_handlers[a_h])
-		self.root.update()
+		for k in self.threads:
+			if self.threads[k].is_alive():
+				self.threads[k].join()
+		#self.root.update()
 		# Without the stuff below, the root.destroy method will produce
 		# strange errors on closing, due to some dark magic regarding after
 		# commands.
@@ -291,10 +293,14 @@ class MainApp():
 		filename = self.listbox.getcell("col_filename", index)
 		path = os.path.join(self.curdir, filename)
 		dialog = LaunchTF2(self.mainframe, demopath = path,
-			cfg = self.cfg)
+			cfg = reduce_cfg(self.cfg),
+			remember = self.cfg["ui_remember"]["launch_tf2"])
 		dialog.show()
 		if dialog.result.state == DIAGSIG.SUCCESS:
 			update_needed = False
+			if self.cfg["ui_remember"]["launch_tf2"] != dialog.result.remember:
+				update_needed = True
+				self.cfg["ui_remember"]["launch_tf2"] = dialog.result.remember
 			for i in ("steampath", "hlaepath"):
 				if i in dialog.result.data:
 					if dialog.result[i] != self.cfg[i]:
@@ -313,8 +319,8 @@ class MainApp():
 			return
 		filename = self.listbox.getcell("col_filename", index)
 		dialog = Deleter(self.root, demodir = self.curdir, files = [filename],
-			selected = [True], deluselessjson = False, cfg = self.cfg,
-			styleobj = self.ttkstyle)
+			selected = [True], deluselessjson = False,
+			cfg = reduce_cfg(self.cfg), styleobj = self.ttkstyle)
 		dialog.show()
 		if dialog.result.state == DIAGSIG.SUCCESS:
 			if self.cfg["lazyreload"]:
@@ -333,9 +339,13 @@ class MainApp():
 		demo_bm = self.listbox.getcell("col_demo_info", index)
 		path = os.path.join(self.curdir, filename)
 		dialog = BookmarkSetter(self.root, targetdemo = path,
-			bm_dat = demo_bm, styleobj = self.ttkstyle)
+			bm_dat = demo_bm, styleobj = self.ttkstyle,
+			remember = self.cfg["ui_remember"]["bookmark_setter"])
 		dialog.show()
 		if dialog.result.state == DIAGSIG.SUCCESS:
+			if self.cfg["ui_remember"]["bookmark_setter"] != dialog.result.remember:
+				self.cfg["ui_remember"]["bookmark_setter"] = dialog.result.remember
+				self.writecfg(self.cfg)
 			if self.cfg["lazyreload"]:
 				if self.cfg["datagrabmode"] != 0:
 					ksdata = self.listbox.getcell("col_demo_info", index)
@@ -348,7 +358,8 @@ class MainApp():
 				self.reloadgui()
 
 	def _applytheme(self):
-		"""Looks at self.cfg, attempts to apply an interface theme using a
+		"""
+		Looks at self.cfg, attempts to apply an interface theme using a
 		StyleHelper.
 		"""
 		if self.cfg["ui_theme"] == "_DEFAULT":
@@ -421,7 +432,7 @@ class MainApp():
 		self.root.after_cancel(self.after_handlers["datafetcher"])
 		self.listbox.clear()
 		for k in self.threads:
-			if self.threads[k].isAlive():
+			if self.threads[k].is_alive():
 				self.threads[k].join()
 		for k in self.queues:
 			self.queues[k].queue.clear()
@@ -486,7 +497,7 @@ class MainApp():
 				files = queueobj[1]["col_filename"],
 				selected = [True for _ in queueobj[1]["col_filename"]],
 				deluselessjson = False,
-				cfg = self.cfg.copy(),
+				cfg = reduce_cfg(self.cfg),
 				styleobj = self.ttkstyle,
 				eventfileupdate = "passive",
 			)
@@ -503,15 +514,15 @@ class MainApp():
 
 	def _filter(self):
 		"""Starts a filtering thread and configures the filtering button."""
-		if self.filterentry_var.get() == "":
+		if self.filterentry_var.get() == "" or self.curdir == "":
 			return
 		self.filterbtn.config(text = "Stop Filtering",
 			command = lambda: self._stopfilter(True))
 		self.resetfilterbtn.config(state = tk.DISABLED)
-		self.threads["filterer"] = ThreadFilter(None, self.queues["filter"],
+		self.threads["filter"] = ThreadFilter(None, self.queues["filter"],
 			filterstring = self.filterentry_var.get(), curdir = self.curdir,
 			silent = False, cfg = self.cfg.copy())
-		self.threads["filterer"].start()
+		self.threads["filter"].start()
 		self.after_handlers["filter"] = self.root.after(0,
 			self._after_callback_filter)
 
@@ -520,7 +531,7 @@ class MainApp():
 		Stops the filtering thread by setting its stop flag, then blocking
 		until it returns.
 		"""
-		self.threads["filterer"].join()
+		self.threads["filter"].join()
 		self.queues["filter"].queue.clear()
 		self.root.after_cancel(self.after_handlers["filter"])
 		if called_by_user:
@@ -622,17 +633,11 @@ class MainApp():
 		"""
 		write_ok = False
 		while not write_ok:
-			handleexists = False
 			try:
-				handle = open(self.cfgpath, "w")
-				handleexists = True
-				handle.write(json.dumps(data, indent = 4))
-				if handleexists:
-					handle.close()
+				with open(self.cfgpath, "w") as handle:
+					handle.write(json.dumps(data, indent = 4))
 				write_ok = True
 			except Exception as error:
-				if handleexists:
-					handle.close()
 				dialog = CfgError(self.root, cfgpath = self.cfgpath, error = error, mode = 1)
 				dialog.show()
 				if dialog.result.data == 0: # Retry
@@ -651,16 +656,12 @@ class MainApp():
 		localcfg = CNST.DEFAULT_CFG.copy()
 		cfg_ok = False
 		while not cfg_ok:
-			handleexists = False
 			try:
-				cfghandle = open(self.cfgpath, "r")
-				handleexists = True
-				localcfg.update(json.load(cfghandle))
+				with open(self.cfgpath, "r") as cfghandle:
+					localcfg.update(json.load(cfghandle))
 				schema.Schema(CNST.DEFAULT_CFG_SCHEMA).validate(localcfg)
 				cfg_ok = True
 			except (json.decoder.JSONDecodeError, FileNotFoundError, OSError, SchemaError) as exc:
-				if handleexists:
-					cfghandle.close()
 				dialog = CfgError(self.root, cfgpath = self.cfgpath, error = exc, mode = 0)
 				dialog.show()
 				if dialog.result.data == 0: # Retry
@@ -670,6 +671,4 @@ class MainApp():
 				elif dialog.result.data == 2: # Quit
 					self.quit_app()
 					sys.exit()
-			if handleexists:
-				cfghandle.close()
 		return localcfg

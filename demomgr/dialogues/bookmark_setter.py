@@ -18,7 +18,7 @@ import multiframe_list as mfl
 from demomgr.dialogues._base import BaseDialog
 from demomgr.dialogues._diagresult import DIAGSIG
 
-from demomgr.helpers import (frmd_label, )
+from demomgr.helpers import frmd_label
 from demomgr import constants as CNST
 from demomgr import handle_events as handle_ev
 from demomgr.threads import ThreadMarkDemo
@@ -37,14 +37,22 @@ class BookmarkSetter(BaseDialog):
 	primitive format.
 	Else the thread failed or wasn't even started, in which case the data
 	is None.
+
+	Widget state remembering:
+	0: json checkbox (bool)
+	1: _events.txt checkbox (bool)
 	"""
-	def __init__(self, parent, targetdemo, bm_dat, styleobj):
+
+	REMEMBER_DEFAULT = [False, False]
+
+	def __init__(self, parent, targetdemo, bm_dat, styleobj, remember):
 		"""
 		parent: Parent widget, should be a `Tk` or `Toplevel` instance.
 		targetdemo: Full path to the demo that should be marked.
 		bm_dat: Bookmarks for the specified demo in the usual info format
 			(((killstreak_peak, tick), ...), ((bookmark_name, tick), ...))
 		styleobj: Instance of `tkinter.ttk.Style`
+		remember: List of arbitrary values. See class docstring for details.
 		"""
 		super().__init__(parent, "Insert bookmark...")
 
@@ -53,8 +61,10 @@ class BookmarkSetter(BaseDialog):
 		self.bm_dat = bm_dat
 		self.styleobj = styleobj
 
+		u_r = self.update_remember(remember)
 		self.jsonmark_var = tk.BooleanVar()
 		self.eventsmark_var = tk.BooleanVar()
+		self.jsonmark_var.set(u_r[0]); self.eventsmark_var.set(u_r[1])
 
 		self.mark_thread = threading.Thread(target = lambda: False)
 		self.queue_out = queue.Queue()
@@ -123,7 +133,6 @@ class BookmarkSetter(BaseDialog):
 		events_checkbox = ttk.Checkbutton(save_loc_lblfrm,
 			text = CNST.EVENT_FILE, variable = self.eventsmark_var, style = \
 			"Contained.TCheckbutton")
-		json_checkbox.invoke(); events_checkbox.invoke()
 		json_checkbox.grid(sticky = "w", ipadx = 2, padx = 5, pady = 5)
 		events_checkbox.grid(sticky = "w", ipadx = 2, padx = 5, pady = 5)
 		save_loc_lblfrm.grid(row = 3, column = 1, sticky = "ew", padx = 5,
@@ -211,11 +220,12 @@ class BookmarkSetter(BaseDialog):
 
 	def _cancel_mark(self):
 		self.after_cancel(self.after_handler)
-		if self.mark_thread.isAlive():
+		if self.mark_thread.is_alive():
 			self.mark_thread.join()
 		self._mark_after_callback(call_once = True)
 		self.queue_out.queue.clear()
 
 	def destroy(self):
 		self._cancel_mark()
+		self.result.remember = [self.jsonmark_var.get(), self.eventsmark_var.get()]
 		super().destroy()

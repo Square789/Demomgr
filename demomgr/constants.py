@@ -4,9 +4,14 @@ CFG_FOLDER = ".demomgr"
 CFG_NAME = "config.cfg"
 DEFAULT_CFG = {
 	"demopaths": [],
+	"ui_remember": {
+		"bookmark_setter": [],
+		"launch_tf2": [],
+	},
 	"lastpath": "",
 	"firstrun": True,
-	"__comment": "By messing with the firstrun parameter you acknowledge that you've read the Terms of use.",
+	"__comment": "By messing with the firstrun parameter you acknowledge "
+		"that you've read the Terms of use.",
 	"datagrabmode": 0,
 	"previewdemos": True,
 	"steampath": "",
@@ -15,8 +20,13 @@ DEFAULT_CFG = {
 	"ui_theme": "Dark",
 	"lazyreload": False,
 }
+# Config values that are passed on to other classes/modules
+SHARED_CFG_KEYS = ("datagrabmode", "steampath", "hlaepath", "evtblocksz")
 DEFAULT_CFG_SCHEMA = {
-	"demopaths": [And(str, lambda x: x != "")], "lastpath": str, "firstrun": bool, "__comment": str,
+	"demopaths": [And(str, lambda x: x != "")], "ui_remember": {
+		"bookmark_setter": [object], "launch_tf2": [object],
+	},
+	"lastpath": str, "firstrun": bool, "__comment": str,
 	"datagrabmode": int, "previewdemos": bool, "steampath": str, "hlaepath": str,
 	"evtblocksz": int, "ui_theme": str, "lazyreload": bool,
 }

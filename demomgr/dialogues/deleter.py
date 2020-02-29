@@ -123,7 +123,7 @@ class Deleter(BaseDialog):
 
 	def _stopoperation(self):
 		self.after_cancel(self.after_handler)
-		if self.delthread.isAlive():
+		if self.delthread.is_alive():
 			self.delthread.join()
 		self._after_callback()
 

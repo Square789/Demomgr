@@ -43,7 +43,7 @@ class ThreadReadFolder(_StoppableBaseThread):
 		return it in a format that can be directly fed into listbox.
 		"""
 		if self.options["targetdir"] == "":
-			self.__stop(None, {}, THREADSIG.FAILURE); return
+			self.queue_out_put(THREADSIG.FAILURE); return
 		self.queue_out_put(THREADSIG.INFO_STATUSBAR,
 			("Reading demo information from {} ...".format(self.options["targetdir"]), None))
 		starttime = time.time()

@@ -34,12 +34,20 @@ class LaunchTF2(BaseDialog):
 			changed by the user. (str)
 		"hlaepath": The text in the hlaepath entry, may have been changed
 			by the user. (str)
+
+	Widget state remembering:
+		0: HLAE launch checkbox state (bool)
+		1: Selected userprofile (str) (ignored when not existing)
 	"""
-	def __init__(self, parent, demopath, cfg):
+
+	REMEMBER_DEFAULT = [False, ""]
+
+	def __init__(self, parent, demopath, cfg, remember):
 		"""
 		parent: Parent widget, should be a `Tk` or `Toplevel` instance.
 		demopath: Absolute file path to the demo to be played. (str)
 		cfg: The program configuration. (dict)
+		remember: List of arbitrary values. See class docstring for details.
 		"""
 		super().__init__(parent, "Play demo / Launch TF2...")
 
@@ -49,20 +57,19 @@ class LaunchTF2(BaseDialog):
 		self.hlaedir_var = tk.StringVar()
 		self.hlaedir_var.set(cfg["hlaepath"])
 		self.usehlae_var = tk.BooleanVar()
-
-		self.errstates = [False, False, False, False, False]
-		# 0:Bad config, 1: Steamdir on bad drive, 2: VDF missing,
-		# 3:Demo outside /tf/, 4:No launchoptions
-
 		self.playdemoarg = tk.StringVar()
 		self.userselectvar = tk.StringVar()
-		try:
-			self.userselectvar.set(self.getusers()[0])
-		except: pass
 		self.launchoptionsvar = tk.StringVar()
 
+		self.errstates = [False, False, False, False, False]
+		# 0: Bad config, 1: Steamdir on bad drive, 2: VDF missing,
+		# 3: Demo outside /tf/, 4: No launchoptions
+
+		u_r = self.update_remember(remember)
+		self.usehlae_var.set(u_r[0])
+		self.remember_1_hackish = u_r[1] # Used at the end of body()
+
 		self.shortdemopath = ""
-		self._constructshortdemopath()
 
 	def body(self, master):
 		"""UI"""
@@ -168,18 +175,18 @@ class LaunchTF2(BaseDialog):
 		self.btconfirm.grid(padx = (0, 3), sticky = "news")
 		self.btcancel.grid(row = 3, column = 1, padx = (3, 0), sticky = "news")
 
-		# initialize some UI components
-		users = self.getusers()
-		self.userselectbox.config(values = users)
-		if users:
-			self.userselectvar.set(users[0])
+		self._load_users_ui()
+		self.userselectvar.trace("w", self.userchange)
+		for i, t in enumerate(zip(self.users, self.users_str)):
+			if self.remember_1_hackish == t[0][0]:
+				self.userselectbox.current(i)
+				del self.remember_1_hackish
+				break
+		else:
+			if self.users:
+				self.userselectbox.current(0)
 
-		self.userchange()
-
-		self._showerrs()
 		self._toggle_hlae_cb()
-		self.userselectvar.trace("w", self.userchange) # If applied before,
-		# method would be triggered and UI elements would be accessed that do not exist yet.
 
 	def _showerrs(self):
 		"""
@@ -210,9 +217,9 @@ class LaunchTF2(BaseDialog):
 	def getusers(self):
 		"""
 		Retrieve users from the current steam directory. If vdf module is
-		present, returns a list of strings where
-		"[FOLDER_NAME] // [USER_NAME]"; if an error getting the user name
-		occurs, only "[FOLDER_NAME]".
+		present, returns a list of tuples where
+		([FOLDER_NAME], [USER_NAME]); if an error getting the user name
+		occurs, the username will be None.
 
 		Executed once by body(), by _sel_dir(), and used to insert value
 		into self.userselectvar.
@@ -231,9 +238,10 @@ class LaunchTF2(BaseDialog):
 						vdfdata = vdf.load(h)
 						username = eval("vdfdata" + CNST.STEAM_CFG_USER_NAME)
 					username = tk_secure_str(username)
-					users[index] = users[index] + " // " + username
-				except (OSError, PermissionError, FileNotFoundError):
-					pass
+					users[index] = (users[index], username)
+				except (OSError, PermissionError, FileNotFoundError, KeyError,
+						SyntaxError):
+					users[index] = (users[index], None)
 		self.errstates[0] = False
 		return users
 
@@ -244,10 +252,13 @@ class LaunchTF2(BaseDialog):
 			return ""
 		try:
 			self.errstates[2] = False
-			user_id = self.userselectvar.get().split(" // ")[0]
+			tmp = self.userselectbox.current()
+			if tmp == -1:
+				raise KeyError("Bad or empty (?) steam folder")
+			user_id = self.users[tmp][0]
 			with open(os.path.join(self.steamdir_var.get(),
-				CNST.STEAM_CFG_PATH0, user_id,
-				CNST.STEAM_CFG_PATH1), encoding = "utf-8") as h:
+					CNST.STEAM_CFG_PATH0, user_id,
+					CNST.STEAM_CFG_PATH1), encoding = "utf-8") as h:
 				subelem = vdf.load(h)
 			for i in CNST.LAUNCHOPTIONSKEYS:
 				if i in subelem:
@@ -264,7 +275,8 @@ class LaunchTF2(BaseDialog):
 			return ""
 
 	def _sel_dir(self, variable): #Triggered by user clicking on the Dir choosing btn
-		"""Opens up a file selection dialog. If the changed variable was the
+		"""
+		Opens up a file selection dialog. If the changed variable was the
 		steam dir one, updates related widgets.
 		"""
 		sel = tk_fid.askdirectory()
@@ -273,14 +285,27 @@ class LaunchTF2(BaseDialog):
 		variable.set(sel)
 		if variable != self.steamdir_var:
 			return
-		users = self.getusers()
-		self.userselectbox.config(values = users)
-		try:
-			self.userselectvar.set(users[0])
-		except IndexError:
-			self.userselectvar.set("") # will trigger self.userchange
+		self._load_users_ui()
+
+	def _load_users_ui(self, init = False):
+		"""
+		Get users, store them in `self.users`, update related widgets.
+		Also creates a list of strings as inserted into the combobox,
+		stored in `self.users_str`
+
+		init: If set to True, will not touch some interface elements
+			which may not exist during initialization.
+		"""
+		self.users = self.getusers()
+		self.users_str = ["{}{}".format(t[0],
+			(" - " + t[1]) if t[1] is not None else "") for t in self.users]
+		self.userselectbox.config(values = self.users_str)
+		if self.users:
+			self.userselectbox.current(0)
+		else:
+			self.userselectvar.set("") # if this is not the call in __init__,
+				# will trigger self.userchange
 		self._constructshortdemopath()
-		# self.demo_play_arg_entry.config(width = len(self.playdemoarg.get()) + 2)
 		self._showerrs()
 
 	def _toggle_hlae_cb(self):
@@ -294,6 +319,7 @@ class LaunchTF2(BaseDialog):
 			self.end_q_mark_label.configure(text = "")
 
 	def userchange(self, *_): # Triggered by observer on combobox variable.
+		"""Callback to retrieve launch options and update error labels."""
 		launchopt = self._getlaunchoptions()
 		self.launchoptionsvar.set(launchopt)
 		self._showerrs()
@@ -350,5 +376,8 @@ class LaunchTF2(BaseDialog):
 				self.result.data["game_launched"] = False
 				tk_msg.showerror("Demomgr - Error",
 					"Could not access executable :\n{}".format(str(error)), parent = self)
+
+		self.result.remember = [self.usehlae_var.get(),
+			self.users[self.userselectbox.current()][0] if self.userselectbox.current() != -1 else ""]
 
 		self.destroy()

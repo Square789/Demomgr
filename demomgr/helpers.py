@@ -1,4 +1,4 @@
-'''Various helper functions and classes used all over the program.'''
+"""Various helper functions and classes used all over the program."""
 
 import os
 import struct
@@ -13,9 +13,10 @@ from demomgr import constants as CNST
 _convpref = ["y", "z", "a", "f", "p", "n", "µ", "m", "", "k", "M", "G", "T",
 	"P", "E", "Z", "Y", ]
 def convertunit(inp, ext = "B"):
-	'''Unit conversion function. Takes an integer as input, rounds off the
+	"""
+	Unit conversion function. Takes an integer as input, rounds off the
 	number to the last 3 digits and returns it as a string followed by an
-	order of magnitude identifier + ext .'''
+	order of magnitude identifier + ext ."""
 	isneg = False
 	if inp < 0:
 		inp = abs(inp)
@@ -28,11 +29,11 @@ def convertunit(inp, ext = "B"):
 	#round(2.5) results in 2, which it technically shouldn't but that's good
 
 def formatdate(inp):
-	'''Turns unix timestamp into readable format (CNST.DATE_FORMAT)'''
+	"""Turns unix timestamp into readable format (CNST.DATE_FORMAT)"""
 	return datetime.datetime.fromtimestamp(inp).strftime(CNST.DATE_FORMAT)
 
 def readbinStr(handle, leng = 260):
-	'''Reads file handle by leng bytes and attempts to decode to utf-8.'''
+	"""Reads file handle by leng bytes and attempts to decode to utf-8."""
 	rawbin = handle.read(leng)
 	bin = rawbin.strip(b"\x00")
 	return bin.decode("utf-8")
@@ -46,9 +47,10 @@ def readbinFlt(handle):
 	return struct.unpack("f", rawbin)[0]
 
 def readdemoheader(path): #Code happily duplicated from https://developer.valvesoftware.com/wiki/DEM_Format
-	'''Reads the header information of a demo. May raise exceptions on
+	"""
+	Reads the header information of a demo. May raise exceptions on
 	denied read access or malformed demos.
-	'''
+	"""
 	demhdr = CNST.FALLBACK_HEADER.copy()
 	
 	h = open(path, "rb")
@@ -67,15 +69,20 @@ def readdemoheader(path): #Code happily duplicated from https://developer.valves
 
 	return demhdr
 
+def reduce_cfg(in_cfg):
+	"""Reduce input config to the keys in `CNST.SHARED_CFG_KEYS`."""
+	return {k: v for k, v in in_cfg.items() if k in CNST.SHARED_CFG_KEYS}
+
 def getstreakpeaks(killstreaks):
-	'''Takes a list of tuples where: element 0 is a number and 1 is a time
+	"""
+	Takes a list of tuples where: element 0 is a number and 1 is a time
 	tick (which is ignored), then only returns the tuples that make up the
 	peak of their sequence.
 	For example: (1,2,3,4,5,6,1,2,1,2,3,4) -> (6,2,4) [Only element 0 of
 	the tuples displayed].
 	This function does not perform any sorting, input is expected to already
 	be in a correct order.
-	'''
+	"""
 	streakpeaks = []
 	if killstreaks:
 		localkillstreaks = killstreaks.copy()
@@ -136,7 +143,7 @@ def tk_secure_str(in_str, repl = None):
 	return "".join([(i if ord(i) <= 0xFFFF else repl) for i in in_str])
 
 class HeaderFetcher: #used in _thread_filter.py
-	'''Only read a header when the class is accessed.'''
+	"""Only read a header when the class is accessed."""
 	def __init__(self, filepath):
 		self.filepath = filepath
 		self.header = None
@@ -150,7 +157,7 @@ class HeaderFetcher: #used in _thread_filter.py
 		return self.header[key]
 
 class FileStatFetcher: #used in _thread_filter.py
-	'''Only read a file's size and moddate when the class is accessed.'''
+	"""Only read a file's size and moddate when the class is accessed."""
 	def __init__(self, filepath):
 		self.filepath = filepath
 		self.data = None
