@@ -220,7 +220,7 @@ class BookmarkSetter(BaseDialog):
 
 	def _cancel_mark(self):
 		self.after_cancel(self.after_handler)
-		if self.mark_thread.isAlive():
+		if self.mark_thread.is_alive():
 			self.mark_thread.join()
 		self._mark_after_callback(call_once = True)
 		self.queue_out.queue.clear()

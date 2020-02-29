@@ -30,7 +30,7 @@ from demomgr.threads import ThreadFilter, ThreadReadFolder
 THREADSIG = CNST.THREADSIG
 RCB = "3"
 
-__version__ = "1.2.0-dev-4"
+__version__ = "1.2.0-dev-5"
 __author__ = "Square789"
 
 def decorate_callback(hdlr_slot):
@@ -248,7 +248,7 @@ class MainApp():
 
 	def quit_app(self):
 		for k in self.threads:
-			if self.threads[k].isAlive():
+			if self.threads[k].is_alive():
 				self.threads[k].join()
 		for a_h in self.after_handlers:
 			self.root.after_cancel(self.after_handlers[a_h])
@@ -432,7 +432,7 @@ class MainApp():
 		self.root.after_cancel(self.after_handlers["datafetcher"])
 		self.listbox.clear()
 		for k in self.threads:
-			if self.threads[k].isAlive():
+			if self.threads[k].is_alive():
 				self.threads[k].join()
 		for k in self.queues:
 			self.queues[k].queue.clear()
