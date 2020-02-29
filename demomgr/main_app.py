@@ -30,7 +30,7 @@ from demomgr.threads import ThreadFilter, ThreadReadFolder
 THREADSIG = CNST.THREADSIG
 RCB = "3"
 
-__version__ = "1.2.0-dev-3"
+__version__ = "1.2.0-dev-4"
 __author__ = "Square789"
 
 def decorate_callback(hdlr_slot):
@@ -85,7 +85,7 @@ class MainApp():
 		# Used to access output queues filled by threads
 		self.threads = {
 			"datafetcher": threading.Thread(target = lambda: True),
-			"filterer": threading.Thread(target = lambda: True),
+			"filter": threading.Thread(target = lambda: True),
 			"cleanup": threading.Thread(target = lambda: True),
 		} # Dummies
 		self.queues = {
@@ -155,7 +155,8 @@ class MainApp():
 		if os.path.exists(self.cfg["lastpath"]):
 			self.spinboxvar.set(self.cfg["lastpath"])
 		elif self.cfg["demopaths"]:
-			self.spinboxvar.set(self.cfg["demopaths"][0]) # This will call self._spinboxsel -> self.reloadgui, so the frames are filled.
+			# This will call self._spinboxsel -> self.reloadgui, so the frames are filled.
+			self.spinboxvar.set(self.cfg["demopaths"][0])
 		self.root.deiconify() #end startup; show UI
 		self.root.focus()
 
@@ -518,10 +519,10 @@ class MainApp():
 		self.filterbtn.config(text = "Stop Filtering",
 			command = lambda: self._stopfilter(True))
 		self.resetfilterbtn.config(state = tk.DISABLED)
-		self.threads["filterer"] = ThreadFilter(None, self.queues["filter"],
+		self.threads["filter"] = ThreadFilter(None, self.queues["filter"],
 			filterstring = self.filterentry_var.get(), curdir = self.curdir,
 			silent = False, cfg = self.cfg.copy())
-		self.threads["filterer"].start()
+		self.threads["filter"].start()
 		self.after_handlers["filter"] = self.root.after(0,
 			self._after_callback_filter)
 
@@ -530,7 +531,7 @@ class MainApp():
 		Stops the filtering thread by setting its stop flag, then blocking
 		until it returns.
 		"""
-		self.threads["filterer"].join()
+		self.threads["filter"].join()
 		self.queues["filter"].queue.clear()
 		self.root.after_cancel(self.after_handlers["filter"])
 		if called_by_user:
