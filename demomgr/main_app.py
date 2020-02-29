@@ -30,7 +30,7 @@ from demomgr.threads import ThreadFilter, ThreadReadFolder
 THREADSIG = CNST.THREADSIG
 RCB = "3"
 
-__version__ = "1.2.0-dev-5"
+__version__ = "1.2.0"
 __author__ = "Square789"
 
 def decorate_callback(hdlr_slot):
@@ -247,12 +247,12 @@ class MainApp():
 		demoinfframe.pack(fill = tk.BOTH, expand = 1)
 
 	def quit_app(self):
+		for a_h in self.after_handlers:
+			self.root.after_cancel(self.after_handlers[a_h])
 		for k in self.threads:
 			if self.threads[k].is_alive():
 				self.threads[k].join()
-		for a_h in self.after_handlers:
-			self.root.after_cancel(self.after_handlers[a_h])
-		self.root.update()
+		#self.root.update()
 		# Without the stuff below, the root.destroy method will produce
 		# strange errors on closing, due to some dark magic regarding after
 		# commands.
