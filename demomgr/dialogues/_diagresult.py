@@ -18,7 +18,7 @@ class DIAGSIG:
 class DiagResult():
 	"""
 	Should be attribute of a dialog to inform of that dialog's state.
-	How the value should be expected is to be described in each dialog's
+	The types and format of the values is to be described in each dialog's
 	class docstring.
 	"""
 	def __init__(self, state = None):

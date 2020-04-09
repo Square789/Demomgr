@@ -25,31 +25,15 @@ from demomgr.helper_tk_widgets import TtkText
 from demomgr.helpers import (formatdate, readdemoheader, convertunit,
 	format_bm_pair, reduce_cfg)
 from demomgr.style_helper import StyleHelper
+from demomgr.threadgroup import ThreadGroup
 from demomgr.threads import ThreadFilter, ThreadReadFolder
 
 THREADSIG = CNST.THREADSIG
+THREADGROUPSIG = CNST.THREADGROUPSIG
 RCB = "3"
 
-__version__ = "1.2.0"
+__version__ = "1.3.0"
 __author__ = "Square789"
-
-def decorate_callback(hdlr_slot):
-	def actual_decorator(func):
-		def decorated(self):
-			finished = False
-			while True:
-				try:
-					if func(self):
-						finished = True
-						break
-				except queue.Empty:
-					break
-			if not finished:
-				self.after_handlers[hdlr_slot] = \
-					self.root.after(CNST.GUI_UPDATE_WAIT,
-					lambda: decorated(self))
-		return decorated
-	return actual_decorator
 
 class MainApp():
 	def __init__(self):
@@ -75,26 +59,22 @@ class MainApp():
 
 		self.cfgpath = get_cfg_storage_path()
 		self.curdir = "" # This path should not be in self.cfg["demopaths"] at any time!
-
-		self.after_handlers = {
-			"statusbar": self.root.after(0, lambda: True),
-			"datafetcher": self.root.after(0, lambda: True),
-			"filter": self.root.after(0, lambda: True),
-			"cleanup:": self.root.after(0, lambda: True),
-		}
-		# Used to access output queues filled by threads
-		self.threads = {
-			"datafetcher": threading.Thread(target = lambda: True),
-			"filter": threading.Thread(target = lambda: True),
-			"cleanup": threading.Thread(target = lambda: True),
-		} # Dummies
-		self.queues = {
-			"datafetcher": queue.Queue(),
-			"filter": queue.Queue(),
-			"cleanup": queue.Queue(),
-		}
-
 		self.spinboxvar = tk.StringVar()
+
+		self.after_handle_statusbar = self.root.after(0, lambda: True)
+
+		# Threading setup
+		self.threadgroups = {
+			"cleanup": ThreadGroup(ThreadFilter, self.root),
+			"fetchdata": ThreadGroup(ThreadReadFolder, self.root),
+			"filter": ThreadGroup(ThreadFilter, self.root),
+		}
+
+		self.threadgroups["cleanup"].register_finalize_method(self._finalization_cleanup)
+
+		self.threadgroups["cleanup"].decorate_and_patch(self, self._after_callback_cleanup)
+		self.threadgroups["fetchdata"].decorate_and_patch(self, self._after_callback_fetchdata)
+		self.threadgroups["filter"].decorate_and_patch(self, self._after_callback_filter)
 
 		# startup routine
 		is_firstrun = False
@@ -247,11 +227,11 @@ class MainApp():
 		demoinfframe.pack(fill = tk.BOTH, expand = 1)
 
 	def quit_app(self):
-		for a_h in self.after_handlers:
-			self.root.after_cancel(self.after_handlers[a_h])
-		for k in self.threads:
-			if self.threads[k].is_alive():
-				self.threads[k].join()
+		for g in self.threadgroups.values():
+			g.cancel_after() # Calling first to cancel running after callbacks asap
+		for g in self.threadgroups.values():
+			if g.thread.is_alive():
+				g.join_thread()
 		#self.root.update()
 		# Without the stuff below, the root.destroy method will produce
 		# strange errors on closing, due to some dark magic regarding after
@@ -392,7 +372,7 @@ class MainApp():
 		index = self.listbox.getselectedcell()[1]
 		self.demoinfbox.config(state = tk.NORMAL)
 		self.demoinfbox.delete("0.0", tk.END)
-		if _ == None:
+		if _ is None:
 			self.demoinfbox.insert(tk.END, "")
 			self.demoinfbox.config(state = tk.DISABLED)
 			return
@@ -426,39 +406,37 @@ class MainApp():
 		self.demoinfbox.config(state = tk.DISABLED)
 
 	def reloadgui(self):
-		"""Should be called to re-fetch a directory's contents.
-		This function starts the datafetcher thread.
 		"""
-		self.root.after_cancel(self.after_handlers["datafetcher"])
+		Should be called to re-fetch a directory's contents.
+		This function starts the fetchdata thread.
+		"""
+		for g in self.threadgroups.values():
+			g.cancel_after()
 		self.listbox.clear()
-		for k in self.threads:
-			if self.threads[k].is_alive():
-				self.threads[k].join()
-		for k in self.queues:
-			self.queues[k].queue.clear()
-		self.threads["datafetcher"] = ThreadReadFolder(self.queues["datafetcher"],
-			targetdir = self.curdir, cfg = self.cfg.copy())
-		self.threads["datafetcher"].start()
-		self.after_handlers["datafetcher"] = self.root.after(0,
-			self._after_callback_fetchdata)
+		for g in self.threadgroups.values():
+			g.join_thread()
+		self.threadgroups["fetchdata"].start_thread(
+			targetdir = self.curdir,
+			cfg = self.cfg.copy()
+		)
 		self._updatedemowindow(None)
 
-	@decorate_callback("datafetcher")
-	def _after_callback_fetchdata(self):
+	def _after_callback_fetchdata(self, queue_elem):
 		"""
 		Loop worker for the after callback decorator stub.
-		Grabs thread signals from the datafetcher queue and
+		Grabs thread signals from the fetchdata queue and
 		acts accordingly.
+		(Incomplete, requires `self`-dependant decoration in __init__())
 		"""
-		queueobj = self.queues["datafetcher"].get_nowait()
-		if queueobj[0] == THREADSIG.INFO_STATUSBAR:
-			self.setstatusbar(*queueobj[1])
-		elif queueobj[0] < 0x100: # Finish
-			return True
-		elif queueobj[0] == THREADSIG.RESULT_DEMODATA:
-			self.listbox.setdata(queueobj[1])
+		if queue_elem[0] < 0x100: # Finish
+			return THREADGROUPSIG.FINISHED
+		elif queue_elem[0] == THREADSIG.INFO_STATUSBAR:
+			self.setstatusbar(*queue_elem[1])
+			return THREADGROUPSIG.CONTINUE
+		elif queue_elem[0] == THREADSIG.RESULT_DEMODATA:
+			self.listbox.setdata(queue_elem[1])
 			self.listbox.format()
-		return False
+			return THREADGROUPSIG.HOLDBACK
 
 	def _cleanup(self):
 		"""
@@ -467,50 +445,48 @@ class MainApp():
 		"""
 		if self.filterentry_var.get() == "":
 			return
-		self.threads["cleanup"] = ThreadFilter(None, self.queues["cleanup"],
-			filterstring = self.filterentry_var.get(), curdir = self.curdir,
-			silent = True, cfg = self.cfg.copy())
-		self.threads["cleanup"].start()
+		self.threadgroups["cleanup"].start_thread(
+			filterstring = self.filterentry_var.get(),
+			curdir = self.curdir,
+			silent = True,
+			cfg = self.cfg.copy()
+		)
 		self.cleanupbtn.config(text = "Cleanup by filter...", state = tk.DISABLED)
-		self.after_handlers["cleanup"] = \
-			self.root.after(0, self._after_callback_cleanup)
 
-	@decorate_callback("cleanup")
-	def _after_callback_cleanup(self):
+	def _after_callback_cleanup(self, queue_elem):
 		"""
 		Loop worker for the after callback decorator stub.
 		Grabs thread signals from the cleanup queue and acts
 		accordingly, opening a Deletion dialog once the thread is done.
+		(Incomplete, requires `self`-dependant decoration in __init__())
 		"""
-		queueobj = self.queues["cleanup"].get_nowait()
-		if queueobj[0] < 0x100: # Finish
+		if queue_elem[0] < 0x100: # Finish
 			self.cleanupbtn.config(
 				text = "Cleanup by filter...", state = tk.NORMAL
 			)
-			return True
-		elif queueobj[0] == THREADSIG.INFO_STATUSBAR:
-			self.setstatusbar(*queueobj[1])
-		elif queueobj[0] == THREADSIG.RESULT_DEMODATA:
-			del_diag = Deleter(
-				parent = self.root,
-				demodir = self.curdir,
-				files = queueobj[1]["col_filename"],
-				selected = [True for _ in queueobj[1]["col_filename"]],
-				deluselessjson = False,
-				cfg = reduce_cfg(self.cfg),
-				styleobj = self.ttkstyle,
-				eventfileupdate = "passive",
-			)
-			del_diag.show()
-			self.cleanupbtn.config(
-				text = "Cleanup by filter...", state = tk.NORMAL
-			)
-			# queues are cleared below, above is hacky workaround by copy pasting finish
-			# which realistically will never be called if thread completes successfully.
-			if del_diag.result == 0:
-				self.reloadgui()
-			return True
-		return False
+			return THREADGROUPSIG.FINISHED
+		elif queue_elem[0] == THREADSIG.INFO_STATUSBAR:
+			self.setstatusbar(*queue_elem[1])
+			return THREADGROUPSIG.CONTINUE
+		elif queue_elem[0] == THREADSIG.RESULT_DEMODATA:
+			return THREADGROUPSIG.HOLDBACK
+
+	def _finalization_cleanup(self, queue_elem):
+		if queue_elem[0] != THREADSIG.RESULT_DEMODATA: # weird
+			return
+		del_diag = Deleter(
+			parent = self.root,
+			demodir = self.curdir,
+			files = queue_elem[1]["col_filename"],
+			selected = [True for _ in queue_elem[1]["col_filename"]],
+			deluselessjson = False,
+			cfg = reduce_cfg(self.cfg),
+			styleobj = self.ttkstyle,
+			eventfileupdate = "passive",
+		)
+		del_diag.show()
+		if del_diag.result == 0:
+			self.reloadgui()
 
 	def _filter(self):
 		"""Starts a filtering thread and configures the filtering button."""
@@ -519,46 +495,41 @@ class MainApp():
 		self.filterbtn.config(text = "Stop Filtering",
 			command = lambda: self._stopfilter(True))
 		self.resetfilterbtn.config(state = tk.DISABLED)
-		self.threads["filter"] = ThreadFilter(None, self.queues["filter"],
-			filterstring = self.filterentry_var.get(), curdir = self.curdir,
-			silent = False, cfg = self.cfg.copy())
-		self.threads["filter"].start()
-		self.after_handlers["filter"] = self.root.after(0,
-			self._after_callback_filter)
+		self.threadgroups["filter"].start_thread(
+			filterstring = self.filterentry_var.get(),
+			curdir = self.curdir,
+			silent = False,
+			cfg = self.cfg.copy()
+		)
 
 	def _stopfilter(self, called_by_user = False):
 		"""
-		Stops the filtering thread by setting its stop flag, then blocking
-		until it returns.
+		Stops the filtering thread by calling the threadgroup's join method.
+		As this invokes the after callback, button states will be reverted.
 		"""
-		self.threads["filter"].join()
-		self.queues["filter"].queue.clear()
-		self.root.after_cancel(self.after_handlers["filter"])
-		if called_by_user:
-			self.setstatusbar("", 0)
-		self.resetfilterbtn.config(state = tk.NORMAL)
-		self.filterbtn.config(text = "Apply Filter", command = self._filter)
-		self._updatedemowindow(None)
+		self.threadgroups["filter"].join_thread()
 
-	@decorate_callback("filter")
-	def _after_callback_filter(self):
+	def _after_callback_filter(self, queue_elem):
 		"""
 		Loop worker for the after handler callback stub.
 		Grabs elements from the filter queue and updates the statusbar with
 		the filtering progress. If the thread is done, fills listbox with new
 		dataset.
+		(Incomplete, requires `self`-dependant decoration in __init__())
 		"""
-		queueobj = self.queues["filter"].get_nowait()
-		if queueobj[0] < 0x100: # Finish
-			finished = True
-			self._stopfilter()
-			return True
-		elif queueobj[0] == THREADSIG.INFO_STATUSBAR:
-			self.setstatusbar(*queueobj[1])
-		elif queueobj[0] == THREADSIG.RESULT_DEMODATA:
-			self.listbox.setdata(queueobj[1])
+		if queue_elem[0] < 0x100: # Finish
+			self.setstatusbar("", 0)
+			self.resetfilterbtn.config(state = tk.NORMAL)
+			self.filterbtn.config(text = "Apply Filter", command = self._filter)
+			self._updatedemowindow(None)
+			return THREADGROUPSIG.FINISHED
+		elif queue_elem[0] == THREADSIG.INFO_STATUSBAR:
+			self.setstatusbar(*queue_elem[1])
+			return THREADGROUPSIG.CONTINUE
+		elif queue_elem[0] == THREADSIG.RESULT_DEMODATA:
+			self.listbox.setdata(queue_elem[1])
 			self.listbox.format()
-		return False
+			return THREADGROUPSIG.CONTINUE
 
 	def _spinboxsel(self, *_):
 		"""
@@ -569,7 +540,7 @@ class MainApp():
 		"""
 		selpath = self.spinboxvar.get()
 		if selpath != self.curdir:
-			if self.cfg["lastpath"] != selpath: #Update lastpath entry
+			if self.cfg["lastpath"] != selpath: # Update lastpath entry
 				localcfg = self.cfg
 				localcfg["lastpath"] = selpath
 				self.writecfg(localcfg)
@@ -579,11 +550,11 @@ class MainApp():
 
 	def setstatusbar(self, data, timeout = None):
 		"""Set statusbar text to data (str)."""
-		self.statusbarlabel.after_cancel(self.after_handlers["statusbar"])
+		self.statusbarlabel.after_cancel(self.after_handle_statusbar)
 		self.statusbarlabel.config(text = str(data))
 		self.statusbarlabel.update()
 		if timeout is not None:
-			self.after_handlers["statusbar"] = self.statusbarlabel.after(
+			self.after_handle_statusbar = self.statusbarlabel.after(
 				timeout, lambda: self.setstatusbar(CNST.STATUSBARDEFAULT))
 
 	def _addpath(self):

@@ -20,7 +20,7 @@ class _StoppableBaseThread(threading.Thread):
 	def join(self, timeout = None, nostop = False):
 		"""
 		Set the thread's stop request and call the thread's join method.
-		If the nostop is set to a truthy value, the thread's killflag
+		If nostop is set to a truthy value, the thread's killflag
 		won't be set.
 		"""
 		if not nostop:

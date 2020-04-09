@@ -10,9 +10,11 @@ from demomgr.dialogues._diagresult import DIAGSIG
 
 from demomgr import constants as CNST
 from demomgr.helper_tk_widgets import TtkText
+from demomgr.threadgroup import ThreadGroup
 from demomgr.threads import ThreadDelete
 
 THREADSIG = CNST.THREADSIG
+THREADGROUPSIG = CNST.THREADGROUPSIG
 
 class Deleter(BaseDialog):
 	"""
@@ -64,6 +66,9 @@ class Deleter(BaseDialog):
 
 		self.startmsg = "This operation will delete the following file(s):\n\n" + "\n".join(self.filestodel)
 
+		self.threadgroup = ThreadGroup(ThreadDelete, self.master)
+		self.threadgroup.decorate_and_patch(self, self._after_callback)
+
 		try: #Try block should only catch from the os.listdir call directly below.
 			jsonfiles = [i for i in os.listdir(self.demodir) if os.path.splitext(i)[1] == ".json"]
 			choppedfilestodel = [os.path.splitext(i)[0] for i in self.filestodel] #add json files to self.todel if their demo files are in todel
@@ -82,10 +87,6 @@ class Deleter(BaseDialog):
 			self.startmsg = "This operation will delete the following file(s):\n\n" + "\n".join(self.filestodel)
 		except (OSError, PermissionError, FileNotFoundError) as error:
 			self.startmsg = "! Error getting JSON files: !\n{}{}\n\n{}".format(error.__class__.__name__, str(error), self.startmsg)
-
-		self.delthread = threading.Thread() #Dummy thread in case self.destroy is called through window manager
-		self.after_handler = self.after(0, lambda: None)
-		self.queue_out = queue.Queue()
 
 	def body(self, master):
 		'''UI'''
@@ -122,43 +123,33 @@ class Deleter(BaseDialog):
 			self._startthread()
 
 	def _stopoperation(self):
-		self.after_cancel(self.after_handler)
-		if self.delthread.is_alive():
-			self.delthread.join()
-		self._after_callback()
+		self.threadgroup.join_thread()
 
 	def _startthread(self):
-		self.delthread = ThreadDelete(None, self.queue_out,
+		self.threadgroup.start_thread(
 			demodir =			self.demodir,
 			files =				self.files,
 			selected =			self.selected,
 			filestodel =		self.filestodel,
 			cfg =				self.cfg,
-			eventfileupdate =	self.eventfileupdate)
-		self.delthread.start()
-		self.after_handler = self.after(0, self._after_callback)
+			eventfileupdate =	self.eventfileupdate,
+		)
 
-	def _after_callback(self, call_once = False):
+	def _after_callback(self, queue_elem):
 		"""
 		Gets stuff from self.queue_out that the thread writes to, then
 		modifies UI based on queue elements.
+		(Additional decoration in __init__)
 		"""
-		finished = False
-		while True:
-			try:
-				procelem = self.queue_out.get_nowait()
-				if procelem[0] == THREADSIG.INFO_CONSOLE:
-					self.appendtextbox(procelem[1])
-				elif procelem[0] < 0x100: # Finish
-					finished = True
-					self.result.state = DIAGSIG.SUCCESS
-					self.result.data = procelem[0]
-					self.canceloperationbutton.pack_forget()
-					self.closebutton.pack(side = tk.LEFT, fill = tk.X, expand = 1)
-			except queue.Empty:
-				break
-		if (not finished) and (not call_once):
-			self.after_handler = self.after(CNST.GUI_UPDATE_WAIT, self._after_callback)
+		if queue_elem[0] == THREADSIG.INFO_CONSOLE:
+			self.appendtextbox(queue_elem[1])
+			return THREADGROUPSIG.CONTINUE
+		elif queue_elem[0] < 0x100: # Finish
+			self.result.state = DIAGSIG.SUCCESS
+			self.result.data = queue_elem[0]
+			self.canceloperationbutton.pack_forget()
+			self.closebutton.pack(side = tk.LEFT, fill = tk.X, expand = 1)
+			return THREADGROUPSIG.FINISHED
 
 	def appendtextbox(self, _inp):
 		self.textbox.config(state = tk.NORMAL)

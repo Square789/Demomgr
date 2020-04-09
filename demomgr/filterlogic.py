@@ -1,4 +1,5 @@
-'''Offers the filterstr_to_lambdas function that parses a string of the
+"""
+Offers the filterstr_to_lambdas function that parses a string of the
 following scheme to a list of lambdas that can be applied to elements to
 filter them.
 The generated lambdas should be safe.
@@ -17,7 +18,7 @@ Valid parameters include:
 	An unquoted string [ a ]
 	A numeric range [ 1..2 ] [ ..2 ]
 		(Ranges are inclusive.)
-'''
+"""
 
 from ast import literal_eval
 
@@ -120,12 +121,13 @@ def escapeinput(raw):
 
 # Key extraction
 def _extract_key(inp):
-	'''Grabs the key (character chain of [A-Za-z0-9_-] ended by ":",
+	"""
+	Grabs the key (character chain of [A-Za-z0-9_-] ended by ":",
 	followed by 0+ whitspace chars and then the key's value).
 	inp is expected to have no leading whitespace.
 	Returns: the key <Str>, whether the key was negated <Bool> and the
 	input string with the key and potential whitespace cut off.
-	'''
+	"""
 	key_negated = False
 	if inp[0] == KEY_NEGATOR:
 		key_negated = True
@@ -141,14 +143,15 @@ def _extract_key(inp):
 
 # Parameter container type extraction
 def _ident_and_extract_param(inp):
-	'''Grabs the first parameter of inp and breaks it down into escaped
+	"""
+	Grabs the first parameter of inp and breaks it down into escaped
 	strings using regular expressions and ast.literal_eval.
 	A parameter may be any of the ones defined in the module docstring.
 	inp is expected to have no leading whitespace.
 	Returns: The parameter(s) in a list, whether the parameter is a range,
 	the input with parameters and whitespace as well as a potential comma
 	following it cut off.
-	'''
+	"""
 	for exp_name, exp_tuple in re_params.items():
 		expression = exp_tuple[0]
 		res = expression.search(inp)
@@ -190,10 +193,11 @@ def _ident_and_extract_param(inp):
 	return final_params, is_range, inp[len(raw_param):]
 
 def _extract_keys_and_params(inp):
-	'''Repeatedly removes a key and a parameter from inp until nothing
+	"""
+	Repeatedly removes a key and a parameter from inp until nothing
 	is left, returns a dict where:
 	{<key>:[[<param0>, <param1>, ...>], <is_key_negated>, <is_range>], ...}
-	'''
+	"""
 	filterstring = inp.strip()
 	parsed_str = {}
 
@@ -209,9 +213,10 @@ def _extract_keys_and_params(inp):
 	return parsed_str
 
 def filterstr_to_lambdas(inp):
-	'''Creates a list of lambdas that correspond to the filtering input
+	"""
+	Creates a list of lambdas that correspond to the filtering input
 	using this module's FILTERDICT.
-	'''
+	"""
 	lambdas = []
 
 	key_param_dict = _extract_keys_and_params(inp)

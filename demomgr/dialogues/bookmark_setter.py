@@ -21,10 +21,12 @@ from demomgr.dialogues._diagresult import DIAGSIG
 from demomgr.helpers import frmd_label
 from demomgr import constants as CNST
 from demomgr import handle_events as handle_ev
+from demomgr.threadgroup import ThreadGroup
 from demomgr.threads import ThreadMarkDemo
 from demomgr.helper_tk_widgets import TtkText
 
 THREADSIG = CNST.THREADSIG
+THREADGROUPSIG = CNST.THREADGROUPSIG
 
 class BookmarkSetter(BaseDialog):
 	"""
@@ -66,9 +68,8 @@ class BookmarkSetter(BaseDialog):
 		self.eventsmark_var = tk.BooleanVar()
 		self.jsonmark_var.set(u_r[0]); self.eventsmark_var.set(u_r[1])
 
-		self.mark_thread = threading.Thread(target = lambda: False)
-		self.queue_out = queue.Queue()
-		self.after_handler = self.after(0, lambda: None)
+		self.threadgroup = ThreadGroup(ThreadMarkDemo, parent)
+		self.threadgroup.decorate_and_patch(self, self._mark_after_callback)
 
 	def body(self, parent):
 		"""UI setup, listbox filling."""
@@ -193,37 +194,28 @@ class BookmarkSetter(BaseDialog):
 			self.listbox.getcolumn("col_tick")))
 
 		self.savebtn.configure(text = "Cancel", command = self._cancel_mark)
-		self.mark_thread = ThreadMarkDemo(self.queue_out,
-			mark_json = mark_json, mark_events = mark_evts,
-			bookmarks = raw_bookmarks, targetdemo = self.targetdemo)
-		self.mark_thread.start()
-		self.after_handler = self.after(0, self._mark_after_callback)
+		self.threadgroup.start_thread(
+			mark_json = mark_json,
+			mark_events = mark_evts,
+			bookmarks = raw_bookmarks,
+			targetdemo = self.targetdemo)
 
-	def _mark_after_callback(self, call_once = False):
-		finished = False
-		while True:
-			try:
-				queueobj = self.queue_out.get_nowait()
-				if queueobj[0] < 0x100: # Finish
-					finished = True
-					self.savebtn.configure(text = "Save", command = self._mark)
-					if queueobj[0] == 0x0:
-						self.result.state = DIAGSIG.SUCCESS
-						self.result.data = tuple(zip(self.listbox.getcolumn("col_name"),
-							[int(i) for i in self.listbox.getcolumn("col_tick")]))
-				elif queueobj[0] == THREADSIG.INFO_CONSOLE:
-					self._log(queueobj[1])
-			except queue.Empty:
-				break
-		if (not finished) and (not call_once):
-			self.after_handler = self.after(CNST.GUI_UPDATE_WAIT, self._mark_after_callback)
+	def _mark_after_callback(self, queue_elem):
+		if queue_elem[0] < 0x100: # Finish
+			self.savebtn.configure(text = "Save", command = self._mark)
+			if queue_elem[0] == 0x0:
+				self.result.state = DIAGSIG.SUCCESS
+				self.result.data = tuple(zip(
+					self.listbox.getcolumn("col_name"),
+					[int(i) for i in self.listbox.getcolumn("col_tick")]
+				))
+			return THREADGROUPSIG.FINISHED
+		elif queue_elem[0] == THREADSIG.INFO_CONSOLE:
+			self._log(queue_elem[1])
+			return THREADGROUPSIG.CONTINUE
 
 	def _cancel_mark(self):
-		self.after_cancel(self.after_handler)
-		if self.mark_thread.is_alive():
-			self.mark_thread.join()
-		self._mark_after_callback(call_once = True)
-		self.queue_out.queue.clear()
+		self.threadgroup.join_thread()
 
 	def destroy(self):
 		self._cancel_mark()
