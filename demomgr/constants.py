@@ -65,9 +65,15 @@ THEME_PACKAGES = {
 	"Dark": ("dark.tcl", "demomgr_dark", "dark"),
 }
 # 0: tcl file, 1: theme name, 2: resource dir name
-FALLBACK_HEADER = {"dem_prot":3, "net_prot":24, "hostname":"",
-	"clientid":"", "map_name":"", "game_dir":"", "playtime":0,
-	"tick_num":0, "framenum":0, "tickrate":0}
+FALLBACK_HEADER = {"dem_prot": 3, "net_prot": 24, "hostname": "",
+	"clientid": "", "map_name": "", "game_dir": "", "playtime": 0,
+	"tick_num": 0, "framenum": 0, "tickrate": 0,
+}
+
+HEADER_HUMAN_NAMES = {"hostname": "Hostname", "clientid": "Playername",
+	"map_name": "Map", "playtime": "Playtime",
+	"tick_num": "No. of ticks", "game_dir": "Game directory",
+}
 
 # Zero-Parameter values: 0x0   - 0xFF
 # One-Parameter values:  0x100 - 0xFFFF
@@ -81,6 +87,8 @@ class THREADSIG:
 	INFO_CONSOLE = 0x100
 	INFO_STATUSBAR = 0x101
 	RESULT_DEMODATA = 0x200
+	RESULT_FS_INFO = 0x201
+	RESULT_HEADER = 0x202
 
 class THREADGROUPSIG:
 	FINISHED = 0

@@ -17,15 +17,15 @@ class ThreadReadFolder(_StoppableBaseThread):
 	creation dates, demo information and filesizes.
 	"""
 
-	def __init__(self, queue_out, targetdir, cfg, *args, **kwargs):
+	def __init__(self, queue_out, targetdir, cfg):
 		"""
-		Thread requires an output queue and the following kwargs:
-		targetdir <Str>: Full path to the directory to be read out
-		cfg <Dict>: Program configuration as in .demomgr/config.cfg
+		Thread requires an output queue and the following args:
+			targetdir <Str>: Full path to the directory to be read out
+			cfg <Dict>: Program configuration as in .demomgr/config.cfg
 		"""
 		self.options = {"targetdir": targetdir, "cfg": cfg}
 
-		super().__init__(None, queue_out, *args, **kwargs)
+		super().__init__(None, queue_out)
 
 	def __stop(self, statmesg, result, exitcode):
 		"""

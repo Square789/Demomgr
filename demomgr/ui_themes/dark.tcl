@@ -9,13 +9,16 @@ ttk::style theme create demomgr_dark -settings \
 		-foreground #EEEEEE -background #333333 -active none -highlightthickness 1 \
 		-highlightbackground #656565 -highlightcolor #656565 \
 		-activestyle none -borderwidth 1 -relief groove -selectbackground #EEEEEE \
-		-selectforeground #000000
+		-selectforeground #000000 -selectborderwidth 1
 	ttk::style configure TEntry \
 		-foreground #EEEEEE -selectbackground #EEEEEE -selectforeground #000000
 	ttk::style configure TCombobox \
 		-foreground #EEEEEE -selectbackground #EEEEEE -selectforeground #000000
 	ttk::style configure TtkHook.Text \
 		-foreground #EEEEEE -background #333333 -relief flat -wrap none
+	ttk::style configure TtkHook.Canvas \
+		-foreground #EEEEEE -background #333333 -relief flat -borderwidth -2
+	# For some reason -2 is necessary
 	ttk::style configure Contained.TButton \
 		-background #414141
 	ttk::style configure Contained.TLabelframe \

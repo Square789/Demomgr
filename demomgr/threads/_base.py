@@ -9,12 +9,10 @@ class _StoppableBaseThread(threading.Thread):
 	the run method.
 	Override this thread's `run()` method, start by calling `start()` !
 	"""
-	def __init__(self, queue_inp, queue_out, *args, **kwargs):
+	def __init__(self, queue_inp, queue_out):
 		super().__init__()
 		self.queue_inp = queue_inp
 		self.queue_out = queue_out
-		self.args = args
-		self.kwargs = kwargs
 		self.stoprequest = threading.Event()
 
 	def join(self, timeout = None, nostop = False):

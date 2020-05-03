@@ -10,17 +10,20 @@ from demomgr.threads.read_folder import ThreadReadFolder
 
 class ThreadFilter(_StoppableBaseThread):
 	"""
-	Thread required output queue and the following kwargs:
-		filterstring <Str>: Raw user input from the entry field
-		curdir <Str>: Absolute path to current directory
-		cfg <Dict>: Program configuration as in .demomgr/config.cfg
-		silent <Bool>: If True, thread will not drop progress messages
+	Thread to filter a directory of demos.
 	"""
-	def __init__(self, queue_out, filterstring, curdir, cfg, silent = False, *args, **kwargs):
+	def __init__(self, queue_out, filterstring, curdir, cfg, silent = False):
+		"""
+		Thread requires output queue and the following args:
+			filterstring <Str>: Raw user input from the entry field
+			curdir <Str>: Absolute path to current directory
+			cfg <Dict>: Program configuration as in .demomgr/config.cfg
+			silent <Bool>: If True, thread will not drop progress messages
+		"""
 		self.options = {"curdir": curdir, "filterstring": filterstring,
 			"cfg": cfg, "silent": silent}
 
-		super().__init__(None, queue_out, *args, **kwargs)
+		super().__init__(None, queue_out)
 
 	def run(self):
 		filterstring = self.options["filterstring"]
@@ -70,7 +73,7 @@ class ThreadFilter(_StoppableBaseThread):
 
 		filteredlist = {"col_filename": [], "col_demo_info": [], "col_ctime": [], "col_filesize":[]}
 		file_amnt = len(files)
-		for i, j in enumerate(files): #Filter
+		for i, j in enumerate(files): # Filter
 			if not self.options["silent"]:
 				self.queue_out_put(THREADSIG.INFO_STATUSBAR, ("Filtering demos; {} / {}".format(i + 1, file_amnt), ))
 			if demo_info[i] == None:

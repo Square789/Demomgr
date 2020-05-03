@@ -11,21 +11,24 @@ from demomgr import constants as CNST
 
 class ThreadDelete(_StoppableBaseThread):
 	"""
-	Thread takes output queue and the following kwargs:
-		demodir <Str>: Absolute directory to delete demos in.
-		files <List[Str]>: List of all files in demodir.
-		selected <List[Bool]>: List of bools of same length as files.
-		filestodel <List[Str]>: Simple file names of the files to be removed;
-			[j for i, j in enumerate(files) if selected[i]];
-		cfg <Dict>: Program configuration as in .demomgr/config.cfg
-		eventfileupdate <Str; "passive"|"selectivemove">: eventfile update mode.
+	Thread to delete demos from a directory selectively.
 	"""
 	def __init__(self, queue_out, demodir, files, selected, filestodel, cfg,
-			eventfileupdate = "passive", *args, **kwargs):
+			eventfileupdate = "passive"):
+		"""
+		Thread takes output queue and the following kwargs:
+			demodir <Str>: Absolute directory to delete demos in.
+			files <List[Str]>: List of all files in demodir.
+			selected <List[Bool]>: List of bools of same length as files.
+			filestodel <List[Str]>: Simple file names of the files to be removed;
+				[j for i, j in enumerate(files) if selected[i]];
+			cfg <Dict>: Program configuration as in .demomgr/config.cfg
+			eventfileupdate <Str; "passive"|"selectivemove">: eventfile update mode.
+		"""
 		self.options = {"demodir": demodir, "files": files, "selected": selected,
 			"filestodel": filestodel, "cfg": cfg, "eventfileupdate": eventfileupdate}
 
-		super().__init__(None, queue_out, *args, **kwargs)
+		super().__init__(None, queue_out)
 
 	def run(self):
 		evtpath = os.path.join(self.options["demodir"], CNST.EVENT_FILE)

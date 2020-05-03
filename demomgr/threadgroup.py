@@ -114,6 +114,8 @@ class ThreadGroup():
 				else:
 					if self.heldback_queue_elem is not None:
 						self.finalization_method(self.heldback_queue_elem)
+						self.heldback_queue_elem = None
+
 
 		self._orig_cb_method = cb_method
 		self.caller_self = targetobj
@@ -135,7 +137,7 @@ class ThreadGroup():
 		self.thread.start()
 		self.after_handle = self.tk_wdg.after(0, self._decorated_cb)
 
-	def join_thread(self, timeout = None, nostop = False):
+	def join_thread(self, finalize = True, timeout = None, nostop = False):
 		"""
 		Stops the after handle for the thread, then joins the
 		thread, setting its stopflag and waiting until it terminates.
@@ -146,13 +148,16 @@ class ThreadGroup():
 		If the thread is not alive, no call to join is made as it may
 		raise an error.
 
+		finalize: If set to False, no additional call to the callback is made.
+
 		timeout and nostop [default None, False] will be passed through to
 		the thread's join method.
 		"""
 		self.cancel_after()
 		if self.thread.is_alive():
 			self.thread.join(timeout, nostop)
-		self._decorated_cb(reschedule = False)
+		if finalize:
+			self._decorated_cb(reschedule = False)
 		self.queue.queue.clear() # just to be reeeeeally safe
 
 	def cancel_after(self):

@@ -21,18 +21,17 @@ from demomgr import constants as CNST
 from demomgr import context_menus
 from demomgr.dialogues import *
 from demomgr.get_cfg_location import get_cfg_storage_path
-from demomgr.helper_tk_widgets import TtkText
-from demomgr.helpers import (formatdate, readdemoheader, convertunit,
-	format_bm_pair, reduce_cfg)
+from demomgr.helper_tk_widgets import TtkText, KeyValueDisplay
+from demomgr.helpers import formatdate, convertunit, format_bm_pair, reduce_cfg
 from demomgr.style_helper import StyleHelper
 from demomgr.threadgroup import ThreadGroup
-from demomgr.threads import ThreadFilter, ThreadReadFolder
+from demomgr.threads import ThreadFilter, ThreadReadFolder, ThreadDemoInfo
 
 THREADSIG = CNST.THREADSIG
 THREADGROUPSIG = CNST.THREADGROUPSIG
 RCB = "3"
 
-__version__ = "1.3.0"
+__version__ = "1.4.0"
 __author__ = "Square789"
 
 class MainApp():
@@ -51,8 +50,6 @@ class MainApp():
 		self.root.protocol("WM_DELETE_WINDOW", self.quit_app)
 		self.root.wm_title("Demomgr v" + __version__ + " by " + __author__)
 
-		# TODO: add icon
-
 		self.demooperations = (("Play", " selected demo...", self._playdem),
 			("Delete", " selected demo...", self._deldem),
 			("Manage bookmarks", " of selected demo...", self._managebookmarks))
@@ -66,6 +63,7 @@ class MainApp():
 		# Threading setup
 		self.threadgroups = {
 			"cleanup": ThreadGroup(ThreadFilter, self.root),
+			"demoinfo": ThreadGroup(ThreadDemoInfo, self.root),
 			"fetchdata": ThreadGroup(ThreadReadFolder, self.root),
 			"filter": ThreadGroup(ThreadFilter, self.root),
 		}
@@ -73,6 +71,7 @@ class MainApp():
 		self.threadgroups["cleanup"].register_finalize_method(self._finalization_cleanup)
 
 		self.threadgroups["cleanup"].decorate_and_patch(self, self._after_callback_cleanup)
+		self.threadgroups["demoinfo"].decorate_and_patch(self, self._after_callback_demoinfo)
 		self.threadgroups["fetchdata"].decorate_and_patch(self, self._after_callback_fetchdata)
 		self.threadgroups["filter"].decorate_and_patch(self, self._after_callback_filter)
 
@@ -117,10 +116,8 @@ class MainApp():
 		#create widgets
 		self._setupgui()
 
-		self.root.bind("<<MultiframeSelect>>", self._updatedemowindow)
-		self.root.bind("<<MultiframeRightclick>>", 
-			lambda ev: context_menus.multiframelist_cb(ev, self.listbox,
-				self.demooperations))
+		self.root.bind("<<MultiframeSelect>>", self._mfl_lc_callback)
+		self.root.bind("<<MultiframeRightclick>>", self._mfl_rc_callback)
 
 		for class_tag in ("TEntry", "TCombobox"):
 			self.root.bind_class(class_tag, "<Button-" + self.RCB + ">" \
@@ -148,7 +145,8 @@ class MainApp():
 		widgetframe1 = ttk.Frame(self.mainframe) #Filtering / Cleanup by filter
 		widgetframe2 = ttk.Frame(self.mainframe) #Buttons here interact with the currently selected demo
 		self.listboxframe = ttk.Frame(self.mainframe)
-		demoinfframe = ttk.Frame(self.mainframe, padding = (5, 5, 5, 5))
+		demoinfframe = ttk.Frame(self.mainframe, padding = (5, 0, 0, 0))
+		dirinfframe = ttk.Frame(self.mainframe, padding = (5, 5, 5, 5))
 		self.statusbar = ttk.Frame(self.mainframe, padding = (1, 2, 1, 1),
 			style = "Statusbar.TFrame" )
 
@@ -176,10 +174,17 @@ class MainApp():
 		settingsbtn = ttk.Button(widgetframe0, text = "Settings...",
 			command = self._opensettings)
 
-		demoinfbox_scr = ttk.Scrollbar(demoinfframe)
-		self.demoinfbox = TtkText(demoinfframe, self.ttkstyle, wrap = tk.WORD,
-			state = tk.DISABLED, width = 40, yscrollcommand = demoinfbox_scr.set)
-		demoinfbox_scr.config(command = self.demoinfbox.yview)
+		self.demo_header_kvd = KeyValueDisplay(demoinfframe, self.ttkstyle,
+			inikeys = tuple(CNST.HEADER_HUMAN_NAMES.values()), # Below are canvas options
+			width = 300, height = 80,
+		)
+		self.demoeventmfl = mfl.MultiframeList(demoinfframe, inicolumns = (
+			{"name": "Type", "col_id": "col_type", "sort": True, "w_width": 10},
+			{"name": "Tick", "col_id": "col_tick", "sort": True, "w_width": 8},
+			{"name": "Value", "col_id": "col_value", "sort": False},
+		), rightclickbtn = self.RCB, listboxheight = 5)
+
+		self.directory_inf_kvd = KeyValueDisplay(dirinfframe, self.ttkstyle)
 
 		filterlabel = ttk.Label(widgetframe1, text = "Filter demos: ")
 		filterentry = ttk.Entry(widgetframe1, textvariable = self.filterentry_var)
@@ -222,17 +227,24 @@ class MainApp():
 		self.listbox.pack(fill = tk.BOTH, expand = 1)
 		self.listboxframe.pack(fill = tk.BOTH, expand = 1, side = tk.LEFT)
 
-		demoinfbox_scr.pack(side = tk.RIGHT, fill = tk.Y)
-		self.demoinfbox.pack(fill = tk.BOTH, expand = 1)
+		self.demoeventmfl.pack(expand = 1, fill = tk.BOTH, pady = (0, 5))
+		self.demo_header_kvd.pack(expand = 1, fill = tk.BOTH)
 		demoinfframe.pack(fill = tk.BOTH, expand = 1)
+
+	def _mfl_rc_callback(self, event):
+		if event.widget == self.listbox:
+			context_menus.multiframelist_cb(event,
+				self.listbox, self.demooperations)
+
+	def _mfl_lc_callback(self, event):
+		if event.widget == self.listbox:
+			self._updatedemowindow(event)
 
 	def quit_app(self):
 		for g in self.threadgroups.values():
 			g.cancel_after() # Calling first to cancel running after callbacks asap
 		for g in self.threadgroups.values():
-			if g.thread.is_alive():
-				g.join_thread()
-		#self.root.update()
+			g.join_thread()
 		# Without the stuff below, the root.destroy method will produce
 		# strange errors on closing, due to some dark magic regarding after
 		# commands.
@@ -272,9 +284,11 @@ class MainApp():
 			return
 		filename = self.listbox.getcell("col_filename", index)
 		path = os.path.join(self.curdir, filename)
-		dialog = LaunchTF2(self.mainframe, demopath = path,
+		dialog = LaunchTF2(self.mainframe,
+			demopath = path,
 			cfg = reduce_cfg(self.cfg),
-			remember = self.cfg["ui_remember"]["launch_tf2"])
+			remember = self.cfg["ui_remember"]["launch_tf2"]
+		)
 		dialog.show()
 		if dialog.result.state == DIAGSIG.SUCCESS:
 			update_needed = False
@@ -298,9 +312,14 @@ class MainApp():
 			self.setstatusbar("Please select a demo file.", 1500)
 			return
 		filename = self.listbox.getcell("col_filename", index)
-		dialog = Deleter(self.root, demodir = self.curdir, files = [filename],
-			selected = [True], deluselessjson = False,
-			cfg = reduce_cfg(self.cfg), styleobj = self.ttkstyle)
+		dialog = Deleter(self.root,
+			demodir = self.curdir,
+			files = [filename],
+			selected = [True],
+			deluselessjson = False,
+			cfg = reduce_cfg(self.cfg),
+			styleobj = self.ttkstyle
+		)
 		dialog.show()
 		if dialog.result.state == DIAGSIG.SUCCESS:
 			if self.cfg["lazyreload"]:
@@ -318,9 +337,12 @@ class MainApp():
 		filename = self.listbox.getcell("col_filename", index)
 		demo_bm = self.listbox.getcell("col_demo_info", index)
 		path = os.path.join(self.curdir, filename)
-		dialog = BookmarkSetter(self.root, targetdemo = path,
-			bm_dat = demo_bm, styleobj = self.ttkstyle,
-			remember = self.cfg["ui_remember"]["bookmark_setter"])
+		dialog = BookmarkSetter(self.root,
+			targetdemo = path,
+			bm_dat = demo_bm,
+			styleobj = self.ttkstyle,
+			remember = self.cfg["ui_remember"]["bookmark_setter"]
+		)
 		dialog.show()
 		if dialog.result.state == DIAGSIG.SUCCESS:
 			if self.cfg["ui_remember"]["bookmark_setter"] != dialog.result.remember:
@@ -358,52 +380,57 @@ class MainApp():
 			imgdir = os.path.join(os.path.dirname(__file__),
 				CNST.THEME_SUBDIR, theme_tuple[2]) # Still hacky
 			stylehelper.load_image_dir(imagedir = imgdir,
-				filetypes = ("png", ), imgvarname = "IMG")
+				filetypes = ("png", ), imgvarname = "IMG"
+			)
 			stylehelper.load_theme(theme_path, theme_tuple[1])
 		except TclError as error:
 			tk_msg.showerror("Demomgr - error", "A tcl error occurred:\n"
 				"{}".format(error))
 		except (OSError, PermissionError, FileNotFoundError) as error:
-			tk_msg.showerror("Demomgr - error", "The theme file was not found"
+			tk_msg.showerror("Demomgr - error", "The theme file was not found "
 				"or a permission problem occurred:\n{}".format(error))
 
 	def _updatedemowindow(self, _):
-		"""Renew contents of demo information window"""
+		"""Renew contents of demo information windows"""
 		index = self.listbox.getselectedcell()[1]
-		self.demoinfbox.config(state = tk.NORMAL)
-		self.demoinfbox.delete("0.0", tk.END)
-		if _ is None:
-			self.demoinfbox.insert(tk.END, "")
-			self.demoinfbox.config(state = tk.DISABLED)
+		self.demo_header_kvd.clear()
+		self.demoeventmfl.clear()
+		if _ is None or index is None:
 			return
-		if not self.cfg["previewdemos"]:
-			self.demoinfbox.insert(tk.END, "(Preview disabled)")
-			self.demoinfbox.config(state = tk.DISABLED)
-			return
-		demname = "?"
-		try:
-			demname = self.listbox.getcell("col_filename", index) #Get headerinf
-			outdict = readdemoheader(os.path.join(self.curdir, demname))
-			headerinfo = ("Information for " + demname + ":\n\n" +
-				"\n".join(["{} : {}".format(k, v) for k, v in outdict.items()]))
-			del outdict # End headerinf
-		except Exception:
-			headerinfo = "Error reading demo; file is likely corrupted :("
 
-		entry = self.listbox.getcell("col_demo_info", index) # Get info
-		if entry == None:
-			demmarks = "\n\nNo information on demo found."
-		else:
-			demmarks = "\n\n"
-			for i in entry[0]:
-				demmarks += (str(i[0]) + " streak at " + str(i[1]) + "\n")
-			demmarks += "\n"
-			for i in entry[1]:
-				demmarks += ("\"" + str(i[0]) + "\" bookmark at " + str(i[1]) + "\n") # End info
-		self.demoinfbox.insert(tk.END, headerinfo)
-		self.demoinfbox.insert(tk.END, demmarks)
-		
-		self.demoinfbox.config(state = tk.DISABLED)
+		demo_info = self.listbox.getcell("col_demo_info", index)
+		if demo_info is not None:
+			for t, n in ((demo_info[0], "Killstreak"), (demo_info[1], "Bookmark")):
+				for i in t: # Killstreaks
+					self.demoeventmfl.insertrow({
+						"col_type": n,
+						"col_tick": i[1],
+						"col_value": str(i[0]),
+					})
+
+		if not self.cfg["previewdemos"]:
+			# Add "preview disabled" message here
+			return
+		demname = self.listbox.getcell("col_filename", index) #Get headerinf
+		self.threadgroups["demoinfo"].start_thread(
+			target_demo_path = os.path.join(self.curdir, demname),
+		)
+
+	def _after_callback_demoinfo(self, queue_elem):
+		"""
+		Loop worker for the demo_info thread.
+		Updates demo info window with I/O-obtained information.
+		(Incomplete, requires `self`-dependant decoration in __init__())
+		"""
+		if queue_elem[0] < 0x100: # Finish
+			return THREADGROUPSIG.FINISHED
+		elif queue_elem[0] == THREADSIG.RESULT_HEADER:
+			for k, v in queue_elem[1].items():
+				if k in CNST.HEADER_HUMAN_NAMES:
+					self.demo_header_kvd.set_value(CNST.HEADER_HUMAN_NAMES[k], str(v))
+			return THREADGROUPSIG.CONTINUE
+		elif queue_elem[0] == THREADSIG.RESULT_FS_INFO:
+			return THREADGROUPSIG.CONTINUE
 
 	def reloadgui(self):
 		"""
@@ -414,7 +441,7 @@ class MainApp():
 			g.cancel_after()
 		self.listbox.clear()
 		for g in self.threadgroups.values():
-			g.join_thread()
+			g.join_thread(finalize = False)
 		self.threadgroups["fetchdata"].start_thread(
 			targetdir = self.curdir,
 			cfg = self.cfg.copy()
@@ -436,7 +463,7 @@ class MainApp():
 		elif queue_elem[0] == THREADSIG.RESULT_DEMODATA:
 			self.listbox.setdata(queue_elem[1])
 			self.listbox.format()
-			return THREADGROUPSIG.HOLDBACK
+			return THREADGROUPSIG.CONTINUE
 
 	def _cleanup(self):
 		"""
@@ -485,8 +512,8 @@ class MainApp():
 			eventfileupdate = "passive",
 		)
 		del_diag.show()
-		if del_diag.result == 0:
-			self.reloadgui()
+		if del_diag.result.state == DIAGSIG.SUCCESS:
+			self.reloadgui() # Can not honor lazyreload here.
 
 	def _filter(self):
 		"""Starts a filtering thread and configures the filtering button."""

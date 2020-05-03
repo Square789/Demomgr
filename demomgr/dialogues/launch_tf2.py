@@ -242,6 +242,9 @@ class LaunchTF2(BaseDialog):
 				except (OSError, PermissionError, FileNotFoundError, KeyError,
 						SyntaxError):
 					users[index] = (users[index], None)
+		else:
+			for i, _ in enumerate(users):
+				users[i] = (users[i], None)
 		self.errstates[0] = False
 		return users
 
