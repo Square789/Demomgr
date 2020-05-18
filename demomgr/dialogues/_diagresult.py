@@ -24,9 +24,7 @@ class DiagResult():
 	def __init__(self, state = None):
 		"""
 		The DiagResult will have a `data` attribute that is set to `None`
-			at initialization. A dialog may store custom data here. It is
-			recommended to be a dict, as all `__getitem__` operations will
-			be routed to it.
+			at initialization. A dialog may store custom data here.
 		An attribute `remember` will be created with `None` on init. 
 			If a dialog supports remembering of individual widget states
 			that are passed to it in the constructor, this attribute
@@ -41,8 +39,3 @@ class DiagResult():
 			self.state = DIAGSIG.OPEN
 		self.data = None
 		self.remember = None
-
-	def __getitem__(self, name):
-		if self.data is None:
-			raise TypeError("No data stored in dialog result.")
-		return self.data[name]

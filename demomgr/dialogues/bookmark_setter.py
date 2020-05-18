@@ -63,7 +63,7 @@ class BookmarkSetter(BaseDialog):
 		self.bm_dat = bm_dat
 		self.styleobj = styleobj
 
-		u_r = self.update_remember(remember)
+		u_r = self.validate_and_update_remember(remember)
 		self.jsonmark_var = tk.BooleanVar()
 		self.eventsmark_var = tk.BooleanVar()
 		self.jsonmark_var.set(u_r[0]); self.eventsmark_var.set(u_r[1])

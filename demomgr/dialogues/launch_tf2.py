@@ -6,11 +6,7 @@ import tkinter.messagebox as tk_msg
 import os
 import subprocess
 
-try:
-	import vdf
-	VDF_PRESENT = True
-except ImportError:
-	VDF_PRESENT = False
+import vdf
 
 from demomgr.dialogues._base import BaseDialog
 from demomgr.dialogues._diagresult import DIAGSIG
@@ -50,7 +46,6 @@ class LaunchTF2(BaseDialog):
 		remember: List of arbitrary values. See class docstring for details.
 		"""
 		super().__init__(parent, "Play demo / Launch TF2...")
-
 		self.demopath = demopath
 		self.steamdir_var = tk.StringVar()
 		self.steamdir_var.set(cfg["steampath"])
@@ -65,7 +60,7 @@ class LaunchTF2(BaseDialog):
 		# 0: Bad config, 1: Steamdir on bad drive, 2: VDF missing,
 		# 3: Demo outside /tf/, 4: No launchoptions
 
-		u_r = self.update_remember(remember)
+		u_r = self.validate_and_update_remember(remember)
 		self.usehlae_var.set(u_r[0])
 		self.remember_1_hackish = u_r[1] # Used at the end of body()
 
@@ -230,29 +225,21 @@ class LaunchTF2(BaseDialog):
 		except (OSError, PermissionError, FileNotFoundError):
 			self.errstates[0] = True
 			return []
-		if VDF_PRESENT:
-			for index, user in enumerate(users):
-				try:
-					cnf_file = os.path.join(toget, user, CNST.STEAM_CFG_PATH1)
-					with open(cnf_file, encoding = "utf-8") as h:
-						vdfdata = vdf.load(h)
-						username = eval("vdfdata" + CNST.STEAM_CFG_USER_NAME)
-					username = tk_secure_str(username)
-					users[index] = (users[index], username)
-				except (OSError, PermissionError, FileNotFoundError, KeyError,
-						SyntaxError):
-					users[index] = (users[index], None)
-		else:
-			for i, _ in enumerate(users):
-				users[i] = (users[i], None)
+		for index, user in enumerate(users):
+			try:
+				cnf_file = os.path.join(toget, user, CNST.STEAM_CFG_PATH1)
+				with open(cnf_file, encoding = "utf-8") as h:
+					vdfdata = vdf.load(h)
+					username = eval("vdfdata" + CNST.STEAM_CFG_USER_NAME)
+				username = tk_secure_str(username)
+				users[index] = (users[index], username)
+			except (OSError, PermissionError, FileNotFoundError, KeyError,
+					SyntaxError):
+				users[index] = (users[index], None)
 		self.errstates[0] = False
 		return users
 
 	def _getlaunchoptions(self):
-		if not VDF_PRESENT:
-			self.errstates[2] = True
-			self.errstates[4] = False
-			return ""
 		try:
 			self.errstates[2] = False
 			tmp = self.userselectbox.current()

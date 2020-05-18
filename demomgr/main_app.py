@@ -20,7 +20,7 @@ from schema import SchemaError
 from demomgr import constants as CNST
 from demomgr import context_menus
 from demomgr.dialogues import *
-from demomgr.get_cfg_location import get_cfg_storage_path
+from demomgr.platforming import get_cfg_storage_path, get_rightclick_btn, get_contextmenu_btn
 from demomgr.helper_tk_widgets import TtkText, KeyValueDisplay
 from demomgr.helpers import formatdate, convertunit, format_bm_pair, reduce_cfg
 from demomgr.style_helper import StyleHelper
@@ -29,7 +29,6 @@ from demomgr.threads import ThreadFilter, ThreadReadFolder, ThreadDemoInfo
 
 THREADSIG = CNST.THREADSIG
 THREADGROUPSIG = CNST.THREADGROUPSIG
-RCB = "3"
 
 __version__ = "1.4.0"
 __author__ = "Square789"
@@ -43,9 +42,7 @@ class MainApp():
 		self.root = tk.Tk()
 		self.root.withdraw()
 
-		self.RCB = RCB
-		if self.root._windowingsystem == "aqua": # should probably work
-			self.RCB = "2"
+		self.RCB = get_rightclick_btn()
 
 		self.root.protocol("WM_DELETE_WINDOW", self.quit_app)
 		self.root.wm_title("Demomgr v" + __version__ + " by " + __author__)
@@ -125,8 +122,10 @@ class MainApp():
 			self.root.bind_class(class_tag, "<Button-" + self.RCB + ">" \
 				"<Leave><ButtonRelease-" + self.RCB + ">", lambda _: None)
 			# This interrupts above event seq
-			self.root.bind_class(class_tag, "<KeyPress-App>",
-				context_menus.entry_cb)
+			ctxmen_name = get_contextmenu_btn()
+			if ctxmen_name is not None:
+				self.root.bind_class(class_tag, "<KeyPress-{}>".format(ctxmen_name),
+					context_menus.entry_cb)
 
 		self.spinboxvar.trace("w", self._spinboxsel)
 		if os.path.exists(self.cfg["lastpath"]):
@@ -297,10 +296,9 @@ class MainApp():
 				self.cfg["ui_remember"]["launch_tf2"] = dialog.result.remember
 			for i in ("steampath", "hlaepath"):
 				if i in dialog.result.data:
-					if dialog.result[i] != self.cfg[i]:
+					if dialog.result.data[i] != self.cfg[i]:
 						update_needed = True
-						self.cfg[i] = dialog.result[i]
-						# accesses dialog.result.data[i]
+						self.cfg[i] = dialog.result.data[i]
 			if update_needed:
 				self.writecfg(self.cfg)
 				self.cfg = self.getcfg()
@@ -420,7 +418,7 @@ class MainApp():
 		"""
 		Loop worker for the demo_info thread.
 		Updates demo info window with I/O-obtained information.
-		(Incomplete, requires `self`-dependant decoration in __init__())
+		(Incomplete, requires `self`-dependent decoration in __init__())
 		"""
 		if queue_elem[0] < 0x100: # Finish
 			return THREADGROUPSIG.FINISHED
@@ -453,7 +451,7 @@ class MainApp():
 		Loop worker for the after callback decorator stub.
 		Grabs thread signals from the fetchdata queue and
 		acts accordingly.
-		(Incomplete, requires `self`-dependant decoration in __init__())
+		(Incomplete, requires `self`-dependent decoration in __init__())
 		"""
 		if queue_elem[0] < 0x100: # Finish
 			return THREADGROUPSIG.FINISHED
@@ -485,7 +483,7 @@ class MainApp():
 		Loop worker for the after callback decorator stub.
 		Grabs thread signals from the cleanup queue and acts
 		accordingly, opening a Deletion dialog once the thread is done.
-		(Incomplete, requires `self`-dependant decoration in __init__())
+		(Incomplete, requires `self`-dependent decoration in __init__())
 		"""
 		if queue_elem[0] < 0x100: # Finish
 			self.cleanupbtn.config(
@@ -542,7 +540,7 @@ class MainApp():
 		Grabs elements from the filter queue and updates the statusbar with
 		the filtering progress. If the thread is done, fills listbox with new
 		dataset.
-		(Incomplete, requires `self`-dependant decoration in __init__())
+		(Incomplete, requires `self`-dependent decoration in __init__())
 		"""
 		if queue_elem[0] < 0x100: # Finish
 			self.setstatusbar("", 0)

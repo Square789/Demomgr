@@ -23,11 +23,7 @@ Valid parameters include:
 from ast import literal_eval
 
 import re
-try:
-	import regex
-	NO_REGEX_MODULE = False
-except ImportError:
-	NO_REGEX_MODULE = True
+import regex
 
 FILTERDICT = {
 	"name":				('"{}" in x["name"]', str),
@@ -88,10 +84,8 @@ re_params = {
 		re.compile(r"^[A-Za-z0-9_-]+\s*(?:,\s*|$)"),
 		re.compile(r"^[A-Za-z0-9_-]*"), 0,
 	),
-}
-
-if not NO_REGEX_MODULE:
-	re_params["string_tuple"] = ( regex.compile(r"""
+	"string_tuple": (
+		regex.compile(r"""
 		(?(DEFINE)
 			(?<string> (['"]).*?(?&even_backslash)\2 )
 			(?<even_backslash> (?:((?<=[^\\]))(?:\\\\)*) )
@@ -101,15 +95,14 @@ if not NO_REGEX_MODULE:
 		)
 		\(\s*(?>(?&string))((?&separator)(?&string))*(?&separator_end)?\)
 		(?&separator_end_line)""", re.X + regex.VERSION1
-	),
+	), re_quoted_string, 2, ),
 	# DO NOT BACKTRACK INTO FIRST string GROUP
 	# good got all the hours gone to waste and i just had to make that
 	# group atomic
-		re_quoted_string, 2, )
-	re_params["string"] = (
+	"string": (
 		regex.compile(r"""^(?>(['"]).*?(?:(?<=[^\\])(?:\\\\)*)\1)?""" \
-			"""\s*(,\s*|$)"""), re_quoted_string, 2,
-	)
+			"""\s*(,\s*|$)"""), re_quoted_string, 2, ),
+}
 
 def escapeinput(raw):
 	r"""Adds escape char (\) in front of all occurrences of \, ' and " """
@@ -158,12 +151,8 @@ def _ident_and_extract_param(inp):
 		if res is not None:
 			break
 	if res is None:
-		errstr = "No parameter could be identified at around: \"{}\"".format(
-			inp[:FAIL_OUT_LEN])
-		if NO_REGEX_MODULE:
-			errstr = errstr + "; Try installing the regex module."
-		raise ValueError(errstr)
-	# print(exp_name)
+		raise ValueError("No parameter could be identified at around: " \
+			" \"{}\"".format(inp[:FAIL_OUT_LEN]))
 	raw_param = res[0]
 
 	param_matches = exp_tuple[1].finditer(raw_param)
@@ -247,14 +236,12 @@ def filterstr_to_lambdas(inp):
 		else: # Regular comparision
 			lambdastubs = [lambdastub.format(req_type(i), sign = SIGNS.EQ)
 				for i in params]
-			lambdas.append(
-				eval(
-					"lambda x: {}{}{}".format(
-						"not (" * is_negated,
-						" or ".join(lambdastubs),
-						")" * is_negated
-					)
+			lambdas.append(eval(
+				"lambda x: {}{}{}".format(
+					"not (" * is_negated,
+					" or ".join(lambdastubs),
+					")" * is_negated,
 				)
-			)
+			))
 
 	return lambdas

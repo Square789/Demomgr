@@ -67,6 +67,9 @@ class ThreadMarkDemo(_StoppableBaseThread):
 				self.queue_out_put(THREADSIG.INFO_CONSOLE, str(err))
 			except (TypeError, ValueError) as err:
 				self.queue_out_put(THREADSIG.INFO_CONSOLE, str(err)) # Something is wrong with _events.txt
+			except InterruptedError:
+				self.queue_out_put(THREADSIG.ABORTED)
+				return
 
 		self.queue_out_put(THREADSIG.SUCCESS)
 

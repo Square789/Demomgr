@@ -9,7 +9,7 @@ LIKE [, ], {, } (but why would they, really.); THIS IS A MESS'''
 import os
 import re
 
-_DEF = {"imagedir":"", "filetype":"png", "imgvarname":"IMAGES"}
+_DEF = {"imagedir": "", "filetype": "png", "imgvarname": "IMAGES"}
 
 RE_FORBIDDEN = [(re.compile(r"\["), "Attempted command call."),
 	(re.compile(r"(?:(?<=[^\\])|^)(\\(?:\\{2})*)(?=[^\\]|$)"),
