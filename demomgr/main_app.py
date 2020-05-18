@@ -30,7 +30,7 @@ from demomgr.threads import ThreadFilter, ThreadReadFolder, ThreadDemoInfo
 THREADSIG = CNST.THREADSIG
 THREADGROUPSIG = CNST.THREADGROUPSIG
 
-__version__ = "1.4.0"
+__version__ = "1.4.1"
 __author__ = "Square789"
 
 class MainApp():
