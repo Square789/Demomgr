@@ -25,23 +25,29 @@ from ast import literal_eval
 import re
 import regex
 
+class FILTERFLAGS:
+	HEADER = 1
+	FILESYS = 2
+
 FILTERDICT = {
-	"name":				('"{}" in x["name"]', str),
+	"name":				('"{}" in x["name"]', str, 0),
 	"bookmark_contains":('"{}" in "".join((i[0] for i in x["bookmarks"]))',
-		str),
-	"map":				('"{}" in x["header"]["map_name"]', str),
-	"hostname":			('"{}" in x["header"]["hostname"]', str),
-	"clientid":			('"{}" in x["header"]["clientid"]', str),
-	"killstreaks":		('len(x["killstreaks"]) {sign} {}', int),
-	"bookmarks":		('len(x["bookmarks"]) {sign} {}', int),
+		str, 0),
+	"map":				('"{}" in x["header"]["map_name"]', str, FILTERFLAGS.HEADER),
+	"hostname":			('"{}" in x["header"]["hostname"]', str, FILTERFLAGS.HEADER),
+	"clientid":			('"{}" in x["header"]["clientid"]', str, FILTERFLAGS.HEADER),
+	"killstreaks":		('len(x["killstreaks"]) {sign} {}', int, 0),
+	"bookmarks":		('len(x["bookmarks"]) {sign} {}', int, 0),
 	"beststreak":		('max((i[0] for i in x["killstreaks"]), default=-1)'
-		' {sign} {}', int),
-	"moddate":			('x["filedata"]["modtime"] {sign} {}', int),
-	"filesize":			('x["filedata"]["filesize"] {sign} {}', int),
+		' {sign} {}', int, 0),
+	"moddate":			('x["filedata"]["modtime"] {sign} {}', int, FILTERFLAGS.FILESYS),
+	"filesize":			('x["filedata"]["filesize"] {sign} {}', int, FILTERFLAGS.FILESYS),
 }
 # [0] will be passed through eval(), prefixed with "lambda x: "; {} replaced
 # by [1] called with ESCAPED user input as parameter
 # -> eval("lambda x:\"" + str("koth_") + "\" in x[\"name\"]") -> lambda x: "koth_" in x["name"]
+# [2] denotes whether drive access will have to be made so the filtering loop doesn't waste
+# resources on requests that don't require such
 
 KEY_PARAM_SEP = ":"
 KEY_NEGATOR = "!"
@@ -201,12 +207,14 @@ def _extract_keys_and_params(inp):
 
 	return parsed_str
 
-def filterstr_to_lambdas(inp):
+def process_filterstring(inp):
 	"""
-	Creates a list of lambdas that correspond to the filtering input
-	using this module's FILTERDICT.
+	Returns a two-element tuple where 0 is a list of lambdas that correspond
+	to the filtering input using this module's FILTERDICT and 1 is each identified
+	filtering key's flag ORed together.
 	"""
 	lambdas = []
+	flags = 0
 
 	key_param_dict = _extract_keys_and_params(inp)
 	for key, spec in key_param_dict.items():
@@ -215,6 +223,7 @@ def filterstr_to_lambdas(inp):
 		is_range = spec[2]
 		if not key in FILTERDICT:
 			raise ValueError("Unknown key: \"{}\"".format(key))
+		flags |= FILTERDICT[key][2]
 		lambdastub = FILTERDICT[key][0]
 		req_type = FILTERDICT[key][1]
 		if is_range: # Range-ify
@@ -244,4 +253,4 @@ def filterstr_to_lambdas(inp):
 				)
 			))
 
-	return lambdas
+	return lambdas, flags

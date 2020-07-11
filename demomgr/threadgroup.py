@@ -28,8 +28,7 @@ class ThreadGroup():
 
 		thread_cls: A subclassed thread from / that behaves like the ones in
 			`demomgr.threads`.
-		tk_widget: The root widget the after callback function should
-			operate on.
+		tk_widget: The widget to use for tkinter's after machinery.
 		"""
 		self.thread_cls = thread_cls
 		self.tk_wdg = tk_widget

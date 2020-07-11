@@ -51,7 +51,7 @@ class ThreadMarkDemo(_StoppableBaseThread):
 			except (KeyError, IndexError, TypeError) as err: # Json garbage
 				self.queue_out_put(THREADSIG.INFO_CONSOLE, str(err))
 
-		if self.stoprequest.isSet():
+		if self.stoprequest.is_set():
 			self.queue_out_put(THREADSIG.ABORTED)
 			return
 
@@ -125,7 +125,7 @@ class ThreadMarkDemo(_StoppableBaseThread):
 				clearfile = True, empty_ok = True) as event_writer:
 			chunkfound = False
 			for chk in event_reader:
-				if self.stoprequest.isSet():
+				if self.stoprequest.is_set():
 					self.queue_out_put(THREADSIG.ABORTED)
 					raise InterruptedError()
 				regres = RE_DEM_NAME.search(chk.content)

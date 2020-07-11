@@ -52,7 +52,7 @@ def readdemoheader(path): #Code happily duplicated from https://developer.valves
 	denied read access or malformed demos.
 	"""
 	demhdr = CNST.FALLBACK_HEADER.copy()
-	
+
 	h = open(path, "rb")
 	if readbinStr(h, 8) == "HL2DEMO":
 		demhdr["dem_prot"] = readbinInt(h)
@@ -108,6 +108,7 @@ def assign_demo_info(files, demo_info):
 		for j in demo_info:
 			if j.demo_name == file:
 				assigned_dat[i] = j
+				break
 	return assigned_dat
 
 def format_bm_pair(toformat):
@@ -141,29 +142,3 @@ def tk_secure_str(in_str, repl = None):
 	if repl is None:
 		repl = CNST.REPLACEMENT_CHAR
 	return "".join([(i if ord(i) <= 0xFFFF else repl) for i in in_str])
-
-class HeaderFetcher: #used in _thread_filter.py
-	"""Only read a header when the class is accessed."""
-	def __init__(self, filepath):
-		self.filepath = filepath
-		self.header = None
-
-	def __getitem__(self, key):
-		if self.header == None:
-			try:
-				self.header = readdemoheader(self.filepath)
-			except Exception:
-				self.header = CNST.FALLBACK_HEADER
-		return self.header[key]
-
-class FileStatFetcher: #used in _thread_filter.py
-	"""Only read a file's size and moddate when the class is accessed."""
-	def __init__(self, filepath):
-		self.filepath = filepath
-		self.data = None
-
-	def __getitem__(self, key):
-		if self.data == None:
-			statres = os.stat(self.filepath)
-			self.data = {"filesize":statres.st_size, "modtime":statres.st_mtime}
-		return self.data[key]

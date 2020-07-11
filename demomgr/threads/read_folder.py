@@ -52,10 +52,10 @@ class ThreadReadFolder(_StoppableBaseThread):
 			files = [i for i in os.listdir(self.options["targetdir"]) if (os.path.splitext(i)[1] == ".dem")
 				and (os.path.isfile(os.path.join(self.options["targetdir"], i)))]
 			datescreated = [os.path.getmtime(os.path.join(self.options["targetdir"], i)) for i in files]
-			if self.stoprequest.isSet():
+			if self.stoprequest.is_set():
 				self.queue_out_put(THREADSIG.ABORTED); return
 			sizes = [os.path.getsize(os.path.join(self.options["targetdir"], i)) for i in files]
-			if self.stoprequest.isSet():
+			if self.stoprequest.is_set():
 				self.queue_out_put(THREADSIG.ABORTED); return
 		except FileNotFoundError:
 			self.__stop(
@@ -107,7 +107,7 @@ class ThreadReadFolder(_StoppableBaseThread):
 
 			logchunk_list = []
 			for json_file in jsonfiles:
-				if self.stoprequest.isSet():
+				if self.stoprequest.is_set():
 					self.queue_out_put(THREADSIG.ABORTED); return
 				try: # Attempt to open the json file
 					with open(os.path.join(self.options["targetdir"], json_file)) as h:
@@ -118,7 +118,7 @@ class ThreadReadFolder(_StoppableBaseThread):
 				except (json.decoder.JSONDecodeError, KeyError, ValueError) as error:
 					continue
 
-		if self.stoprequest.isSet():
+		if self.stoprequest.is_set():
 			self.queue_out_put(THREADSIG.ABORTED)
 			return
 

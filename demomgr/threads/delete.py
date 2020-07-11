@@ -38,7 +38,7 @@ class ThreadDelete(_StoppableBaseThread):
 		starttime = time.time()
 	#-----------Deletion loop-----------#
 		for i in self.options["filestodel"]:
-			if self.stoprequest.isSet():
+			if self.stoprequest.is_set():
 				self.queue_out_put(THREADSIG.ABORTED); return
 			try:
 				os.remove(os.path.join(self.options["demodir"], i))

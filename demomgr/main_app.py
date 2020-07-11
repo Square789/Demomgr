@@ -30,7 +30,7 @@ from demomgr.threads import ThreadFilter, ThreadReadFolder, ThreadDemoInfo
 THREADSIG = CNST.THREADSIG
 THREADGROUPSIG = CNST.THREADGROUPSIG
 
-__version__ = "1.4.1"
+__version__ = "1.5.0"
 __author__ = "Square789"
 
 class MainApp():
@@ -187,6 +187,7 @@ class MainApp():
 
 		filterlabel = ttk.Label(widgetframe1, text = "Filter demos: ")
 		filterentry = ttk.Entry(widgetframe1, textvariable = self.filterentry_var)
+		filterentry.bind("<Return>", self._filter)
 		self.filterbtn = ttk.Button(widgetframe1, text = "Apply Filter",
 			command = self._filter)
 		self.resetfilterbtn = ttk.Button(widgetframe1,
@@ -513,7 +514,7 @@ class MainApp():
 		if del_diag.result.state == DIAGSIG.SUCCESS:
 			self.reloadgui() # Can not honor lazyreload here.
 
-	def _filter(self):
+	def _filter(self, *_):
 		"""Starts a filtering thread and configures the filtering button."""
 		if self.filterentry_var.get() == "" or self.curdir == "":
 			return
@@ -543,7 +544,8 @@ class MainApp():
 		(Incomplete, requires `self`-dependent decoration in __init__())
 		"""
 		if queue_elem[0] < 0x100: # Finish
-			self.setstatusbar("", 0)
+			if queue_elem[0] == THREADSIG.SUCCESS:
+				self.setstatusbar("", 0)
 			self.resetfilterbtn.config(state = tk.NORMAL)
 			self.filterbtn.config(text = "Apply Filter", command = self._filter)
 			self._updatedemowindow(None)
