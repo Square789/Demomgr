@@ -30,7 +30,7 @@ from demomgr.threads import ThreadFilter, ThreadReadFolder, ThreadDemoInfo
 THREADSIG = CNST.THREADSIG
 THREADGROUPSIG = CNST.THREADGROUPSIG
 
-__version__ = "1.5.0"
+__version__ = "1.5.1"
 __author__ = "Square789"
 
 class MainApp():
@@ -186,8 +186,8 @@ class MainApp():
 		self.directory_inf_kvd = KeyValueDisplay(dirinfframe, self.ttkstyle)
 
 		filterlabel = ttk.Label(widgetframe1, text = "Filter demos: ")
-		filterentry = ttk.Entry(widgetframe1, textvariable = self.filterentry_var)
-		filterentry.bind("<Return>", self._filter)
+		self.filterentry = ttk.Entry(widgetframe1, textvariable = self.filterentry_var)
+		self.filterentry.bind("<Return>", self._filter)
 		self.filterbtn = ttk.Button(widgetframe1, text = "Apply Filter",
 			command = self._filter)
 		self.resetfilterbtn = ttk.Button(widgetframe1,
@@ -213,7 +213,7 @@ class MainApp():
 
 		#widgetframe1
 		filterlabel.pack(side = tk.LEFT, fill = tk.X, expand = 0, padx = (0, 3))
-		filterentry.pack(side = tk.LEFT, fill = tk.X, expand = 1, padx = 3)
+		self.filterentry.pack(side = tk.LEFT, fill = tk.X, expand = 1, padx = 3)
 		self.filterbtn.pack(side = tk.LEFT, fill = tk.X, expand = 0, padx = 3)
 		self.resetfilterbtn.pack(side = tk.LEFT, fill = tk.X, expand = 0, padx = 3)
 		self.cleanupbtn.pack(side = tk.LEFT, fill = tk.X, expand = 0, padx = (3, 0))
@@ -233,8 +233,7 @@ class MainApp():
 
 	def _mfl_rc_callback(self, event):
 		if event.widget == self.listbox:
-			context_menus.multiframelist_cb(event,
-				self.listbox, self.demooperations)
+			context_menus.multiframelist_cb(event, self.listbox, self.demooperations)
 
 	def _mfl_lc_callback(self, event):
 		if event.widget == self.listbox:
@@ -269,10 +268,8 @@ class MainApp():
 		dialog = Settings(self.mainframe, self.getcfg())
 		dialog.show()
 		if dialog.result.state == DIAGSIG.SUCCESS:
-			localcfg = self.cfg
-			localcfg.update(dialog.result.data)
-			self.writecfg(localcfg)
-			self.cfg = self.getcfg()
+			self.cfg.update(dialog.result.data)
+			self.writecfg(self.cfg)
 			self.reloadgui()
 			self._applytheme()
 
@@ -302,7 +299,6 @@ class MainApp():
 						self.cfg[i] = dialog.result.data[i]
 			if update_needed:
 				self.writecfg(self.cfg)
-				self.cfg = self.getcfg()
 
 	def _deldem(self):
 		"""Deletes the currently selected demo."""
@@ -520,6 +516,7 @@ class MainApp():
 			return
 		self.filterbtn.config(text = "Stop Filtering",
 			command = lambda: self._stopfilter(True))
+		self.filterentry.unbind("<Return>")
 		self.resetfilterbtn.config(state = tk.DISABLED)
 		self.threadgroups["filter"].start_thread(
 			filterstring = self.filterentry_var.get(),
@@ -544,10 +541,11 @@ class MainApp():
 		(Incomplete, requires `self`-dependent decoration in __init__())
 		"""
 		if queue_elem[0] < 0x100: # Finish
-			if queue_elem[0] == THREADSIG.SUCCESS:
+			if queue_elem[0] == THREADSIG.ABORTED:
 				self.setstatusbar("", 0)
 			self.resetfilterbtn.config(state = tk.NORMAL)
 			self.filterbtn.config(text = "Apply Filter", command = self._filter)
+			self.filterentry.bind("<Return>", self._filter)
 			self._updatedemowindow(None)
 			return THREADGROUPSIG.FINISHED
 		elif queue_elem[0] == THREADSIG.INFO_STATUSBAR:
@@ -568,10 +566,8 @@ class MainApp():
 		selpath = self.spinboxvar.get()
 		if selpath != self.curdir:
 			if self.cfg["lastpath"] != selpath: # Update lastpath entry
-				localcfg = self.cfg
-				localcfg["lastpath"] = selpath
-				self.writecfg(localcfg)
-				self.cfg = self.getcfg()
+				self.cfg["lastpath"] = selpath
+				self.writecfg(self.cfg)
 			self.curdir = selpath
 			self.reloadgui()
 
@@ -593,12 +589,10 @@ class MainApp():
 			title = "Select the folder containing your demos.")
 		if dirpath == "":
 			return
-		localcfg = self.cfg
-		if dirpath in localcfg["demopaths"]:
+		if dirpath in self.cfg["demopaths"]:
 			return
-		localcfg["demopaths"].append(dirpath)
-		self.writecfg(localcfg)
-		self.cfg = self.getcfg()
+		self.cfg["demopaths"].append(dirpath)
+		self.writecfg(self.cfg)
 		self.spinboxvar.set(dirpath)
 		self.pathsel_spinbox.config(values = tuple(self.cfg["demopaths"]))
 		self.reloadgui()
@@ -609,19 +603,17 @@ class MainApp():
 		automatically moves to another one or sets the current directory
 		to "" if none are available anymore.
 		"""
-		localcfg = self.cfg
-		if len(localcfg["demopaths"]) == 0:
+		if len(self.cfg["demopaths"]) == 0:
 			return
-		popindex = localcfg["demopaths"].index(self.curdir)
-		localcfg["demopaths"].pop(popindex)
+		popindex = self.cfg["demopaths"].index(self.curdir)
+		self.cfg["demopaths"].pop(popindex)
 		self.writecfg(self.cfg)
-		self.cfg = self.getcfg()
-		if len(localcfg["demopaths"]) > 0:
-			self.spinboxvar.set(localcfg["demopaths"][
-				(popindex -1) % len(localcfg["demopaths"])])
+		if len(self.cfg["demopaths"]) > 0:
+			self.spinboxvar.set(self.cfg["demopaths"][
+				(popindex -1) % len(self.cfg["demopaths"])])
 		else:
 			self.spinboxvar.set("")
-		self.pathsel_spinbox.config(values = tuple(localcfg["demopaths"]))
+		self.pathsel_spinbox.config(values = tuple(self.cfg["demopaths"]))
 
 	def writecfg(self, data):
 		"""

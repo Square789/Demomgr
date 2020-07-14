@@ -49,7 +49,7 @@ class EventReader():
 			self.isownhandle = True
 			handle = open(handle, "r")
 		self.handle = handle
-		self.cnf = _DEF
+		self.cnf = _DEF.copy()
 		self.cnf.update(read_DEF)
 		for t in ((sep, "sep"), (resethandle, "resethandle"),
 				(blocksz, "blocksz")):
@@ -167,7 +167,7 @@ class EventWriter():
 	"""
 	def __init__(self, handle, sep = None, clearfile = None, forceflush = None,
 			empty_ok = None):
-		self.cnf = _DEF
+		self.cnf = _DEF.copy()
 		self.cnf.update(write_DEF)
 		for t in (
 				(sep, "sep"), (clearfile, "clearfile"),

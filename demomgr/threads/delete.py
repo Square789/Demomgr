@@ -62,7 +62,7 @@ class ThreadDelete(_StoppableBaseThread):
 			except (OSError, PermissionError) as error:
 				self.queue_out_put(
 					THREADSIG.INFO_CONSOLE,
-					" Error updating eventfile:\n{}\n".format(str(error))
+					" Error updating eventfile:\n{}\n".format(str(error)),
 				)
 				if readeropen: reader.destroy()
 				if writeropen: writer.destroy()
