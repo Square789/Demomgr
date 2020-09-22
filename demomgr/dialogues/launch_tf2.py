@@ -4,6 +4,7 @@ import tkinter.filedialog as tk_fid
 import tkinter.messagebox as tk_msg
 
 import os
+from itertools import chain, cycle, repeat
 import subprocess
 
 import vdf
@@ -14,6 +15,14 @@ from demomgr.dialogues._diagresult import DIAGSIG
 from demomgr import constants as CNST
 from demomgr.helper_tk_widgets import TtkText
 from demomgr.helpers import (frmd_label, tk_secure_str)
+from demomgr.threadgroup import ThreadGroup, THREADGROUPSIG
+from demomgr.threads import THREADSIG, RCONThread
+
+class ERR_IDX:
+	STEAMDIR = 0
+	STEAMDIR_DRIVE = 1
+	DEMO_OUTSIDE_GAME = 2
+	LAUNCHOPT = 3
 
 class LaunchTF2(BaseDialog):
 	"""
@@ -38,11 +47,12 @@ class LaunchTF2(BaseDialog):
 
 	REMEMBER_DEFAULT = [False, ""]
 
-	def __init__(self, parent, demopath, cfg, remember):
+	def __init__(self, parent, demopath, cfg, style, remember):
 		"""
 		parent: Parent widget, should be a `Tk` or `Toplevel` instance.
 		demopath: Absolute file path to the demo to be played. (str)
 		cfg: The program configuration. (dict)
+		style: ttk.Style object
 		remember: List of arbitrary values. See class docstring for details.
 		"""
 		super().__init__(parent, "Play demo / Launch TF2...")
@@ -56,9 +66,19 @@ class LaunchTF2(BaseDialog):
 		self.userselectvar = tk.StringVar()
 		self.launchoptionsvar = tk.StringVar()
 
-		self.errstates = [False, False, False, False, False]
-		# 0: Bad config, 1: Steamdir on bad drive, 2: VDF missing,
-		# 3: Demo outside /tf/, 4: No launchoptions
+		self._style = style
+		self.cfg = cfg
+
+		self.spinneriter = cycle((chain(
+			*(repeat(sign, 100 // CNST.GUI_UPDATE_WAIT) for sign in ("|", "/", "-", "\\")),
+		)))
+		self.rcon_threadgroup = ThreadGroup(RCONThread, self)
+		self.rcon_threadgroup.register_run_always_method(self._rcon_after_run_always)
+		self.rcon_threadgroup.decorate_and_patch(self, self._rcon_after_callback)
+
+		self.errstates = [False for _ in range(4)]
+		# 0: Bad config/steamdir, 1: Steamdir on bad drive, 2: Demo outside /tf/,
+		# 3: No launchoptions,
 
 		u_r = self.validate_and_update_remember(remember)
 		self.usehlae_var.set(u_r[0])
@@ -68,6 +88,8 @@ class LaunchTF2(BaseDialog):
 
 	def body(self, master):
 		"""UI"""
+		self.protocol("WM_DELETE_WINDOW", self.done)
+
 		master.grid_columnconfigure((0, 1), weight = 1)
 
 		dir_sel_lblfrm = ttk.LabelFrame(master, padding = (10, 8, 10, 8), 
@@ -128,17 +150,24 @@ class LaunchTF2(BaseDialog):
 			variable = self.usehlae_var, text = "Launch using HLAE",
 			style = "Contained.TCheckbutton", command = self._toggle_hlae_cb)
 
-		self.warning_vdfmodule = ttk.Label(launchoptionsframe,
-			anchor = tk.N, style = "Warning.Contained.TLabel",
-			text = ("Please install the vdf module in order to launch TF2 with"
-			" your default settings.\n(\"pip install vdf\")"),
-			justify = tk.CENTER)
-
 		self.warning_not_in_tf_dir = ttk.Label(launchoptionsframe,
 			anchor = tk.N, style = "Warning.Contained.TLabel",
 			text = ("The demo can not be played as it is not in"
 			" Team Fortress\' file system (/tf/)"))
 		# self.demo_play_arg_entry.config(width = len(self.playdemoarg.get()) + 2)
+
+		rconlabelframe = ttk.LabelFrame(master, padding = (10, 8, 10, 8),
+			labelwidget = frmd_label(master, "RCON"))
+		rconlabelframe.grid_columnconfigure(1, weight = 1)
+		self.rcon_btn = ttk.Button(rconlabelframe, text = "Send command", command = self._rcon,
+			width = 15, style = "Centered.TButton")
+		self.rcon_btn.grid(row = 0, column = 0)
+		self.rcon_txt = TtkText(rconlabelframe, self._style, height = 4, width = 42, wrap = tk.CHAR)
+		self.rcon_txt.insert(tk.END, "Status: [.]\n\n\n")
+		self.rcon_txt.mark_set("spinner", "1.9")
+		self.rcon_txt.mark_gravity("spinner", tk.LEFT)
+		#self.rcon_txt.configure(state = tk.DISABLED)
+		self.rcon_txt.grid(row = 0, column = 1, sticky = "news", padx = (5, 0))
 
 		# grid start
 		# dir selection widgets are already gridded
@@ -151,7 +180,6 @@ class LaunchTF2(BaseDialog):
 		self.info_launchoptions_not_found.grid()
 		userselectframe.grid(columnspan = 2, pady = 5, sticky = "news")
 
-		self.warning_vdfmodule.grid()
 		self.head_args_lbl.grid(row = 0, column = 0, columnspan = 3, sticky = "news")
 		self.launchoptionsentry.grid(row = 1, column = 0, columnspan = 3, sticky = "news")
 		pluslabel.grid(row = 2, column = 0)
@@ -162,13 +190,13 @@ class LaunchTF2(BaseDialog):
 		self.warning_not_in_tf_dir.grid()
 		launchoptionsframe.grid(columnspan = 2, pady = (5, 10), sticky = "news")
 
-		self.btconfirm = ttk.Button(master, text = "Launch!",
-			command = lambda: self.done(1))
-		self.btcancel = ttk.Button(master, text = "Cancel",
-			command = lambda: self.done(0))
+		rconlabelframe.grid(columnspan = 2, pady = (5, 10), sticky = "news")
 
-		self.btconfirm.grid(padx = (0, 3), sticky = "news")
-		self.btcancel.grid(row = 3, column = 1, padx = (3, 0), sticky = "news")
+		self.btconfirm = ttk.Button(master, text = "Launch!", command = lambda: self.done(True))
+		self.btcancel = ttk.Button(master, text = "Cancel", command = self.done)
+
+		self.btconfirm.grid(row = 4, padx = (0, 3), sticky = "news")
+		self.btcancel.grid(row = 4, column = 1, padx = (3, 0), sticky = "news")
 
 		self._load_users_ui()
 		self.userselectvar.trace("w", self.userchange)
@@ -188,26 +216,16 @@ class LaunchTF2(BaseDialog):
 		Go through all error conditions and update their respective error
 		labels.
 		"""
-		if self.errstates[0]:
-			self.error_steamdir_invalid.grid()
-		else:
-			self.error_steamdir_invalid.grid_forget()
-		if self.errstates[1]:
-			self.warning_steamdir_mislocated.grid()
-		else:
-			self.warning_steamdir_mislocated.grid_forget()
-		if self.errstates[2]:
-			self.warning_vdfmodule.grid()
-		else:
-			self.warning_vdfmodule.grid_forget()
-		if self.errstates[3]:
-			self.warning_not_in_tf_dir.grid()
-		else:
-			self.warning_not_in_tf_dir.grid_forget()
-		if self.errstates[4]:
-			self.info_launchoptions_not_found.grid()
-		else:
-			self.info_launchoptions_not_found.grid_forget()
+		for i, label in enumerate((
+			self.error_steamdir_invalid,
+			self.warning_steamdir_mislocated,
+			self.warning_not_in_tf_dir,
+			self.info_launchoptions_not_found,
+		)):
+			if self.errstates[i]:
+				label.grid()
+			else:
+				label.grid_forget()
 
 	def getusers(self):
 		"""
@@ -223,25 +241,24 @@ class LaunchTF2(BaseDialog):
 		try:
 			users = os.listdir(toget)
 		except (OSError, PermissionError, FileNotFoundError):
-			self.errstates[0] = True
+			self.errstates[ERR_IDX.STEAMDIR] = True
 			return []
 		for index, user in enumerate(users):
 			try:
 				cnf_file = os.path.join(toget, user, CNST.STEAM_CFG_PATH1)
 				with open(cnf_file, encoding = "utf-8") as h:
 					vdfdata = vdf.load(h)
-					username = eval("vdfdata" + CNST.STEAM_CFG_USER_NAME)
+					username = eval(f"vdfdata{CNST.STEAM_CFG_USER_NAME}")
 				username = tk_secure_str(username)
 				users[index] = (users[index], username)
 			except (OSError, PermissionError, FileNotFoundError, KeyError,
 					SyntaxError):
 				users[index] = (users[index], None)
-		self.errstates[0] = False
+		self.errstates[ERR_IDX.STEAMDIR] = False
 		return users
 
 	def _getlaunchoptions(self):
 		try:
-			self.errstates[2] = False
 			tmp = self.userselectbox.current()
 			if tmp == -1:
 				raise KeyError("Bad or empty (?) steam folder")
@@ -257,11 +274,11 @@ class LaunchTF2(BaseDialog):
 					subelem = subelem[i.lower()]
 				else:
 					raise KeyError("Could not find launch options in vdf.")
-			self.errstates[4] = False
+			self.errstates[ERR_IDX.LAUNCHOPT] = False
 			return subelem
 		except (KeyError, FileNotFoundError, OSError, PermissionError,
 				SyntaxError) as e: #SyntaxError raised by vdf module
-			self.errstates[4] = True
+			self.errstates[ERR_IDX.LAUNCHOPT] = True
 			return ""
 
 	def _sel_dir(self, variable): #Triggered by user clicking on the Dir choosing btn
@@ -318,20 +335,63 @@ class LaunchTF2(BaseDialog):
 		try:
 			self.shortdemopath = os.path.relpath(self.demopath,
 				os.path.join(self.steamdir_var.get(), CNST.TF2_HEAD_PATH))
-			self.errstates[1] = False
+			self.errstates[ERR_IDX.STEAMDIR_DRIVE] = False
 		except ValueError:
 			self.shortdemopath = ""
-			self.errstates[1] = True
-			self.errstates[3] = True
+			self.errstates[ERR_IDX.STEAMDIR_DRIVE] = True
+			self.errstates[ERR_IDX.DEMO_OUTSIDE_GAME] = True
 		if ".." in self.shortdemopath:
-			self.errstates[3] = True
+			self.errstates[ERR_IDX.DEMO_OUTSIDE_GAME] = True
 		else:
-			self.errstates[3] = False
+			self.errstates[ERR_IDX.DEMO_OUTSIDE_GAME] = False
 		self.playdemoarg.set("playdemo " + self.shortdemopath)
 
-	def done(self, param):
-		self.result.state = DIAGSIG.SUCCESS if param else DIAGSIG.FAILURE
-		if param:
+	def _rcon_txt_set_line(self, n, content):
+		"""
+		Set line n (0-2) of rcon txt widget to content.
+		"""
+		self.rcon_txt.delete(f"{n + 2}.0", f"{n + 2}.{tk.END}")
+		self.rcon_txt.insert(f"{n + 2}.0", content)
+
+	def _rcon(self):
+		self.rcon_btn.configure(text = "Cancel", command = self._cancel_rcon)
+		self.rcon_txt.configure(state = tk.NORMAL)
+		for i in range(3):
+			self._rcon_txt_set_line(i, "")
+		self.rcon_txt.configure(state = tk.DISABLED)
+		self.rcon_threadgroup.start_thread(
+			command = f"playdemo {self.shortdemopath}",
+			password = self.cfg["rcon_pwd"],
+			port = self.cfg["rcon_port"],
+		)
+
+	def _cancel_rcon(self):
+		self.rcon_threadgroup.join_thread()
+
+	def _rcon_after_callback(self, queue_elem):
+		if queue_elem[0] < 0x100: # Finish
+			self.rcon_btn.configure(text = "Send command", command = self._rcon)
+			self.rcon_txt.configure(state = tk.NORMAL)
+			self.rcon_txt.delete("spinner", "spinner + 1 chars")
+			self.rcon_txt.insert("spinner", ".")
+			self.rcon_txt.configure(state = tk.DISABLED)
+			return THREADGROUPSIG.FINISHED
+		elif queue_elem[0] == THREADSIG.INFO_IDX_PARAM:
+			self.rcon_txt.configure(state = tk.NORMAL)
+			self._rcon_txt_set_line(queue_elem[1], queue_elem[2])
+			self.rcon_txt.configure(state = tk.DISABLED)
+		return THREADGROUPSIG.CONTINUE
+
+	def _rcon_after_run_always(self):
+		self.rcon_txt.configure(state = tk.NORMAL)
+		self.rcon_txt.delete("spinner", "spinner + 1 chars")
+		self.rcon_txt.insert("spinner", next(self.spinneriter))
+		self.rcon_txt.configure(state = tk.DISABLED)
+
+	def done(self, launch=False):
+		self._cancel_rcon()
+		self.result.state = DIAGSIG.SUCCESS if launch else DIAGSIG.FAILURE
+		if launch:
 			USE_HLAE = self.usehlae_var.get()
 			user_args = self.launchoptionsvar.get().split()
 			tf2_launch_args = CNST.TF2_LAUNCHARGS + user_args + \

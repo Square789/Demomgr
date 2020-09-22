@@ -18,15 +18,12 @@ import multiframe_list as mfl
 from demomgr.dialogues._base import BaseDialog
 from demomgr.dialogues._diagresult import DIAGSIG
 
-from demomgr.helpers import frmd_label
+from demomgr.helpers import frmd_label, int_validator, name_validator
 from demomgr import constants as CNST
 from demomgr import handle_events as handle_ev
-from demomgr.threadgroup import ThreadGroup
-from demomgr.threads import ThreadMarkDemo
+from demomgr.threadgroup import ThreadGroup, THREADGROUPSIG
+from demomgr.threads import THREADSIG, ThreadMarkDemo
 from demomgr.helper_tk_widgets import TtkText
-
-THREADSIG = CNST.THREADSIG
-THREADGROUPSIG = CNST.THREADGROUPSIG
 
 class BookmarkSetter(BaseDialog):
 	"""
@@ -73,20 +70,6 @@ class BookmarkSetter(BaseDialog):
 
 	def body(self, parent):
 		"""UI setup, listbox filling."""
-		def tick_validator(inp, ifallowed):
-			if len(ifallowed) > 10:
-				return False
-			try:
-				if int(inp) < 0:
-					return False
-			except ValueError:
-				return False
-			return True
-
-		def name_validator(ifallowed):
-			if len(ifallowed) > 40:
-				return False
-			return True
 
 		parent.rowconfigure(0, weight = 1, pad = 5)
 		parent.rowconfigure(1, pad = 5)
@@ -113,7 +96,7 @@ class BookmarkSetter(BaseDialog):
 		self.name_entry = ttk.Entry(insert_opt_lblfrm, validatecommand = (
 			parent.register(name_validator), "%P"), validate = "key")
 		self.tick_entry = ttk.Entry(insert_opt_lblfrm, validatecommand = (
-			parent.register(tick_validator), "%S", "%P"), validate = "key")
+			parent.register(int_validator), "%S", "%P"), validate = "key")
 		apply_btn = ttk.Button(insert_opt_lblfrm, text = "Apply",
 			command = self._apply_changes)
 		self.name_entry.grid(row = 0, column = 1, sticky = "ew", padx = 5, pady = 5)

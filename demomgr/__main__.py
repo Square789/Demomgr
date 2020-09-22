@@ -1,6 +1,5 @@
 """
-Alternative module call, eg. "py -m demomgr"
-This stuff is tricky.
+Alternative module call for "py -m demomgr"
 """
 from demomgr.main_app import MainApp
 

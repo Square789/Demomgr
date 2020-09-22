@@ -33,7 +33,7 @@ class BaseDialog(tk.Toplevel):
 		self.result = DiagResult()
 		self.parent = parent
 		super().__init__(parent)
-		if title != None:
+		if title is not None:
 			self.title(title)
 
 	def show(self):
@@ -49,8 +49,6 @@ class BaseDialog(tk.Toplevel):
 		self.withdraw()
 		if self.parent.winfo_viewable():
 			self.transient(self.parent)
-
-		self.protocol("WM_DELETE_WINDOW", self.destroy)
 
 		if self.parent is not None:
 			self.geometry("+{}+{}".format(self.parent.winfo_rootx() + 50,

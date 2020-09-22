@@ -9,9 +9,10 @@ from math import log10, floor
 
 from demomgr import constants as CNST
 
-#LIST HAS TO BE OF SAME LENGTH TO LEFT AND RIGHT SIDE, STARTING AT ""
-_convpref = ["y", "z", "a", "f", "p", "n", "µ", "m", "", "k", "M", "G", "T",
+_CONVPREF = ["y", "z", "a", "f", "p", "n", "µ", "m", "", "k", "M", "G", "T",
 	"P", "E", "Z", "Y", ]
+_CONVPREF_CENTER = 8
+
 def convertunit(inp, ext = "B"):
 	"""
 	Unit conversion function. Takes an integer as input, rounds off the
@@ -22,11 +23,27 @@ def convertunit(inp, ext = "B"):
 		inp = abs(inp)
 		isneg = True
 	elif inp == 0:
-		return "0 " + ext
+		return f"0 {ext}"
 	mag = floor(log10(inp)) // 3
-	return isneg*"-" + str(round((inp / (10 ** (mag * 3))), 3)) + " " \
-		+ _convpref[round(len(_convpref)/2) + mag] + ext
-	#round(2.5) results in 2, which it technically shouldn't but that's good
+	return (
+		f"{isneg * '-'}{round((inp / (10**(mag*3))), 3)}"
+		f"{_CONVPREF[_CONVPREF_CENTER + mag]}{ext}"
+	)
+
+def deepupdate_dict(target, update):
+	"""
+	Updates dicts and calls self recursively if a list or dict is encountered
+	to perform updating at nesting levels instead of just the first one.
+	Does not work with tuples.
+	"""
+	for k, v in update.items():
+		if isinstance(v, list):
+			target[k] = target.get(k, []) + v
+		elif isinstance(v, dict):
+			target[k] = deepupdate_dict(target.get(k, {}), v)
+		else:
+			target[k] = v
+	return target
 
 def formatdate(inp):
 	"""Turns unix timestamp into readable format (CNST.DATE_FORMAT)"""
@@ -64,7 +81,8 @@ def readdemoheader(path): #Code happily duplicated from https://developer.valves
 		demhdr["playtime"] = readbinFlt(h)
 		demhdr["tick_num"] = readbinInt(h)
 		demhdr["framenum"] = readbinInt(h)
-		demhdr["tickrate"] = int(demhdr["tick_num"] / demhdr["playtime"])
+		demhdr["tickrate"] = int(demhdr["tick_num"] / demhdr["playtime"]) if \
+			demhdr["playtime"] != 0.0 else -1
 	h.close()
 
 	return demhdr
@@ -142,3 +160,25 @@ def tk_secure_str(in_str, repl = None):
 	if repl is None:
 		repl = CNST.REPLACEMENT_CHAR
 	return "".join([(i if ord(i) <= 0xFFFF else repl) for i in in_str])
+
+def int_validator(inp, ifallowed):
+	"""
+	Test whether only (positive) integers are being keyed into a widget.
+	Call signature: %S %P
+	"""
+	if len(ifallowed) > 10:
+		return False
+	try:
+		return int(inp) >= 0
+	except ValueError:
+		return False
+	return True
+
+def name_validator(ifallowed):
+	"""
+	Limit length of string to 40 chars
+	Call signature: %P
+	"""
+	if len(ifallowed) > 40:
+		return False
+	return True

@@ -4,8 +4,8 @@ Thread to read a demo's header and supply other information
 
 import os
 
-from demomgr.constants import THREADSIG
 from demomgr.helpers import readdemoheader
+from demomgr.threads._threadsig import THREADSIG
 from demomgr.threads._base import _StoppableBaseThread
 
 class ThreadDemoInfo(_StoppableBaseThread):

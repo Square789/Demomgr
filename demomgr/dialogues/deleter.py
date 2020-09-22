@@ -10,11 +10,8 @@ from demomgr.dialogues._diagresult import DIAGSIG
 
 from demomgr import constants as CNST
 from demomgr.helper_tk_widgets import TtkText
-from demomgr.threadgroup import ThreadGroup
-from demomgr.threads import ThreadDelete
-
-THREADSIG = CNST.THREADSIG
-THREADGROUPSIG = CNST.THREADGROUPSIG
+from demomgr.threadgroup import ThreadGroup, THREADGROUPSIG
+from demomgr.threads import THREADSIG, ThreadDelete
 
 class Deleter(BaseDialog):
 	"""

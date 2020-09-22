@@ -20,17 +20,14 @@ from schema import SchemaError
 from demomgr import constants as CNST
 from demomgr import context_menus
 from demomgr.dialogues import *
-from demomgr.platforming import get_cfg_storage_path, get_rightclick_btn, get_contextmenu_btn
 from demomgr.helper_tk_widgets import TtkText, KeyValueDisplay
-from demomgr.helpers import formatdate, convertunit, format_bm_pair, reduce_cfg
+from demomgr.helpers import formatdate, convertunit, deepupdate_dict, format_bm_pair, reduce_cfg
 from demomgr.style_helper import StyleHelper
-from demomgr.threadgroup import ThreadGroup
-from demomgr.threads import ThreadFilter, ThreadReadFolder, ThreadDemoInfo
+from demomgr import platforming
+from demomgr.threadgroup import ThreadGroup, THREADGROUPSIG
+from demomgr.threads import THREADSIG, ThreadFilter, ThreadReadFolder, ThreadDemoInfo
 
-THREADSIG = CNST.THREADSIG
-THREADGROUPSIG = CNST.THREADGROUPSIG
-
-__version__ = "1.5.1"
+__version__ = "1.6.0"
 __author__ = "Square789"
 
 class MainApp():
@@ -42,16 +39,16 @@ class MainApp():
 		self.root = tk.Tk()
 		self.root.withdraw()
 
-		self.RCB = get_rightclick_btn()
+		self.RCB = platforming.get_rightclick_btn()
 
 		self.root.protocol("WM_DELETE_WINDOW", self.quit_app)
-		self.root.wm_title("Demomgr v" + __version__ + " by " + __author__)
+		self.root.wm_title(f"Demomgr v{__version__} by {__author__}")
 
 		self.demooperations = (("Play", " selected demo...", self._playdem),
 			("Delete", " selected demo...", self._deldem),
 			("Manage bookmarks", " of selected demo...", self._managebookmarks))
 
-		self.cfgpath = get_cfg_storage_path()
+		self.cfgpath = platforming.get_cfg_storage_path()
 		self.curdir = "" # This path should not be in self.cfg["demopaths"] at any time!
 		self.spinboxvar = tk.StringVar()
 
@@ -82,7 +79,8 @@ class MainApp():
 			try:
 				os.makedirs(
 					os.path.dirname(self.cfgpath), # self.cfgpath ends in a file, should be ok
-					exist_ok = True)
+					exist_ok = True
+				)
 			except Exception as exc:
 				tk_msg.showerror("Demomgr - Error", "The following error" \
 					" occurred during startup: {}".format(exc))
@@ -93,8 +91,8 @@ class MainApp():
 
 		#load style (For FirstRun)
 		self.ttkstyle = ttk.Style() # Used later-on too.
-		self._DEFAULT_THEME = self.ttkstyle.theme_use()
 		#Fallback that is different depending on the platform.
+		self._DEFAULT_THEME = self.ttkstyle.theme_use()
 		self._applytheme()
 
 		if is_firstrun:
@@ -116,15 +114,15 @@ class MainApp():
 		self.root.bind("<<MultiframeSelect>>", self._mfl_lc_callback)
 		self.root.bind("<<MultiframeRightclick>>", self._mfl_rc_callback)
 
+		ctxmen_name = platforming.get_contextmenu_btn()
 		for class_tag in ("TEntry", "TCombobox"):
-			self.root.bind_class(class_tag, "<Button-" + self.RCB + ">" \
-				"<ButtonRelease-" + self.RCB + ">", context_menus.entry_cb)
-			self.root.bind_class(class_tag, "<Button-" + self.RCB + ">" \
-				"<Leave><ButtonRelease-" + self.RCB + ">", lambda _: None)
+			self.root.bind_class(class_tag, f"<Button-{self.RCB}>" \
+				f"<ButtonRelease-{self.RCB}>", context_menus.entry_cb)
+			self.root.bind_class(class_tag, f"<Button-{self.RCB}>" \
+				f"<Leave><ButtonRelease-{self.RCB}>", lambda _: None)
 			# This interrupts above event seq
-			ctxmen_name = get_contextmenu_btn()
 			if ctxmen_name is not None:
-				self.root.bind_class(class_tag, "<KeyPress-{}>".format(ctxmen_name),
+				self.root.bind_class(class_tag, f"<KeyPress-{ctxmen_name}>",
 					context_menus.entry_cb)
 
 		self.spinboxvar.trace("w", self._spinboxsel)
@@ -148,6 +146,9 @@ class MainApp():
 		dirinfframe = ttk.Frame(self.mainframe, padding = (5, 5, 5, 5))
 		self.statusbar = ttk.Frame(self.mainframe, padding = (1, 2, 1, 1),
 			style = "Statusbar.TFrame" )
+
+		demoinfframe.grid_rowconfigure(0, weight = 1)
+		demoinfframe.grid_rowconfigure(1, weight = 5)
 
 		self.listbox = mfl.MultiframeList(self.listboxframe, inicolumns = (
 			{"name": "Filename", "col_id": "col_filename", "sort": True,
@@ -227,8 +228,8 @@ class MainApp():
 		self.listbox.pack(fill = tk.BOTH, expand = 1)
 		self.listboxframe.pack(fill = tk.BOTH, expand = 1, side = tk.LEFT)
 
-		self.demoeventmfl.pack(expand = 1, fill = tk.BOTH, pady = (0, 5))
-		self.demo_header_kvd.pack(expand = 1, fill = tk.BOTH)
+		self.demoeventmfl.grid(sticky = "nesw", pady = (0, 5))
+		self.demo_header_kvd.grid(sticky = "nesw")
 		demoinfframe.pack(fill = tk.BOTH, expand = 1)
 
 	def _mfl_rc_callback(self, event):
@@ -265,13 +266,20 @@ class MainApp():
 
 	def _opensettings(self):
 		"""Opens settings, acts based on results"""
-		dialog = Settings(self.mainframe, self.getcfg())
+		dialog = Settings(self.mainframe, self.cfg, self.cfg["ui_remember"]["settings"])
 		dialog.show()
+		update_needed = 0
+		if self.cfg["ui_remember"]["settings"] != dialog.result.remember:
+			self.cfg["ui_remember"]["settings"] = dialog.result.remember
+			update_needed = 1
 		if dialog.result.state == DIAGSIG.SUCCESS:
-			self.cfg.update(dialog.result.data)
+			update_needed = 2
+			deepupdate_dict(self.cfg, dialog.result.data)
+		if update_needed:
 			self.writecfg(self.cfg)
-			self.reloadgui()
-			self._applytheme()
+			if update_needed == 2:
+				self.reloadgui()
+				self._applytheme()
 
 	def _playdem(self):
 		"""Opens dialog which arranges for TF2 launch."""
@@ -284,21 +292,22 @@ class MainApp():
 		dialog = LaunchTF2(self.mainframe,
 			demopath = path,
 			cfg = reduce_cfg(self.cfg),
+			style = self.ttkstyle,
 			remember = self.cfg["ui_remember"]["launch_tf2"]
 		)
 		dialog.show()
+		update_needed = False
+		if self.cfg["ui_remember"]["launch_tf2"] != dialog.result.remember:
+			update_needed = True
+			self.cfg["ui_remember"]["launch_tf2"] = dialog.result.remember
 		if dialog.result.state == DIAGSIG.SUCCESS:
-			update_needed = False
-			if self.cfg["ui_remember"]["launch_tf2"] != dialog.result.remember:
-				update_needed = True
-				self.cfg["ui_remember"]["launch_tf2"] = dialog.result.remember
 			for i in ("steampath", "hlaepath"):
 				if i in dialog.result.data:
 					if dialog.result.data[i] != self.cfg[i]:
 						update_needed = True
 						self.cfg[i] = dialog.result.data[i]
-			if update_needed:
-				self.writecfg(self.cfg)
+		if update_needed:
+			self.writecfg(self.cfg)
 
 	def _deldem(self):
 		"""Deletes the currently selected demo."""
@@ -339,10 +348,10 @@ class MainApp():
 			remember = self.cfg["ui_remember"]["bookmark_setter"]
 		)
 		dialog.show()
+		if self.cfg["ui_remember"]["bookmark_setter"] != dialog.result.remember:
+			self.cfg["ui_remember"]["bookmark_setter"] = dialog.result.remember
+			self.writecfg(self.cfg)
 		if dialog.result.state == DIAGSIG.SUCCESS:
-			if self.cfg["ui_remember"]["bookmark_setter"] != dialog.result.remember:
-				self.cfg["ui_remember"]["bookmark_setter"] = dialog.result.remember
-				self.writecfg(self.cfg)
 			if self.cfg["lazyreload"]:
 				if self.cfg["datagrabmode"] != 0:
 					ksdata = self.listbox.getcell("col_demo_info", index)
@@ -439,7 +448,7 @@ class MainApp():
 			g.join_thread(finalize = False)
 		self.threadgroups["fetchdata"].start_thread(
 			targetdir = self.curdir,
-			cfg = self.cfg.copy()
+			cfg = reduce_cfg(self.cfg),
 		)
 		self._updatedemowindow(None)
 
@@ -471,7 +480,7 @@ class MainApp():
 			filterstring = self.filterentry_var.get(),
 			curdir = self.curdir,
 			silent = True,
-			cfg = self.cfg.copy()
+			cfg = reduce_cfg(self.cfg),
 		)
 		self.cleanupbtn.config(text = "Cleanup by filter...", state = tk.DISABLED)
 
@@ -522,7 +531,7 @@ class MainApp():
 			filterstring = self.filterentry_var.get(),
 			curdir = self.curdir,
 			silent = False,
-			cfg = self.cfg.copy()
+			cfg = reduce_cfg(self.cfg),
 		)
 
 	def _stopfilter(self, called_by_user = False):
@@ -648,7 +657,7 @@ class MainApp():
 		while not cfg_ok:
 			try:
 				with open(self.cfgpath, "r") as cfghandle:
-					localcfg.update(json.load(cfghandle))
+					deepupdate_dict(localcfg, json.load(cfghandle))
 				schema.Schema(CNST.DEFAULT_CFG_SCHEMA).validate(localcfg)
 				cfg_ok = True
 			except (json.decoder.JSONDecodeError, FileNotFoundError, OSError, SchemaError) as exc:

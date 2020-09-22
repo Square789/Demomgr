@@ -11,7 +11,10 @@ import types
 import demomgr.constants as CNST
 from demomgr.threads._base import _StoppableBaseThread
 
-THREADGROUPSIG = CNST.THREADGROUPSIG
+class THREADGROUPSIG:
+	FINISHED = 0
+	CONTINUE = 1
+	HOLDBACK = 2
 
 class DummyThread(_StoppableBaseThread):
 	def __init__(self):
@@ -38,6 +41,7 @@ class ThreadGroup():
 		self.caller_self = None
 		self.heldback_queue_elem = None
 		self.finalization_method = None
+		self.run_always_method = None
 		self._decorated_cb = None
 		self._orig_cb_method = None
 
@@ -61,6 +65,19 @@ class ThreadGroup():
 		"""
 		self.finalization_method = method
 
+	def register_run_always_method(self, method):
+		"""
+		Registers a method with the threadgroup which will be called
+		ever time the after callback runs. Useful for progress
+		indicators.
+
+		method: The finalization method.
+
+		Note that this  method must be registered before a call to
+		decorate_and_patch.
+		"""
+		self.run_always_method = method
+
 	def decorate_and_patch(self, targetobj, cb_method):
 		"""
 		Decorates and patches a class method so it works properly with the thread
@@ -80,7 +97,7 @@ class ThreadGroup():
 		example: `tg.decorate_and_patch(self, self.thread_callback)`
 		"""
 		if self.finalization_method is None:
-			def decorated(self_, reschedule = True):
+			def decorated0(self_, reschedule):
 				finished = False
 				while True:
 					try:
@@ -92,11 +109,10 @@ class ThreadGroup():
 					except queue.Empty:
 						break
 				if not finished and reschedule:
-					# This would have to be lambda: decorated(self_), however the name is
-					# redefined below making decorated a class method, removing this need.
+					# decorated is made a bound class method below, which this will access.
 					self.after_handle = self.tk_wdg.after(CNST.GUI_UPDATE_WAIT, decorated)
 		else:
-			def decorated(self_, reschedule = True):
+			def decorated0(self_, reschedule):
 				finished = False
 				while True:
 					try:
@@ -115,10 +131,17 @@ class ThreadGroup():
 						self.finalization_method(self.heldback_queue_elem)
 						self.heldback_queue_elem = None
 
+		if self.run_always_method is not None:
+			def decorated1(self_, reschedule = True):
+				self.run_always_method()
+				decorated0(self_, reschedule)
+		else:
+			def decorated1(self_, reschedule = True):
+				decorated0(self_, reschedule)
 
 		self._orig_cb_method = cb_method
 		self.caller_self = targetobj
-		decorated = types.MethodType(decorated, targetobj)
+		decorated = types.MethodType(decorated1, targetobj)
 		self._decorated_cb = decorated
 		setattr(targetobj, cb_method.__name__, decorated) # Patch method
 
@@ -129,8 +152,8 @@ class ThreadGroup():
 		argument.
 		"""
 		if self._decorated_cb is None:
-			raise ValueError("No callback defined in threadgroup. Call"
-				" decorate_and_patch on a suitable callback function.")
+			raise ValueError("No callback defined in threadgroup. Call "
+				"decorate_and_patch on a suitable callback function.")
 		self.heldback_queue_elem = None
 		self.thread = self.thread_cls(self.queue, *args, **kwargs)
 		self.thread.start()

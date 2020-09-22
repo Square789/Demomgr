@@ -7,6 +7,7 @@ DEFAULT_CFG = {
 	"ui_remember": {
 		"bookmark_setter": [],
 		"launch_tf2": [],
+		"settings": [],
 	},
 	"lastpath": "",
 	"firstrun": True,
@@ -19,16 +20,20 @@ DEFAULT_CFG = {
 	"evtblocksz": 65536,
 	"ui_theme": "Dark",
 	"lazyreload": False,
+	"rcon_pwd": "",
+	"rcon_port": 27015,
 }
 # Config values that are passed on to other classes/modules
-SHARED_CFG_KEYS = ("datagrabmode", "steampath", "hlaepath", "evtblocksz")
+SHARED_CFG_KEYS = ("datagrabmode", "steampath", "hlaepath", "evtblocksz", "rcon_pwd", "rcon_port")
 DEFAULT_CFG_SCHEMA = {
 	"demopaths": [And(str, lambda x: x != "")], "ui_remember": {
 		"bookmark_setter": [object], "launch_tf2": [object],
+		"settings": [object],
 	},
 	"lastpath": str, "firstrun": bool, "__comment": str,
 	"datagrabmode": int, "previewdemos": bool, "steampath": str, "hlaepath": str,
-	"evtblocksz": int, "ui_theme": str, "lazyreload": bool,
+	"evtblocksz": int, "ui_theme": str, "lazyreload": bool, "rcon_pwd": str,
+	"rcon_port": int,
 }
 EVENT_BACKUP_FOLDER = "_eventbackup"
 WELCOME = ("Hi and Thank You for using Demomgr!\n\nA config file has been "
@@ -74,23 +79,3 @@ HEADER_HUMAN_NAMES = {"hostname": "Hostname", "clientid": "Playername",
 	"map_name": "Map", "playtime": "Playtime",
 	"tick_num": "No. of ticks", "game_dir": "Game directory",
 }
-
-# Zero-Parameter values: 0x0   - 0xFF
-# One-Parameter values:  0x100 - 0xFFFF
-# |---Info level:        0x100 - 0x1FF
-# '---Result level:      0x200 - ?
-# etc.
-class THREADSIG:
-	SUCCESS = 0x0
-	FAILURE = 0x1
-	ABORTED = 0x2
-	INFO_CONSOLE = 0x100
-	INFO_STATUSBAR = 0x101
-	RESULT_DEMODATA = 0x200
-	RESULT_FS_INFO = 0x201
-	RESULT_HEADER = 0x202
-
-class THREADGROUPSIG:
-	FINISHED = 0
-	CONTINUE = 1
-	HOLDBACK = 2

@@ -14,7 +14,7 @@ Demomgr is a python script designed to keep track of, cleanup and play demo file
 * Cleanup entire folders by multiple criteria
   * Removes unneccessary entries from \_events.txt and also deletes useless .json files
 
-The script has so far only been tested on python 3.8.3.
+The script has so far only been tested on python 3.8.5.
 
 ### Start Instructions:
 Run `pip install demomgr`. This should create an entry point script in your python

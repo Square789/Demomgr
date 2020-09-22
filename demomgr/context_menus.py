@@ -1,6 +1,7 @@
-'''Offers some callbacks that can be bound to tkinter widgets, where
+"""
+Offers some callbacks that can be bound to tkinter widgets, where
 they will open context menus on the widgets.
-'''
+"""
 
 import tkinter as tk
 
@@ -25,9 +26,10 @@ def _generate_normal_cmd(w):
 	return cmd
 
 class PopupMenu(tk.Menu):
-	'''Base popup menu.'''
+	"""Base popup menu."""
 	def __init__(self, parent, elems, *args, **kw):
-		'''Passes all arguments to a tk.Menu, except for:
+		"""
+		Passes all arguments to a tk.Menu, except for:
 
 		parent <tkinter.Widget>: Parent widget of the menu.
 		elems: Elements that will be added to the menu, in the form of
@@ -35,7 +37,7 @@ class PopupMenu(tk.Menu):
 			the related options the dict in [1]. If [2] is present, the entry
 			will be inserted into the menu at the given position, if not, it
 			will be appended.
-		'''
+		"""
 
 		super().__init__(parent, *args, tearoff = 0, **kw)
 
@@ -46,7 +48,8 @@ class PopupMenu(tk.Menu):
 				self.add(elem[0], **elem[1])
 
 def multiframelist_cb(event, mfl, demo_ops):
-	'''Very specific and hardcoded callback that opens a popup menu on a
+	"""
+	Very specific and hardcoded callback that opens a popup menu on a
 	MultiframeList.
 
 	Arguments:
@@ -55,22 +58,22 @@ def multiframelist_cb(event, mfl, demo_ops):
 	demo_ops: A tuple of tuples where for every contained tuple:
 		[0] is the label for the menu entry and [2] is the command
 		associated with that entry.
-	'''
+	"""
 	w = event.widget
 	x, y = mfl.getlastclick()
 	add_elems = []
 	for i in demo_ops:
-		add_elems.append(("command", {"label":i[0] + "...",
-			"command":i[2], }))
+		add_elems.append(("command", {"label": f"{i[0]}...", "command": i[2]}))
 
 	men = PopupMenu(mfl, add_elems)
 	men.post(x, y)
 
 def entry_cb(event):
-	'''Callback that is designed to open a menu over widgets
+	"""
+	Callback that is designed to open a menu over widgets
 	such as Entries, Comboboxes and Spinboxes and contains options
 	for copying, pasting etc.
-	'''
+	"""
 	w = event.widget
 	x = w.winfo_rootx() + event.x
 	y = w.winfo_rooty() + event.y

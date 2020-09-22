@@ -25,7 +25,7 @@ class RawLogchunk():
 		return bool(self.content)
 
 	def __repr__(self):
-		return "<Logchunk from file " + self.fromfile + ">"
+		return f"<Logchunk from file {self.fromfile}>"
 
 	def __str__(self):
 		return self.content
@@ -170,8 +170,9 @@ class EventWriter():
 		self.cnf = _DEF.copy()
 		self.cnf.update(write_DEF)
 		for t in (
-				(sep, "sep"), (clearfile, "clearfile"),
-				(forceflush, "forceflush"), (empty_ok, "empty_ok")):
+			(sep, "sep"), (clearfile, "clearfile"),
+			(forceflush, "forceflush"), (empty_ok, "empty_ok")
+		):
 			if t[0] is None:
 				continue
 			self.cnf[t[1]] = t[0]
@@ -202,7 +203,7 @@ class EventWriter():
 	def writechunk(self, in_chk):
 		"""Writes a string or RawLogchunk to the file following options specified."""
 		if not isinstance(in_chk, (RawLogchunk, str)):
-			raise ValueError("Expected RawLogchunk or str, not " + type(in_chk).__name__)
+			raise ValueError(f"Expected RawLogchunk or str, not {type(in_chk).__name__}")
 		if not in_chk:
 			if self.cnf["empty_ok"]:
 				return

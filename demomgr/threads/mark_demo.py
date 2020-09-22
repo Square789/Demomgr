@@ -7,7 +7,7 @@ import time
 import re
 from datetime import datetime
 
-from demomgr.constants import THREADSIG
+from demomgr.threads._threadsig import THREADSIG
 from demomgr.threads._base import _StoppableBaseThread
 from demomgr import constants as CNST
 from demomgr import handle_events as handle_ev
@@ -61,8 +61,7 @@ class ThreadMarkDemo(_StoppableBaseThread):
 				if self.stoprequest.is_set(): # Method may return due to user abort
 					self.queue_out_put(THREADSIG.ABORTED)
 					return
-				self.queue_out_put(THREADSIG.INFO_CONSOLE,
-					"Successfully modified " + CNST.EVENT_FILE)
+				self.queue_out_put(THREADSIG.INFO_CONSOLE, f"Successfully modified {CNST.EVENT_FILE}")
 			except (PermissionError, OSError) as err:
 				self.queue_out_put(THREADSIG.INFO_CONSOLE, str(err))
 			except (TypeError, ValueError) as err:
@@ -79,7 +78,8 @@ class ThreadMarkDemo(_StoppableBaseThread):
 			formatted_bookmarks.append({
 				"name": CNST.EVENTFILE_BOOKMARK,
 				"value": i[0],
-				"tick": int(i[1])})
+				"tick": int(i[1]),
+			})
 
 		full_json = os.path.splitext(self.targetdemo)[0] + ".json"
 		json_data = {"events":[]}
@@ -116,7 +116,7 @@ class ThreadMarkDemo(_StoppableBaseThread):
 		evtpath = os.path.join(demo_dir, CNST.EVENT_FILE)
 		if not os.path.exists(evtpath):
 			self.queue_out_put(THREADSIG.INFO_CONSOLE,
-				CNST.EVENT_FILE + " does not exist, creating empty.")
+				f"{CNST.EVENT_FILE} does not exist, creating empty.")
 			open(evtpath, "w").close()
 
 		tmpevtpath = os.path.join(demo_dir, "." + CNST.EVENT_FILE)

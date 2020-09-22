@@ -198,14 +198,13 @@ class KeyValueDisplay(ttk.Frame):
 
 		self.canv_scrollbar.pack(side = tk.RIGHT, fill = tk.Y, expand = 1)
 		self.canvas.pack(side = tk.LEFT, fill = tk.BOTH, expand = 1)
-		self.innerframe_id = \
-			self.canvas.create_window((0, 0), window = self.innerframe,
-				anchor = tk.NW, tags = "self.innerframe")
+		self.innerframe_id = self.canvas.create_window((0, 0),
+			window = self.innerframe, anchor = tk.NW, tags = "self.innerframe")
 
-		self.tk.eval(scrollcommand.format(w = "scroll{}".format(crunch_window_path(self._w)),
+		self.tk.eval(scrollcommand.format(w = f"scroll{crunch_window_path(self._w)}",
 			tw = self.canvas._w))
-		prepend_bindtags(self.canvas, "scroll{}".format(crunch_window_path(self._w)))
-		prepend_bindtags(self.canv_scrollbar, "scroll{}".format(crunch_window_path(self._w)))
+		prepend_bindtags(self.canvas, f"scroll{crunch_window_path(self._w)}")
+		prepend_bindtags(self.canv_scrollbar, f"scroll{crunch_window_path(self._w)}")
 
 		self.canvas.bind("<Configure>", self._canvas_cnf_callback)
 
@@ -234,7 +233,7 @@ class KeyValueDisplay(ttk.Frame):
 		Add a label and entry to the widget, registering it internally as well.
 		"""
 		if key in self.registered_keys:
-			raise ValueError("Name {} already in use.".format(key))
+			raise ValueError(f"Name {key} already in use.")
 
 		label = ttk.Label(self.innerframe, text = key)
 		entry = ttk.Entry(self.innerframe, state = "readonly")
@@ -263,14 +262,14 @@ class KeyValueDisplay(ttk.Frame):
 		Set the value of key to value.
 		"""
 		if key not in self.registered_keys:
-			raise KeyError("Key {} not found.".format(key))
+			raise KeyError(f"Key {key} not found.")
 		self.registered_keys[key][1].configure(state = tk.NORMAL)
 		self.registered_keys[key][1].delete(0, tk.END)
 		self.registered_keys[key][1].insert(0, value)
 		self.registered_keys[key][1].configure(state = "readonly")
 
 if __name__ == "__main__":
-	root=tk.Tk()
+	root = tk.Tk()
 	kvd = KeyValueDisplay(root, ttk.Style())
 	kvd.pack(side="top", fill="both", expand=True)
 

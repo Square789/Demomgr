@@ -27,6 +27,7 @@ ttk::style theme create demomgr_dark -settings \
 		-background #414141 -foreground #EEEEEE
 	ttk::style configure Contained.TRadiobutton \
 		-background #414141 -foreground #EEEEEE -justify left
+	ttk::style configure Border.TFrame -background #1D1D1D
 	ttk::style configure Contained.TFrame -background #414141
 	ttk::style configure Contained.TLabel -background #414141
 	ttk::style configure Framed.Contained.TFrame \
@@ -35,6 +36,7 @@ ttk::style theme create demomgr_dark -settings \
 	ttk::style configure Error.Contained.TLabel -foreground #DD0000
 	ttk::style configure Warning.Contained.TLabel -foreground #FC7E00
 	ttk::style configure Info.Contained.TLabel -foreground #DDDDDD
+	ttk::style configure Centered.TButton -anchor center
 
 	ttk::style element create Labelframe.border image $IMG(dark-highlight.png) \
 		-border 1 -sticky news
