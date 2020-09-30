@@ -30,6 +30,7 @@ setup(
 		"demomgr",
 		"demomgr.threads",
 		"demomgr.dialogues",
+		"demomgr.tk_widgets",
 	],
 	package_data = {
 		"demomgr": ["ui_themes/*.tcl", "ui_themes/*/*.png"],
