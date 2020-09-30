@@ -6,7 +6,7 @@ from demomgr.dialogues._base import BaseDialog
 from demomgr.dialogues._diagresult import DIAGSIG
 
 from demomgr import constants as CNST
-from demomgr.helper_tk_widgets import TtkText
+from demomgr.tk_widgets import TtkText
 from demomgr.helpers import convertunit, frmd_label, int_validator
 
 _TK_VARTYPES = {
@@ -40,6 +40,9 @@ class Settings(BaseDialog):
 	"""
 
 	REMEMBER_DEFAULT = [0]
+	REQUIRED_CFG_KEYS = ("datagrabmode", "previewdemos", "date_format", "steampath",
+		"hlaepath", "ui_theme", "lazyreload", "rcon_pwd", "rcon_port", "evtblocksz",
+		"date_format")
 
 	def __init__(self, parent, cfg, remember):
 		"""
@@ -53,6 +56,7 @@ class Settings(BaseDialog):
 
 		self._create_tk_var("int", "datagrabmode_var", cfg["datagrabmode"])
 		self._create_tk_var("bool", "preview_var", cfg["previewdemos"])
+		self._create_tk_var("str", "date_fmt_var", cfg["date_format"])
 		self._create_tk_var("str", "steampath_var", cfg["steampath"])
 		self._create_tk_var("str", "hlaepath_var", cfg["hlaepath"])
 		self._create_tk_var("str", "ui_style_var", cfg["ui_theme"])
@@ -103,6 +107,13 @@ class Settings(BaseDialog):
 			text = "Default", value = "_DEFAULT", style =
 			"Contained.TRadiobutton").grid(ipadx = 4, sticky = "w") # Default style
 		ui_style_labelframe.grid(sticky = "news", pady = 4)
+
+		date_format_labelframe = ttk.LabelFrame(suboptions_pane, padding = 8,
+			labelwidget = frmd_label(suboptions_pane, "Date format"))
+		date_format_labelframe.grid_columnconfigure(0, weight = 1)
+		self.date_fmt_combobox = ttk.Combobox(date_format_labelframe, state = "readonly",
+			values = CNST.DATE_FORMATS)
+		self.date_fmt_combobox.grid(sticky = "ew")
 
 		path_labelframe = ttk.LabelFrame(suboptions_pane, padding = 8,
 			labelwidget = frmd_label(suboptions_pane, "Paths"))
@@ -162,8 +173,13 @@ class Settings(BaseDialog):
 		except KeyError:
 			self.blockszselector.set(next(iter(self.blockszvals)))
 
+		if self.cfg["date_format"] in CNST.DATE_FORMATS:
+			self.date_fmt_combobox.set(self.cfg["date_format"])
+		else:
+			self.date_fmt_combobox.set(CNST.DATE_FORMATS[0])
+
 		self._interface = {
-			"Interface": (display_labelframe, ),
+			"Interface": (display_labelframe, date_format_labelframe),
 			"Information reading": (datagrab_labelframe, eventread_labelframe),
 			"Paths": (path_labelframe, ),
 			"RCON": (rcon_pwd_labelframe, rcon_port_labelframe),
@@ -226,6 +242,7 @@ class Settings(BaseDialog):
 			self.result.data = {
 				"datagrabmode": self.datagrabmode_var.get(),
 				"previewdemos": self.preview_var.get(),
+				"date_format": self.date_fmt_combobox.get(),
 				"steampath": self.steampath_var.get(),
 				"hlaepath": self.hlaepath_var.get(),
 				"evtblocksz": self.blockszvals[self.blockszselector.get()],

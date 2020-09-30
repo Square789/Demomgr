@@ -1,9 +1,9 @@
 """Various helper functions and classes used all over the program."""
 
 import os
+import datetime
 import struct
 import re
-import datetime
 from tkinter.ttk import Frame, Label
 from math import log10, floor
 
@@ -13,17 +13,38 @@ _CONVPREF = ["y", "z", "a", "f", "p", "n", "µ", "m", "", "k", "M", "G", "T",
 	"P", "E", "Z", "Y", ]
 _CONVPREF_CENTER = 8
 
+class CfgReducing:
+	REQUIRED_CFG_KEYS = ()
+
+	@classmethod
+	def reduce_cfg(class_, cfg):
+		"""
+		Reduces input cfg only to the values required for this thread/dialog.
+		(Class attribute `REQUIRED_CFG_KEYS`)
+		Will not create copies or perform error checks, so make sure only
+		immutables are used and cfg is actually complete.
+		"""
+		return {k: cfg[k] for k in class_.REQUIRED_CFG_KEYS}
+
+def build_date_formatter(cfg):
+	"""
+	Creates a date formatter method that takes an UNIX timestamp and
+	converts it to what's dictated by "date_fmt" in the supplied cfg
+	dict, value not bound to cfg.
+	"""
+	dfmt = cfg["date_format"]
+	return lambda ts: datetime.datetime.fromtimestamp(ts).strftime(dfmt)
+
 def convertunit(inp, ext = "B"):
 	"""
 	Unit conversion function. Takes an integer as input, rounds off the
 	number to the last 3 digits and returns it as a string followed by an
 	order of magnitude identifier + ext ."""
-	isneg = False
-	if inp < 0:
-		inp = abs(inp)
-		isneg = True
-	elif inp == 0:
+	isneg = inp < 0
+	if inp == 0:
 		return f"0 {ext}"
+	if isneg:
+		inp = abs(inp)
 	mag = floor(log10(inp)) // 3
 	return (
 		f"{isneg * '-'}{round((inp / (10**(mag*3))), 3)}"
@@ -44,10 +65,6 @@ def deepupdate_dict(target, update):
 		else:
 			target[k] = v
 	return target
-
-def formatdate(inp):
-	"""Turns unix timestamp into readable format (CNST.DATE_FORMAT)"""
-	return datetime.datetime.fromtimestamp(inp).strftime(CNST.DATE_FORMAT)
 
 def readbinStr(handle, leng = 260):
 	"""Reads file handle by leng bytes and attempts to decode to utf-8."""
@@ -86,10 +103,6 @@ def readdemoheader(path): #Code happily duplicated from https://developer.valves
 	h.close()
 
 	return demhdr
-
-def reduce_cfg(in_cfg):
-	"""Reduce input config to the keys in `CNST.SHARED_CFG_KEYS`."""
-	return {k: v for k, v in in_cfg.items() if k in CNST.SHARED_CFG_KEYS}
 
 def getstreakpeaks(killstreaks):
 	"""
@@ -159,7 +172,7 @@ def tk_secure_str(in_str, repl = None):
 	"""
 	if repl is None:
 		repl = CNST.REPLACEMENT_CHAR
-	return "".join([(i if ord(i) <= 0xFFFF else repl) for i in in_str])
+	return "".join((i if ord(i) <= 0xFFFF else repl) for i in in_str)
 
 def int_validator(inp, ifallowed):
 	"""

@@ -23,7 +23,7 @@ from demomgr import constants as CNST
 from demomgr import handle_events as handle_ev
 from demomgr.threadgroup import ThreadGroup, THREADGROUPSIG
 from demomgr.threads import THREADSIG, ThreadMarkDemo
-from demomgr.helper_tk_widgets import TtkText
+from demomgr.tk_widgets import TtkText
 
 class BookmarkSetter(BaseDialog):
 	"""
@@ -44,13 +44,14 @@ class BookmarkSetter(BaseDialog):
 
 	REMEMBER_DEFAULT = [False, False]
 
-	def __init__(self, parent, targetdemo, bm_dat, styleobj, remember):
+	def __init__(self, parent, targetdemo, bm_dat, styleobj, evtblocksz, remember):
 		"""
 		parent: Parent widget, should be a `Tk` or `Toplevel` instance.
 		targetdemo: Full path to the demo that should be marked.
 		bm_dat: Bookmarks for the specified demo in the usual info format
 			(((killstreak_peak, tick), ...), ((bookmark_name, tick), ...))
 		styleobj: Instance of `tkinter.ttk.Style`
+		evtblocksz: Size of blocks to read _events.txt in.
 		remember: List of arbitrary values. See class docstring for details.
 		"""
 		super().__init__(parent, "Insert bookmark...")
@@ -59,6 +60,7 @@ class BookmarkSetter(BaseDialog):
 		self.demo_dir = os.path.dirname(targetdemo)
 		self.bm_dat = bm_dat
 		self.styleobj = styleobj
+		self.evtblocksz = evtblocksz
 
 		u_r = self.validate_and_update_remember(remember)
 		self.jsonmark_var = tk.BooleanVar()
@@ -201,12 +203,11 @@ class BookmarkSetter(BaseDialog):
 
 	def _log(self, tolog):
 		"""Inserts "\n" + tolog into self.textbox."""
-		self.textbox.configure(state = tk.NORMAL)
-		self.textbox.insert(tk.END, "\n" + tolog)
-		if self.textbox.yview()[1] < 1.0:
-			self.textbox.delete("1.0", "2.0")
-			self.textbox.yview_moveto(1.0)
-		self.textbox.configure(state = tk.DISABLED)
+		with self.textbox:
+			self.textbox.insert(tk.END, "\n" + tolog)
+			if self.textbox.yview()[1] < 1.0:
+				self.textbox.delete("1.0", "2.0")
+				self.textbox.yview_moveto(1.0)
 
 	def _mark(self):
 		mark_json = self.jsonmark_var.get()
@@ -220,6 +221,7 @@ class BookmarkSetter(BaseDialog):
 			mark_events = mark_evts,
 			bookmarks = raw_bookmarks,
 			targetdemo = self.targetdemo,
+			evtblocksz = self.evtblocksz,
 		)
 
 	def _mark_after_callback(self, queue_elem):

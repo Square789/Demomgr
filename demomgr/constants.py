@@ -3,39 +3,47 @@ from schema import And
 CFG_FOLDER = ".demomgr"
 CFG_NAME = "config.cfg"
 DEFAULT_CFG = {
+	"datagrabmode": 0,
+	"date_format": "%d.%m.%Y %H:%M:%S",
 	"demopaths": [],
+	"evtblocksz": 65536,
+	"__comment": "By messing with the firstrun parameter you acknowledge "
+		"that you've read the Terms of use.",
+	"firstrun": True,
+	"hlaepath": "",
+	"lastpath": "",
+	"lazyreload": False,
+	"previewdemos": True,
+	"rcon_port": 27015,
+	"rcon_pwd": "",
+	"steampath": "",
 	"ui_remember": {
 		"bookmark_setter": [],
 		"launch_tf2": [],
 		"settings": [],
 	},
-	"lastpath": "",
-	"firstrun": True,
-	"__comment": "By messing with the firstrun parameter you acknowledge "
-		"that you've read the Terms of use.",
-	"datagrabmode": 0,
-	"previewdemos": True,
-	"steampath": "",
-	"hlaepath": "",
-	"evtblocksz": 65536,
 	"ui_theme": "Dark",
-	"lazyreload": False,
-	"rcon_pwd": "",
-	"rcon_port": 27015,
 }
-# Config values that are passed on to other classes/modules
-SHARED_CFG_KEYS = ("datagrabmode", "steampath", "hlaepath", "evtblocksz", "rcon_pwd", "rcon_port")
 DEFAULT_CFG_SCHEMA = {
-	"demopaths": [And(str, lambda x: x != "")], "ui_remember": {
+	"datagrabmode": int,
+	"date_format": str,
+	"demopaths": [And(str, lambda x: x != "")],
+	"evtblocksz": int,
+	"__comment": str,
+	"firstrun": bool,
+	"hlaepath": str,
+	"lastpath": str,
+	"lazyreload": bool,
+	"previewdemos": bool,
+	"rcon_port": int,
+	"rcon_pwd": str,
+	"steampath": str,
+	"ui_remember": {
 		"bookmark_setter": [object], "launch_tf2": [object],
 		"settings": [object],
 	},
-	"lastpath": str, "firstrun": bool, "__comment": str,
-	"datagrabmode": int, "previewdemos": bool, "steampath": str, "hlaepath": str,
-	"evtblocksz": int, "ui_theme": str, "lazyreload": bool, "rcon_pwd": str,
-	"rcon_port": int,
+	"ui_theme": str,
 }
-EVENT_BACKUP_FOLDER = "_eventbackup"
 WELCOME = ("Hi and Thank You for using Demomgr!\n\nA config file has been "
 	"created.\n\nThis script is able to delete files if you tell it to.\nI in no way "
 	"guarantee that this script is safe or 100% reliable and will not take any "
@@ -43,7 +51,12 @@ WELCOME = ("Hi and Thank You for using Demomgr!\n\nA config file has been "
 	"This program is licensed via the MIT Licence, by clicking the accept button below "
 	"you confirm that you have read and accepted the license.")
 EVENT_FILE = "_events.txt"
-DATE_FORMAT = "%d.%m.%Y  %H:%M:%S"
+DATE_FORMATS = (
+	"%d.%m.%Y %H:%M:%S",
+	"%d.%m.%Y",
+	"%m/%d/%Y %H:%M:%S",
+	"%m/%d/%Y",
+)
 EVENTFILE_FILENAMEFORMAT = "(?<= \\(\").+(?=\" at)" #regex
 EVENTFILE_BOOKMARK = "Bookmark"
 EVENTFILE_KILLSTREAK = "Killstreak"
@@ -74,7 +87,6 @@ FALLBACK_HEADER = {"dem_prot": 3, "net_prot": 24, "hostname": "",
 	"clientid": "", "map_name": "", "game_dir": "", "playtime": 0,
 	"tick_num": 0, "framenum": 0, "tickrate": 0,
 }
-
 HEADER_HUMAN_NAMES = {"hostname": "Hostname", "clientid": "Playername",
 	"map_name": "Map", "playtime": "Playtime",
 	"tick_num": "No. of ticks", "game_dir": "Game directory",

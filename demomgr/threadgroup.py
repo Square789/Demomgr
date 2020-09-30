@@ -53,7 +53,7 @@ class ThreadGroup():
 			It should take two input arguments, self and queue_elem.
 				queue_elem will be the last queue element that caused the
 				callback method to return `THREADGROUPSIG.HOLDBACK`,
-				if this signal was not received, the method will not be called.
+				if this signal was not received, it will instead be None.
 			The method should perform a heavy task that is best suited for
 			the very end of thread activity, or may perform cleanup
 			(Though this can easily be handled in the callback method as well.)
@@ -127,9 +127,8 @@ class ThreadGroup():
 				if not finished and reschedule:
 					self.after_handle = self.tk_wdg.after(CNST.GUI_UPDATE_WAIT, decorated)
 				else:
-					if self.heldback_queue_elem is not None:
-						self.finalization_method(self.heldback_queue_elem)
-						self.heldback_queue_elem = None
+					self.finalization_method(self.heldback_queue_elem)
+					self.heldback_queue_elem = None
 
 		if self.run_always_method is not None:
 			def decorated1(self_, reschedule = True):

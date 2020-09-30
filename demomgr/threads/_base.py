@@ -1,6 +1,8 @@
 import threading
 
-class _StoppableBaseThread(threading.Thread):
+from demomgr.helpers import CfgReducing
+
+class _StoppableBaseThread(threading.Thread, CfgReducing):
 	"""
 	This thread has a killflag (stoprequest <threading.Event>),
 	and expects a queue_in and queue_out attribute in the constructor.

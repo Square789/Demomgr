@@ -5,7 +5,7 @@ from demomgr.dialogues._base import BaseDialog
 from demomgr.dialogues._diagresult import DIAGSIG
 
 from demomgr import constants as CNST
-from demomgr.helper_tk_widgets import TtkText
+from demomgr.tk_widgets import TtkText
 
 class FirstRun(BaseDialog):
 	"""

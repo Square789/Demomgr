@@ -30,6 +30,9 @@ class CfgError(BaseDialog):
 
 	def body(self, parent):
 		"""UI"""
+
+		self.protocol("WM_DELETE_WINDOW", self._quit)
+
 		ifread = abs(self.mode - 1)
 		msg = ("The configuration file could not be " +
 			("read from" * ifread + "written to" * self.mode) +

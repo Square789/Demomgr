@@ -13,7 +13,8 @@ class ThreadDelete(_StoppableBaseThread):
 	"""
 	Thread to delete demos from a directory selectively.
 	"""
-	def __init__(self, queue_out, demodir, files, selected, filestodel, cfg,
+
+	def __init__(self, queue_out, demodir, files, selected, filestodel, evtblocksz,
 			eventfileupdate = "passive"):
 		"""
 		Thread takes output queue and the following kwargs:
@@ -22,14 +23,14 @@ class ThreadDelete(_StoppableBaseThread):
 			selected <List[Bool]>: List of bools of same length as files.
 			filestodel <List[Str]>: Simple file names of the files to be removed;
 				[j for i, j in enumerate(files) if selected[i]];
-			cfg <Dict>: Program configuration as in .demomgr/config.cfg
+			evtblocksz <Int>: Amount of bytes to read in _events.txt at once.
 			eventfileupdate <Str; "passive"|"selectivemove">: eventfile update mode.
 		"""
 		self.demodir = demodir
 		self.files = files
 		self.selected = selected
 		self.filestodel = filestodel
-		self.cfg = cfg
+		self.evtblocksz = evtblocksz
 		self.eventfileupdate = eventfileupdate
 
 		super().__init__(None, queue_out)
@@ -59,7 +60,7 @@ class ThreadDelete(_StoppableBaseThread):
 			readeropen = False
 			writeropen = False
 			try:
-				reader = handle_ev.EventReader(evtpath, blocksz = self.cfg["evtblocksz"])
+				reader = handle_ev.EventReader(evtpath, blocksz = self.evtblocksz)
 				readeropen = True
 				writer = handle_ev.EventWriter(tmpevtpath, clearfile = True)
 				writeropen = True

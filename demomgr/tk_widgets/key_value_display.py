@@ -1,27 +1,13 @@
 """
-Classes that add functionality to some tkinter widgets or combinations of
-multiple widgets with the goal to collapse interface setup code.
+KeyValueDisplay, a collection of labels and entry pairs that functions like
+a budget MultiframeList.
 """
 
 import tkinter as tk
 from tkinter import ttk
 
-def crunch_window_path(path):
-	"""
-	Returns the input window name void of all periods and exclamation points.
-	"""
-	return path.replace("!", "").replace(".", "")
-
-def prepend_bindtags(widget, elem):
-	"""
-	Prepends elem to the bindtags of widget
-	"""
-	tmp = [elem]
-	tmp.extend(widget.bindtags())
-	widget.bindtags(tuple(tmp))
-
 # Format using w as targeted bindtag, tw as widget to scroll.
-scrollcommand = """
+SCROLLCOMMAND = """
 if {{[tk windowingsystem] eq "aqua"}} {{
 	bind {w} <MouseWheel> {{
 		{tw} yview scroll [expr {{- (%D)}}] units
@@ -67,58 +53,19 @@ if {{"x11" eq [tk windowingsystem]}} {{
 }}
 """
 
-class TtkText(tk.Text):
+def crunch_window_path(path):
 	"""
-	Text widget that will listen to the <<ThemeChanged>> event and
-	attempts to apply configuration options to itself. The style name
-	read from is "TtkHook.Text".
-
-	__init__() Reroutes all args to tkinter.Text except for "styleobj"
+	Returns the input window name void of all periods and exclamation points.
 	"""
-	_DEFAULT_CONFIG = {
-		"autoseparators": 1,
-		"background": "#FFFFFF",
-		"blockcursor": 0,
-		"borderwidth": 1,
-		"cursor": "xterm",
-		"font": "TkFixedFont",
-		"foreground": "#000000",
-		"highlightbackground": "#FFFFFF",
-		"highlightcolor": "#B4B4B4",
-		"highlightthickness": 0,
-		"inactiveselectbackground": "",
-		"insertbackground": "#000000",
-		"insertofftime": 300,
-		"insertontime": 600,
-		"insertwidth": 2,
-		"relief": "sunken",
-		"selectbackground": "#3366FF",
-		"selectforeground": "#FFFFFF",
-		"wrap": "word",
-	}
+	return path.replace("!", "").replace(".", "")
 
-	def __init__(self, parent, styleobj, *args, **kwargs):
-		"""
-		styleobj <tkinter.ttk.Style>: Style object used to access changing
-			style database.
-
-		Any other args and kwargs will be routed to the Text.
-		"""
-		self.styleobj = styleobj
-		super().__init__(parent, *args, **kwargs)
-		self.bind("<<ThemeChanged>>", self.__themeupdate)
-		self.__themeupdate(None)
-
-	def __themeupdate(self, _):
-		"""Called from event binding. Changes look"""
-		conf = self._DEFAULT_CONFIG.copy()
-		for style in (".", "TtkHook.Text", ):
-			cur_style_cnf = self.styleobj.configure(style)
-			if cur_style_cnf is not None:
-				conf.update(cur_style_cnf)
-		ok_values = self.configure()
-		conf = {k: v for k, v in conf.items() if k in ok_values}
-		self.configure(**conf)
+def prepend_bindtags(widget, elem):
+	"""
+	Prepends elem to the bindtags of widget
+	"""
+	tmp = [elem]
+	tmp.extend(widget.bindtags())
+	widget.bindtags(tuple(tmp))
 
 class TtkCanvas(tk.Canvas):
 	"""
@@ -168,6 +115,74 @@ class TtkCanvas(tk.Canvas):
 		conf = {k: v for k, v in conf.items() if k in ok_values}
 		self.configure(**conf)
 
+
+class _KVDLine():
+	"""
+	Class to hold attributes of the line of a KeyValueDisplay.
+	Should only be used internally.
+	"""
+
+	DEFAULT_CONFIG = {
+		"name": "",
+		"formatter": None,
+	}
+
+	def __init__(self, kvd, id_, **kwargs):
+		"""
+		Initialize a KVD line and display its widgets in the parent.
+
+		Required arguments:
+		kvd: <KeyValueDisplay> : Parent KVD; Used to access innerframe as well as
+			window path name.
+		id_: <Str> : Id to reference the line by.
+
+		Optional arguments:
+		name: <Str> : Name to display on the label.
+		formatter: <func> : Function to display other string
+			than what the data is.
+		"""
+		self.id = id_
+		self._truevalue = 0
+
+		cfg = self.DEFAULT_CONFIG.copy()
+		for k in kwargs:
+			if k not in self.DEFAULT_CONFIG:
+				raise ValueError(f"Unrecognized option \"{k}\"")
+		cfg.update(kwargs)
+		for k, v in cfg.items():
+			setattr(self, k, v)
+
+		self.label = ttk.Label(kvd.innerframe, text = self.name)
+		self.entry = ttk.Entry(kvd.innerframe, state = "readonly")
+
+		for w in (self.label, self.entry):
+			prepend_bindtags(w, f"scroll{format(crunch_window_path(kvd._w))}")
+
+		self.label.grid(column = 0, row = kvd.length, sticky = "w")
+		self.entry.grid(column = 1, row = kvd.length, sticky = "ew")
+
+	def clear(self):
+		"""
+		Wipes the entry.
+		"""
+		self.entry.configure(state = tk.NORMAL)
+		self.entry.delete(0, tk.END)
+		self.entry.configure(state = "readonly")
+
+	def set_value(self, value):
+		"""
+		Sets the value of the entry to `value`, applying formatter if it is specified.
+		"""
+		self._truevalue = value
+		self.entry.configure(state = tk.NORMAL)
+		self.entry.delete(0, tk.END)
+		if self.formatter is not None:
+			self.entry.insert(0, self.formatter(self._truevalue))
+		else:
+			self.entry.insert(0, self._truevalue)
+		self.entry.configure(state = "readonly")
+
+
 # Thanks: https://stackoverflow.com/questions/3085696/
 # adding-a-scrollbar-to-a-group-of-widgets-in-tkinter
 class KeyValueDisplay(ttk.Frame):
@@ -176,12 +191,12 @@ class KeyValueDisplay(ttk.Frame):
 	display parameters (keys) and a value associated with them as a
 	combination of labels and readonly entries.
 	"""
-	def __init__(self, parent, styleobj, inikeys = None, *args, **kwargs):
+	def __init__(self, parent, styleobj, inipairs = None, *args, **kwargs):
 		"""
 		parent: Parent tk widget
 		styleobj: <tkinter.ttk.Style> : Style object to access styling
 			database.
-		inikeys: <List|Tuple<Str>> : Keys that should be added to the widget
+		inipairs: <List|Dict> : Keys that should be added to the widget
 			initially. Default is None.
 
 		Any other args and kwargs will be passed to the underlying Canvas.
@@ -196,27 +211,27 @@ class KeyValueDisplay(ttk.Frame):
 		self.canvas.grid_columnconfigure(0, weight = 1)
 		self.canvas.grid_rowconfigure(0, weight = 1)
 
-		self.canv_scrollbar.pack(side = tk.RIGHT, fill = tk.Y, expand = 1)
+		self.canv_scrollbar.pack(side = tk.RIGHT, fill = tk.Y, expand = 0)
 		self.canvas.pack(side = tk.LEFT, fill = tk.BOTH, expand = 1)
 		self.innerframe_id = self.canvas.create_window((0, 0),
 			window = self.innerframe, anchor = tk.NW, tags = "self.innerframe")
-
-		self.tk.eval(scrollcommand.format(w = f"scroll{crunch_window_path(self._w)}",
-			tw = self.canvas._w))
-		prepend_bindtags(self.canvas, f"scroll{crunch_window_path(self._w)}")
-		prepend_bindtags(self.canv_scrollbar, f"scroll{crunch_window_path(self._w)}")
 
 		self.canvas.bind("<Configure>", self._canvas_cnf_callback)
 
 		self.innerframe.bind("<Configure>", self._frame_cnf_callback)
 		self.innerframe.grid_columnconfigure((0, 1), weight = 1, pad = 50)
 
-		self.length = 0
-		self.registered_keys = {}
+		self.tk.eval(SCROLLCOMMAND.format(w = f"scroll{crunch_window_path(self._w)}",
+			tw = self.canvas._w))
+		prepend_bindtags(self.innerframe, f"scroll{crunch_window_path(self._w)}")
+		prepend_bindtags(self.canv_scrollbar, f"scroll{crunch_window_path(self._w)}")
 
-		if inikeys is not None:
-			for i in inikeys:
-				self.add_key_raw(i)
+		self.length = 0
+		self._registered_lines = []
+
+		if inipairs is not None:
+			for kwd in inipairs:
+				self.add_key(**kwd)
 
 	def _frame_cnf_callback(self, _):
 		self.canvas.configure(scrollregion = self.canvas.bbox(tk.ALL))
@@ -228,53 +243,54 @@ class KeyValueDisplay(ttk.Frame):
 		else:
 			self.canvas.itemconfigure(self.innerframe_id, width = evt.width)
 
-	def add_key_raw(self, key):
+	def add_key(self, **kwargs):
 		"""
-		Add a label and entry to the widget, registering it internally as well.
+		Add a label and entry to the widget, checking for duplicate ids
+		and registering it internally.
 		"""
-		if key in self.registered_keys:
-			raise ValueError(f"Name {key} already in use.")
+		if "id_" in kwargs:
+			id_ = kwargs.pop("id_")
+			for line in self._registered_lines:
+				if line.id == id_:
+					raise ValueError(f"Id \"{id_}\" already in use.")
+		else:
+			id_ = 0
+			id_ok = False
+			while not id_ok:
+				for line in self._registered_lines:
+					if line.id == id_:
+						id_ += 1
+						break
+				else:
+					id_ok = True
 
-		label = ttk.Label(self.innerframe, text = key)
-		entry = ttk.Entry(self.innerframe, state = "readonly")
-
-		self.registered_keys[key] = (label, entry)
-
-		for w in (label, entry):
-			prepend_bindtags(w, "scroll{}".format(crunch_window_path(self._w)))
-
-		label.grid(column = 0, row = self.length, sticky = "news")
-		entry.grid(column = 1, row = self.length, sticky = "news")
-
+		self._registered_lines.append(_KVDLine(self, id_, **kwargs))
 		self.length += 1
 
 	def clear(self):
 		"""
-		Clears every value entry.
+		Clears every line.
 		"""
-		for pair_widgets in self.registered_keys.values():
-			pair_widgets[1].configure(state = tk.NORMAL)
-			pair_widgets[1].delete(0, tk.END)
-			pair_widgets[1].configure(state = "readonly")
+		for line in self._registered_lines:
+			line.clear()
+
+	def get_value(self, key):
+		"""
+		Retrieve the actual non-formatted value currently stored in key.
+		"""
+		return self._get_line_by_id(key)._truevalue
 
 	def set_value(self, key, value):
 		"""
 		Set the value of key to value.
 		"""
-		if key not in self.registered_keys:
-			raise KeyError(f"Key {key} not found.")
-		self.registered_keys[key][1].configure(state = tk.NORMAL)
-		self.registered_keys[key][1].delete(0, tk.END)
-		self.registered_keys[key][1].insert(0, value)
-		self.registered_keys[key][1].configure(state = "readonly")
+		self._get_line_by_id(key).set_value(value)
 
-if __name__ == "__main__":
-	root = tk.Tk()
-	kvd = KeyValueDisplay(root, ttk.Style())
-	kvd.pack(side="top", fill="both", expand=True)
-
-	for _ in range(50):
-		kvd.add_key_raw(f"Key{_}")
-	kvd.change_value("Key4", "lol")
-
-	root.mainloop()
+	def _get_line_by_id(self, id_):
+		"""
+		Returns line by id. Meant for internal use.
+		"""
+		for line in self._registered_lines:
+			if id_ == line.id:
+				return line
+		raise KeyError(f"Key {id_} not found.")

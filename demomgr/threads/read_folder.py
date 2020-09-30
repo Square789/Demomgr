@@ -17,24 +17,28 @@ class ThreadReadFolder(_StoppableBaseThread):
 	creation dates, demo information and filesizes.
 	"""
 
+	REQUIRED_CFG_KEYS = ("evtblocksz", "datagrabmode")
+
 	def __init__(self, queue_out, targetdir, cfg):
 		"""
 		Thread requires an output queue and the following args:
 			targetdir <Str>: Full path to the directory to be read out
-			cfg <Dict>: Program configuration as in .demomgr/config.cfg
+			cfg <Dict>: Program configuration, minified to what's in cls.REQUIRED_CFG_KEYS
 		"""
 		self.targetdir = targetdir
 		self.cfg = cfg
 
 		super().__init__(None, queue_out)
 
-	def __stop(self, statmesg, result, exitcode):
+	def __stop(self, statmesg, result, exitcode, demo_amount = 0):
 		"""
 		Outputs end signals to self.queue_out.
 		If the first arg is None, the Statusbar tuple will not be output.
 		"""
 		if statmesg is not None:
 			self.queue_out_put(THREADSIG.INFO_STATUSBAR, statmesg)
+
+		self.queue_out_put(THREADSIG.RESULT_DEMO_AMOUNT, demo_amount)
 		self.queue_out_put(THREADSIG.RESULT_DEMODATA, result)
 		self.queue_out_put(exitcode)
 
@@ -44,7 +48,7 @@ class ThreadReadFolder(_StoppableBaseThread):
 		return it in a format that can be directly fed into listbox.
 		"""
 		if self.targetdir == "":
-			self.queue_out_put(THREADSIG.FAILURE); return
+			self.__stop(None, None, THREADSIG.FAILURE, 0); return
 		self.queue_out_put(THREADSIG.INFO_STATUSBAR,
 			(f"Reading demo information from {self.targetdir} ...", None))
 		starttime = time.time()
@@ -135,5 +139,5 @@ class ThreadReadFolder(_StoppableBaseThread):
 			), 3000),
 			{"col_filename": files, "col_demo_info": listout,
 				"col_ctime": datescreated, "col_filesize": sizes},
-			THREADSIG.SUCCESS)
+			THREADSIG.SUCCESS, len(files))
 		return

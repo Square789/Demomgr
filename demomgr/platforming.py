@@ -20,6 +20,33 @@ def get_cfg_storage_path():
 		return str(Path("~/.config", CNST.CFG_FOLDER, CNST.CFG_NAME).expanduser())
 		# No clue if this works, especially on apple.
 
+def get_contextmenu_btn():
+	"""
+	Returns the name of the contextmenu button, dependent on the system.
+	May return None, in which case it's probably best to create no binding.
+	"""
+	if os.name == "nt":
+		return "App"
+	elif os.name == "posix":
+		return "Menu"
+	return None
+
+# def get_filesys_explorer():
+# 	"""
+# 	Returns command front for opening a directory in what's likely the
+# 	default file explorer for the system, or None if an unknown system is
+# 	encountered.
+# 	No idea if anything beside Windows works because I'm a filthy winpleb.
+# 	"""
+# 	system = platform.system().lower()
+# 	if system == "linux":
+# 		return ["xdg-open"]
+# 	elif system == "darwin":
+# 		return ["open"]
+# 	elif system == "windows":
+# 		return ["explorer.exe"]
+# 	return None
+
 def get_rightclick_btn():
 	"""
 	Returns the identifier for the right mouse button used by tkinter
@@ -33,14 +60,3 @@ def get_rightclick_btn():
 	elif system == "windows":
 		return "3"
 	return "3" # best guess
-
-def get_contextmenu_btn():
-	"""
-	Returns the name of the contextmenu button, dependent on the system.
-	May return None, in which case it's probably best to create no binding.
-	"""
-	if os.name == "nt":
-		return "App"
-	elif os.name == "posix":
-		return "Menu"
-	return None

@@ -13,12 +13,15 @@ class ThreadFilter(_StoppableBaseThread):
 	"""
 	Thread to filter a directory of demos.
 	"""
+
+	REQUIRED_CFG_KEYS = ThreadReadFolder.REQUIRED_CFG_KEYS
+
 	def __init__(self, queue_out, filterstring, curdir, cfg, silent = False):
 		"""
 		Thread requires output queue and the following args:
 			filterstring <Str>: Raw user input from the entry field
 			curdir <Str>: Absolute path to current directory
-			cfg <Dict>: Program configuration as in .demomgr/config.cfg
+			cfg <Dict>: Program configuration, reduced to cls.REQUIRED_CFG_KEYS
 			silent <Bool>: If True, thread will not drop progress messages
 		"""
 		self.filterstring = filterstring

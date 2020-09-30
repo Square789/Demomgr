@@ -23,18 +23,20 @@ class ThreadMarkDemo(_StoppableBaseThread):
 	"""
 	Thread for modifying the bookmarks of a demo.
 	"""
-	def __init__(self, queue_out, mark_json, mark_events, bookmarks, targetdemo):
+	def __init__(self, queue_out, mark_json, mark_events, bookmarks, targetdemo, evtblocksz):
 		"""
 		Thread takes an output queue and as the following args:
 			mark_json <Bool>: Whether the .json file should be modified
 			mark_events <Bool>: Whether the _events.txt file should be modified
 			bookmarks <Tuple>: Bookmarks in the standard bookmark format.
 			targetdemo <Str>: Absolute path to the demo to be marked.
+			evtblocksz <Int>: Block size to read _events.txt in.
 		"""
 		self.mark_json = mark_json
 		self.mark_events = mark_events
 		self.bookmarks = bookmarks
 		self.targetdemo = targetdemo
+		self.evtblocksz = evtblocksz
 
 		super().__init__(None, queue_out)
 
@@ -119,10 +121,11 @@ class ThreadMarkDemo(_StoppableBaseThread):
 				f"{CNST.EVENT_FILE} does not exist, creating empty.")
 			open(evtpath, "w").close()
 
-		tmpevtpath = os.path.join(demo_dir, "." + CNST.EVENT_FILE)
-		with handle_ev.EventReader(evtpath) as event_reader, \
-				handle_ev.EventWriter(tmpevtpath,
-				clearfile = True, empty_ok = True) as event_writer:
+		tmpevtpath = os.path.join(demo_dir, f".{CNST.EVENT_FILE}")
+		with \
+			handle_ev.EventReader(evtpath, blocksz = self.evtblocksz) as event_reader, \
+			handle_ev.EventWriter(tmpevtpath, clearfile = True, empty_ok = True) as event_writer \
+		:
 			chunkfound = False
 			for chk in event_reader:
 				if self.stoprequest.is_set():

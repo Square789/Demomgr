@@ -13,7 +13,7 @@ from demomgr.dialogues._base import BaseDialog
 from demomgr.dialogues._diagresult import DIAGSIG
 
 from demomgr import constants as CNST
-from demomgr.helper_tk_widgets import TtkText
+from demomgr.tk_widgets import TtkText
 from demomgr.helpers import (frmd_label, tk_secure_str)
 from demomgr.threadgroup import ThreadGroup, THREADGROUPSIG
 from demomgr.threads import THREADSIG, RCONThread
@@ -46,6 +46,7 @@ class LaunchTF2(BaseDialog):
 	"""
 
 	REMEMBER_DEFAULT = [False, ""]
+	REQUIRED_CFG_KEYS = ("steampath", "hlaepath", "rcon_pwd", "rcon_port")
 
 	def __init__(self, parent, demopath, cfg, style, remember):
 		"""
@@ -131,7 +132,7 @@ class LaunchTF2(BaseDialog):
 		# Once changed, observer callback triggered by self.userselectvar
 
 		launchoptionsframe = ttk.LabelFrame(master, padding = (10, 8, 10, 8),
-			labelwidget = frmd_label(master, "Launch options:"))
+			labelwidget = frmd_label(master, "Launch options"))
 		launchoptionsframe.grid_columnconfigure(0, weight = 1)
 		launchoptwidgetframe = ttk.Frame(launchoptionsframe, borderwidth = 4,
 			relief = tk.RAISED, padding = (5, 4, 5, 4), )
@@ -162,12 +163,14 @@ class LaunchTF2(BaseDialog):
 		self.rcon_btn = ttk.Button(rconlabelframe, text = "Send command", command = self._rcon,
 			width = 15, style = "Centered.TButton")
 		self.rcon_btn.grid(row = 0, column = 0)
-		self.rcon_txt = TtkText(rconlabelframe, self._style, height = 4, width = 42, wrap = tk.CHAR)
+		self.rcon_txt = TtkText(rconlabelframe, self._style, height = 4, width = 48, wrap = tk.CHAR)
+		rcon_scrollbar = ttk.Scrollbar(rconlabelframe, orient = tk.HORIZONTAL, command = self.rcon_txt.xview)
 		self.rcon_txt.insert(tk.END, "Status: [.]\n\n\n")
 		self.rcon_txt.mark_set("spinner", "1.9")
 		self.rcon_txt.mark_gravity("spinner", tk.LEFT)
-		#self.rcon_txt.configure(state = tk.DISABLED)
+		self.rcon_txt.configure(xscrollcommand = rcon_scrollbar.set, state = tk.DISABLED)
 		self.rcon_txt.grid(row = 0, column = 1, sticky = "news", padx = (5, 0))
+		rcon_scrollbar.grid(row = 1, column = 1, sticky = "ew", padx = (5, 0))
 
 		# grid start
 		# dir selection widgets are already gridded
@@ -350,8 +353,9 @@ class LaunchTF2(BaseDialog):
 		"""
 		Set line n (0-2) of rcon txt widget to content.
 		"""
-		self.rcon_txt.delete(f"{n + 2}.0", f"{n + 2}.{tk.END}")
-		self.rcon_txt.insert(f"{n + 2}.0", content)
+		with self.rcon_txt:
+			self.rcon_txt.delete(f"{n + 2}.0", f"{n + 2}.{tk.END}")
+			self.rcon_txt.insert(f"{n + 2}.0", content)
 
 	def _rcon(self):
 		self.rcon_btn.configure(text = "Cancel", command = self._cancel_rcon)
@@ -371,22 +375,21 @@ class LaunchTF2(BaseDialog):
 	def _rcon_after_callback(self, queue_elem):
 		if queue_elem[0] < 0x100: # Finish
 			self.rcon_btn.configure(text = "Send command", command = self._rcon)
-			self.rcon_txt.configure(state = tk.NORMAL)
-			self.rcon_txt.delete("spinner", "spinner + 1 chars")
-			self.rcon_txt.insert("spinner", ".")
-			self.rcon_txt.configure(state = tk.DISABLED)
+			if queue_elem[0] == THREADSIG.ABORTED:
+				for i in range(3):
+					self._rcon_txt_set_line(i, "")
+			with self.rcon_txt:
+				self.rcon_txt.delete("spinner", "spinner + 1 chars")
+				self.rcon_txt.insert("spinner", ".")
 			return THREADGROUPSIG.FINISHED
 		elif queue_elem[0] == THREADSIG.INFO_IDX_PARAM:
-			self.rcon_txt.configure(state = tk.NORMAL)
 			self._rcon_txt_set_line(queue_elem[1], queue_elem[2])
-			self.rcon_txt.configure(state = tk.DISABLED)
 		return THREADGROUPSIG.CONTINUE
 
 	def _rcon_after_run_always(self):
-		self.rcon_txt.configure(state = tk.NORMAL)
-		self.rcon_txt.delete("spinner", "spinner + 1 chars")
-		self.rcon_txt.insert("spinner", next(self.spinneriter))
-		self.rcon_txt.configure(state = tk.DISABLED)
+		with self.rcon_txt:
+			self.rcon_txt.delete("spinner", "spinner + 1 chars")
+			self.rcon_txt.insert("spinner", next(self.spinneriter))
 
 	def done(self, launch=False):
 		self._cancel_rcon()

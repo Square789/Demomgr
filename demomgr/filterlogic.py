@@ -182,7 +182,6 @@ def _ident_and_extract_param(inp):
 		# which allows for parsing of escape characters, non-escaped double
 		# quotes would raise a parser error within literal_eval. Those are
 		# escaped in the regex above.
-		# print(final_params)
 
 	return final_params, is_range, inp[len(raw_param):]
 
@@ -197,10 +196,8 @@ def _extract_keys_and_params(inp):
 
 	while filterstring != "":
 		keyres = _extract_key(filterstring)
-		# print("Key found:", " || ".join([str(i) for i in keyres]))
 		filterstring = keyres[2]
 		paramres = _ident_and_extract_param(filterstring)
-		# print("Parameters found:", " || ".join([str(i) for i in paramres]))
 		parsed_str[keyres[0]] = [paramres[0], keyres[1], paramres[1]]
 		filterstring = paramres[2]
 

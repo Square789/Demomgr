@@ -4,8 +4,9 @@ import tkinter.ttk as ttk
 from tkinter.simpledialog import Dialog
 
 from demomgr.dialogues._diagresult import DIAGSIG, DiagResult
+from demomgr.helpers import CfgReducing
 
-class BaseDialog(tk.Toplevel):
+class BaseDialog(tk.Toplevel, CfgReducing):
 	"""
 	A base dialog that serves as ground for all other dialogs in the
 	program. Override self.body(), call self.destroy() for closing the dialog.
@@ -63,7 +64,7 @@ class BaseDialog(tk.Toplevel):
 		Validates the types of update_with against the types in the dialog's
 		REMEMBER_DEFAULT list, then applies a forward-compatible update
 		scheme of update_with into a copy of REMEMBER_DEFAULT, returning it.
-		If the validation fails, REMEMBER_DEFAULT is returned.
+		If the validation fails, an unchanged copy of REMEMBER_DEFAULT is returned.
 
 		i. e.: `DEF: [], UPD: [1, 2]` -> `[1, 2]`;
 		`DEF: [False, 5], UPD: [True]` -> `[True, 5]`

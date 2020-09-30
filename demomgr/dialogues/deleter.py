@@ -9,7 +9,7 @@ from demomgr.dialogues._base import BaseDialog
 from demomgr.dialogues._diagresult import DIAGSIG
 
 from demomgr import constants as CNST
-from demomgr.helper_tk_widgets import TtkText
+from demomgr.tk_widgets import TtkText
 from demomgr.threadgroup import ThreadGroup, THREADGROUPSIG
 from demomgr.threads import THREADSIG, ThreadDelete
 
@@ -25,8 +25,9 @@ class Deleter(BaseDialog):
 	`self.result.data` will be None if the thread was not started, else the
 		thread's termination signal.
 	"""
-	def __init__(self, parent, demodir, files, selected,
-			deluselessjson, cfg, styleobj, eventfileupdate = "passive"):
+
+	def __init__(self, parent, demodir, files, selected, evtblocksz,
+			deluselessjson, styleobj, eventfileupdate = "passive"):
 		"""
 		parent: Parent widget, should be a `Tk` or `Toplevel` instance.
 		demodir: Absolute path to the directory containing the demos. (str)
@@ -34,9 +35,9 @@ class Deleter(BaseDialog):
 			evaluation.
 		selected: List of boolean values so that
 			files[n] will be deleted if selected[n] == True
+		evtblocksz: Size of blocks (in bytes) to read _events.txt in.
 		deluselessjson: Boolean value that instructs the deletion evaluation
 			to include json files with no demos.
-		cfg: Program configuration.
 		styleobj: Instance of tkinter.ttk.Style.
 		eventfileupdate: Has two valid forms: "selectivemove" and "passive"
 			(default).
@@ -54,8 +55,8 @@ class Deleter(BaseDialog):
 		self.demodir = demodir
 		self.files = files
 		self.selected = selected
+		self.evtblocksz = evtblocksz
 		self.deluselessjson = deluselessjson
-		self.cfg = cfg
 		self.styleobj = styleobj
 		self.eventfileupdate = eventfileupdate
 
@@ -124,12 +125,12 @@ class Deleter(BaseDialog):
 
 	def _startthread(self):
 		self.threadgroup.start_thread(
-			demodir =			self.demodir,
-			files =				self.files,
-			selected =			self.selected,
-			filestodel =		self.filestodel,
-			cfg =				self.cfg,
-			eventfileupdate =	self.eventfileupdate,
+			demodir =         self.demodir,
+			files =           self.files,
+			selected =        self.selected,
+			filestodel =      self.filestodel,
+			evtblocksz =      self.evtblocksz,
+			eventfileupdate = self.eventfileupdate,
 		)
 
 	def _after_callback(self, queue_elem):
@@ -149,11 +150,10 @@ class Deleter(BaseDialog):
 			return THREADGROUPSIG.FINISHED
 
 	def appendtextbox(self, _inp):
-		self.textbox.config(state = tk.NORMAL)
-		self.textbox.insert(tk.END, str(_inp) )
-		self.textbox.yview_moveto(1.0)
-		self.textbox.update()
-		self.textbox.config(state = tk.DISABLED)
+		with self.textbox:
+			self.textbox.insert(tk.END, str(_inp) )
+			self.textbox.yview_moveto(1.0)
+			self.textbox.update()
 
 	def destroy(self):
 		self._stopoperation()
