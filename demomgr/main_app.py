@@ -336,10 +336,9 @@ class MainApp():
 			self.cfg["ui_remember"]["launch_tf2"] = dialog.result.remember
 		if dialog.result.state == DIAGSIG.SUCCESS:
 			for i in ("steampath", "hlaepath"):
-				if i in dialog.result.data:
-					if dialog.result.data[i] != self.cfg[i]:
-						update_needed = True
-						self.cfg[i] = dialog.result.data[i]
+				if i in dialog.result.data and dialog.result.data[i] != self.cfg[i]:
+					update_needed = True
+					self.cfg[i] = dialog.result.data[i]
 		if update_needed:
 			self.writecfg(self.cfg)
 
@@ -396,14 +395,13 @@ class MainApp():
 			self.cfg["ui_remember"]["bookmark_setter"] = dialog.result.remember
 			self.writecfg(self.cfg)
 		if dialog.result.state == DIAGSIG.SUCCESS:
-			if self.cfg["lazyreload"]:
-				if self.cfg["datagrabmode"] != 0:
-					ksdata = self.listbox.getcell("col_demo_info", index)
-					ksdata = ksdata[0] if ksdata is not None else ()
-					new_bmdata = (ksdata, list(dialog.result.data))
-					self.listbox.setcell("col_demo_info", index, new_bmdata)
-					self.listbox.format(("col_demo_info", ), (index, ))
-					self._updatedemowindow(no_io = True)
+			if self.cfg["lazyreload"] and self.cfg["datagrabmode"] != 0:
+				ksdata = self.listbox.getcell("col_demo_info", index)
+				ksdata = ksdata[0] if ksdata is not None else ()
+				new_bmdata = (ksdata, list(dialog.result.data))
+				self.listbox.setcell("col_demo_info", index, new_bmdata)
+				self.listbox.format(("col_demo_info", ), (index, ))
+				self._updatedemowindow(no_io = True)
 			else:
 				self.reloadgui()
 
