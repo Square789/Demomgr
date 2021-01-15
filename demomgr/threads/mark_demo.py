@@ -13,9 +13,9 @@ from demomgr import constants as CNST
 from demomgr import handle_events as handle_ev
 
 RE_DEM_NAME = re.compile(r'\[\d{4}/\d\d/\d\d \d\d:\d\d\] (?:Killstreak|Bookmark)'
-	' .* \("([^"]*)" at \d*\)$')
+	r' .* \("([^"]*)" at \d*\)$')
 RE_TICK = re.compile(r'\[\d{4}/\d\d/\d\d \d\d:\d\d\] (?:Killstreak|Bookmark)'
-	' .* \("[^"]*" at (\d*)\)')
+	r' .* \("[^"]*" at (\d*)\)')
 RE_LOGLINE_IS_BOOKMARK = re.compile(
 	r"\[\d\d\d\d/\d\d/\d\d \d\d:\d\d\] Bookmark ")
 
@@ -133,16 +133,15 @@ class ThreadMarkDemo(_StoppableBaseThread):
 					raise InterruptedError()
 				regres = RE_DEM_NAME.search(chk.content)
 				towrite = chk.content
-				if regres is not None:
-					if regres[1] == demo_name: #T'is the chk you're looking for
-						chunkfound = True
-						towrite = towrite.split("\n")
-						towrite = [i for i in towrite if not
-							RE_LOGLINE_IS_BOOKMARK.search(i)]
-						towrite.extend(formatted_bookmarks)
-						towrite = sorted(towrite, key = lambda elem:
-							int(RE_TICK.search(elem)[1]))
-						towrite = "\n".join(towrite)
+				if regres is not None and regres[1] == demo_name: # T'is the chk you're looking for
+					chunkfound = True
+					towrite = towrite.split("\n")
+					towrite = [i for i in towrite if not
+						RE_LOGLINE_IS_BOOKMARK.search(i)]
+					towrite.extend(formatted_bookmarks)
+					towrite = sorted(towrite, key = lambda elem:
+						int(RE_TICK.search(elem)[1]))
+					towrite = "\n".join(towrite)
 				event_writer.writechunk(towrite)
 			if not chunkfound:
 				formatted_bookmarks = sorted(formatted_bookmarks,

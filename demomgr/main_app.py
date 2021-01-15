@@ -1,10 +1,7 @@
-if __name__ == "__main__":
-	raise RuntimeError("This script should not be executed directly, only via import.")
-
-import sys
 import os
 from copy import deepcopy
 import json
+import sys
 import threading
 import time
 import tkinter as tk
@@ -29,7 +26,7 @@ from demomgr import platforming
 from demomgr.threadgroup import ThreadGroup, THREADGROUPSIG
 from demomgr.threads import THREADSIG, ThreadFilter, ThreadReadFolder, ThreadDemoInfo
 
-__version__ = "1.7.1"
+__version__ = "1.7.2"
 __author__ = "Square789"
 
 class MainApp():
@@ -46,9 +43,11 @@ class MainApp():
 		self.root.protocol("WM_DELETE_WINDOW", self.quit_app)
 		self.root.wm_title(f"Demomgr v{__version__} by {__author__}")
 
-		self.demooperations = (("Play", " selected demo...", self._playdem),
+		self.demooperations = (
+			("Play", " selected demo...", self._playdem),
 			("Delete", " selected demo...", self._deldem),
-			("Manage bookmarks", " of selected demo...", self._managebookmarks))
+			("Manage bookmarks", " of selected demo...", self._managebookmarks)
+		)
 
 		self.cfgpath = platforming.get_cfg_storage_path()
 		self.curdir = "" # This path should not be in self.cfg["demopaths"] at any time!

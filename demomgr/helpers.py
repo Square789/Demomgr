@@ -39,7 +39,8 @@ def convertunit(inp, ext = "B"):
 	"""
 	Unit conversion function. Takes an integer as input, rounds off the
 	number to the last 3 digits and returns it as a string followed by an
-	order of magnitude identifier + ext ."""
+	order of magnitude identifier + ext .
+	"""
 	isneg = inp < 0
 	if inp == 0:
 		return f"0 {ext}"

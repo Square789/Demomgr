@@ -73,7 +73,8 @@ class TtkCanvas(tk.Canvas):
 	<<ThemeChanged>> event and that attempts to apply configuration
 	options to itself. The style name read from is "TtkHook.Canvas".
 
-	__init__() Reroutes all args to tkinter.Canvas except for "styleobj"
+	__init__() Reroutes all args and kwargs to tkinter.Canvas except
+		for "styleobj"
 	"""
 	_DEFAULT_CONFIG = {
 		"background": "#FFFFFF",
@@ -121,11 +122,11 @@ class _KVDLine():
 	Class to hold attributes of the line of a KeyValueDisplay.
 	Should only be used internally.
 	"""
-
-	DEFAULT_CONFIG = {
-		"name": "",
-		"formatter": None,
-	}
+	class Config():
+		__slots__ = ("name", "formatter")
+		def __init__(self, name = "", formatter = None):
+			self.name = name
+			self.formatter = formatter
 
 	def __init__(self, kvd, id_, **kwargs):
 		"""
@@ -144,15 +145,12 @@ class _KVDLine():
 		self.id = id_
 		self._truevalue = 0
 
-		cfg = self.DEFAULT_CONFIG.copy()
 		for k in kwargs:
-			if k not in self.DEFAULT_CONFIG:
-				raise ValueError(f"Unrecognized option \"{k}\"")
-		cfg.update(kwargs)
-		for k, v in cfg.items():
-			setattr(self, k, v)
+			if k not in self.Config.__slots__:
+				raise ValueError(f"Unrecognized option {k!r}")
+		self.cfg = self.Config(**kwargs)
 
-		self.label = ttk.Label(kvd.innerframe, text = self.name)
+		self.label = ttk.Label(kvd.innerframe, text = self.cfg.name)
 		self.entry = ttk.Entry(kvd.innerframe, state = "readonly")
 
 		for w in (self.label, self.entry):
@@ -176,8 +174,8 @@ class _KVDLine():
 		self._truevalue = value
 		self.entry.configure(state = tk.NORMAL)
 		self.entry.delete(0, tk.END)
-		if self.formatter is not None:
-			self.entry.insert(0, self.formatter(self._truevalue))
+		if self.cfg.formatter is not None:
+			self.entry.insert(0, self.cfg.formatter(self._truevalue))
 		else:
 			self.entry.insert(0, self._truevalue)
 		self.entry.configure(state = "readonly")

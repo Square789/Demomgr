@@ -87,10 +87,8 @@ class RCONThread(_StoppableBaseThread):
 				break # Success
 
 		if error is not None:
-			if isinstance(error, socket.timeout):
-				self.queue_out_put(THREADSIG.INFO_IDX_PARAM, 0, "Timeout. Is TF2 running with -usercon|net_start?")
-				self.queue_out_put(THREADSIG.FAILURE); return
-			self.queue_out_put(THREADSIG.INFO_IDX_PARAM, 0, f"Failure establishing connection: {error}")
+			self.queue_out_put(THREADSIG.INFO_IDX_PARAM, 0, f"Failure establishing connection. Is TF2 running with " \
+				f"-usercon and net_start?: {error}")
 			self.queue_out_put(THREADSIG.FAILURE); return
 
 		if self.stoprequest.is_set():
@@ -126,7 +124,7 @@ class RCONThread(_StoppableBaseThread):
 				self.__stopsock(THREADSIG.FAILURE); return
 
 		except Exception as e:
-			self.queue_out_put(THREADSIG.INFO_IDX_PARAM, 1, f"Error while authenticating {e}")
+			self.queue_out_put(THREADSIG.INFO_IDX_PARAM, 1, f"Error while authenticating: {e}")
 			self.__stopsock(THREADSIG.FAILURE); return
 
 		if self.stoprequest.is_set():

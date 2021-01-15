@@ -34,8 +34,6 @@ class DiagResult():
 		state: Should be one of the states of `DIAGSIG`, will be set to
 			`DIAGSIG.OPEN` if not given.
 		"""
-		self.state = state
-		if state is None:
-			self.state = DIAGSIG.OPEN
+		self.state = DIAGSIG.OPEN if state is None else state
 		self.data = None
 		self.remember = None

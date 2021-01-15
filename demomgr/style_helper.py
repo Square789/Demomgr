@@ -1,10 +1,12 @@
-'''This module supplies the StyleHelper class which is a class to read
+"""T
+his module supplies the StyleHelper class which is a class to read
 image directories and save them in a tcl variable as well as convert dicts
 to tk commands to make creation of image-reliant interfaces easier.
 (Although you should probably just use the plain tcl script for a UI and not
 recreate it every program start which is what load_theme is for.)
-DO NOT USE THESE CLASSES IF YOUR VARIABLE/STYLE NAMES CONTAIN CHARACTERS
-LIKE [, ], {, } (but why would they, really.); THIS IS A MESS'''
+! DO NOT USE THESE CLASSES IF YOUR VARIABLE/STYLE NAMES CONTAIN CHARACTERS
+LIKE [, ], {, } ! (but why would they, really.);
+"""
 
 import os
 import re
@@ -16,7 +18,7 @@ RE_FORBIDDEN = [(re.compile(r"\["), "Attempted command call."),
 		"Odd amount of backslashes.")
 	]
 
-imgloaderscript = """
+IMGLOADERSCRIPT = """
 variable {imgvarname}
 foreach imgpath [glob -directory {imagedir} {globpattern}] \
 {{
@@ -26,22 +28,25 @@ foreach imgpath [glob -directory {imagedir} {globpattern}] \
 """
 
 class StyleHelper():
-	'''This class takes the following for initialization:
+	"""
+	This class takes the following for initialization:
 	Args:
 	parent <Tcl object>: Any object that has a tcl interpreter available as
 		object.tk; tkinter.Tk instance is recommended.
-	'''
+	"""
 	def __init__(self, parent):
 		self.parent = parent
 		self.tk = parent.tk
 
 	def load_image_dir(self, imagedir, filetypes, imgvarname):
-		'''Execute direct tcl calls to get all images ending in filetypes
+		"""
+		Execute direct tcl calls to get all images ending in filetypes
 		from imagedir and saves them in imgvarname for use in ttk styles.
 		Args:
 		imagedir <Str>: directory to search in (will be extended by cwd)
 		filetypes <List|Tuple>: file extensions to get
-		imgvarname <Str>: Name for the Tcl variable to save images in'''
+		imgvarname <Str>: Name for the Tcl variable to save images in
+		"""
 
 		imagedir = os.path.join(os.path.normpath(os.getcwd()),
 			os.path.normpath(imagedir))
@@ -57,14 +62,34 @@ class StyleHelper():
 
 		_validate(imagedir, imgvarname)
 
-		localscript = imgloaderscript.format(
+		localscript = IMGLOADERSCRIPT.format(
 			imagedir = imagedir,
 			imgvarname = imgvarname,
-			globpattern = globpattern)
+			globpattern = globpattern
+		)
 		self.tk.eval(localscript)
 
-	def generate_theme_script(self, styledict, themename, parent=None):
-		'''Returns a string that can be executed by a Tcl interpreter
+	def load_theme(self, theme_filepath, themename):
+		"""
+		Loads the tcl file at theme_filepath defining a theme with
+		"ttk::style theme create" from disk, executes it !BLINDLY!, then calls
+		setTheme with themename on the newly created theme.
+		Does not create or set theme when it already exists/is in use.
+		USE WITH CARE!
+		"""
+		existingthemes = self.tk.eval("ttk::style theme names").split(" ")
+		if not themename in existingthemes:
+			with open(theme_filepath, "r") as handle:
+				script = handle.read()
+			self.tk.eval(script)
+			del script
+		curtheme = self.tk.eval("return $ttk::currentTheme")
+		if themename != curtheme:
+			self.tk.eval("ttk::setTheme {}".format(themename))
+
+	def generate_theme_script(self, styledict, themename, parent = None):
+		"""
+		Returns a string that can be executed by a Tcl interpreter
 		that will result in a theme being declared. Tries to keep it neat
 		and indented.
 		Args:
@@ -125,7 +150,7 @@ class StyleHelper():
 		}
 		Options containing square brackets or backslashes will raise a
 		validation error.
-		'''
+		"""
 		script = []
 
 		for key, val in styledict.items():
@@ -145,24 +170,6 @@ class StyleHelper():
 		script = ("ttk::style theme create " + themename + parentarg +
 					" -settings \\\n{\n" + "\n".join(script) + "\n}")
 		return script
-
-	def load_theme(self, theme_filepath, themename):
-		'''
-		Loads the tcl file at theme_filepath defining a theme with
-		"ttk::style theme create" from disk, executes it !BLINDLY!, then calls
-		setTheme with themename on the newly created theme.
-		Does not create or set theme when it already exists/is in use.
-		USE WITH CARE!
-		'''
-		existingthemes = self.tk.eval("ttk::style theme names").split(" ")
-		if not themename in existingthemes:
-			with open(theme_filepath, "r") as handle:
-				script = handle.read()
-			self.tk.eval(script)
-			del script
-		curtheme = self.tk.eval("return $ttk::currentTheme")
-		if themename != curtheme:
-			self.tk.eval("ttk::setTheme {}".format(themename))
 
 	def _resolve_config(self, indict):
 		outscript = []
@@ -227,14 +234,17 @@ class StyleHelper():
 		return outscript
 
 	def _resolve_opt_val_pair(self, option, value):
-		'''Formats two values that are sure to be a option value pair such
+		"""
+		Formats two values that are sure to be a option value pair such
 		as {"sticky":"news"} to "-sticky news", applying formatting when
-		value is empty or a list.'''
+		value is empty or a list.
+		"""
 		if isinstance(value, list):
 			value = [str(i) for i in value]
 			value = "{{{}}}".format(" ".join(value))
 		_validate(option, value)
-		if value == "": value = "\"\""
+		if value == "":
+			value = "\"\""
 		pair = " -{} {}".format(option, value)
 		return pair
 
@@ -288,8 +298,10 @@ class StyleHelper():
 		return outscript
 
 def _validate(*tocheck):
-	'''Raises an error if a regex from RE_FORBIDDEN matches any
-	value from tocheck. Purpose is to prevent code injection.'''
+	"""
+	Raises an error if a regex from RE_FORBIDDEN matches any
+	value from tocheck. Purpose is to prevent code injection.
+	"""
 	for scriptsegm in tocheck:
 		if isinstance(scriptsegm, list):
 			scriptsegm = [str(i) for i in scriptsegm]

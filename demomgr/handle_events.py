@@ -16,6 +16,9 @@ class RawLogchunk():
 	is_last: Whether the chunk is the last one in the file. (bool)
 	fromfile: Absolute path to file that the chunk was read from. (str)
 	"""
+
+	__slots__ = ("content", "is_last", "fromfile")
+
 	def __init__(self, content, is_last, fromfile):
 		self.content = content
 		self.is_last = is_last

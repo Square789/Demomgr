@@ -21,6 +21,9 @@ class GROUP:
 
 class DemoInfo():
 	"""Container class to hold information regarding a demo."""
+
+	__slots__ = ("demo_name", "killstreaks", "bookmarks")
+
 	def __init__(self, demo_name, killstreaks, bookmarks):
 		"""
 		demo_name: The name of the demo that is described in the
@@ -98,7 +101,4 @@ def parse_events(handle, blocksz):
 	May raise IOError, PermissionError, ValueError.
 	"""
 	with handle_ev.EventReader(handle, blocksz=blocksz) as reader:
-		out = []
-		for chk in reader:
-			out.append(parse_logchunk(chk))
-	return out
+		return [parse_logchunk(chk) for chk in reader]

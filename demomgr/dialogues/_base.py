@@ -38,14 +38,15 @@ class BaseDialog(tk.Toplevel, CfgReducing):
 			self.title(title)
 
 	def show(self):
-		"""Show the dialog."""
+		"""Create the dialog's interface and show it."""
+		self.grab_set()
+		self.focus_set()
+
 		self.rootframe = ttk.Frame(self)
 		self._mainframe = ttk.Frame(self.rootframe)
 		self.body(self._mainframe)
 		self._mainframe.pack(expand = 1, fill = tk.BOTH, padx = 5, pady = 5)
 		self.rootframe.pack(expand = 1, fill = tk.BOTH)
-		self.grab_set()
-		self.focus_set()
 
 		self.withdraw()
 		if self.parent.winfo_viewable():
@@ -56,7 +57,6 @@ class BaseDialog(tk.Toplevel, CfgReducing):
 				self.parent.winfo_rooty() + 50))
 
 		self.deiconify()
-		self.wait_visibility()
 		self.wait_window(self)
 
 	def validate_and_update_remember(self, update_with):
