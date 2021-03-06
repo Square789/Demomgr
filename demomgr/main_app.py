@@ -293,7 +293,8 @@ class MainApp():
 		)
 		dialog.show()
 		update_needed = 0
-		if dialog.state == DIAGSIG.GLITCHED:
+		if dialog.result.state == DIAGSIG.GLITCHED:
+			print("glitched, returning")
 			return
 		if self.cfg["ui_remember"]["settings"] != dialog.result.remember:
 			self.cfg["ui_remember"]["settings"] = dialog.result.remember
@@ -327,7 +328,7 @@ class MainApp():
 		)
 		dialog.show()
 		update_needed = False
-		if dialog.state == DIAGSIG.GLITCHED:
+		if dialog.result.state == DIAGSIG.GLITCHED:
 			return
 		if self.cfg["ui_remember"]["launch_tf2"] != dialog.result.remember:
 			update_needed = True
@@ -392,7 +393,7 @@ class MainApp():
 			remember = self.cfg["ui_remember"]["bookmark_setter"],
 		)
 		dialog.show()
-		if dialog.state == DIAGSIG.GLITCHED:
+		if dialog.result.state == DIAGSIG.GLITCHED:
 			return
 		if self.cfg["ui_remember"]["bookmark_setter"] != dialog.result.remember:
 			self.cfg["ui_remember"]["bookmark_setter"] = dialog.result.remember
