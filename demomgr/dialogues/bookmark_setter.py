@@ -72,6 +72,7 @@ class BookmarkSetter(BaseDialog):
 
 	def body(self, parent):
 		"""UI setup, listbox filling."""
+		self.protocol("WM_DELETE_WINDOW", self.destroy)
 
 		parent.rowconfigure(0, weight = 1, pad = 5)
 		parent.rowconfigure(1, pad = 5)
@@ -212,8 +213,11 @@ class BookmarkSetter(BaseDialog):
 	def _mark(self):
 		mark_json = self.jsonmark_var.get()
 		mark_evts = self.eventsmark_var.get()
-		raw_bookmarks = tuple(zip(self.listbox.getcolumn("col_name"),
-			self.listbox.getcolumn("col_tick")))
+
+		raw_bookmarks = tuple(zip(
+			self.listbox.getcolumn("col_name"),
+			self.listbox.getcolumn("col_tick"),
+		))
 
 		self.savebtn.configure(text = "Cancel", command = self._cancel_mark)
 		self.threadgroup.start_thread(

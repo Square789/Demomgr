@@ -63,9 +63,7 @@ def prepend_bindtags(widget, elem):
 	"""
 	Prepends elem to the bindtags of widget
 	"""
-	tmp = [elem]
-	tmp.extend(widget.bindtags())
-	widget.bindtags(tuple(tmp))
+	widget.bindtags((elem, *widget.bindtags()))
 
 class TtkCanvas(tk.Canvas):
 	"""
@@ -225,7 +223,7 @@ class KeyValueDisplay(ttk.Frame):
 		prepend_bindtags(self.canv_scrollbar, f"scroll{crunch_window_path(self._w)}")
 
 		self.length = 0
-		self._registered_lines = []
+		self._registered_lines = {}
 
 		if inipairs is not None:
 			for kwd in inipairs:
@@ -248,28 +246,25 @@ class KeyValueDisplay(ttk.Frame):
 		"""
 		if "id_" in kwargs:
 			id_ = kwargs.pop("id_")
-			for line in self._registered_lines:
-				if line.id == id_:
-					raise ValueError(f"Id \"{id_}\" already in use.")
+			if id_ in self._registered_lines:
+				raise ValueError(f"Id \"{id_}\" already in use.")
 		else:
 			id_ = 0
 			id_ok = False
-			while not id_ok:
-				for line in self._registered_lines:
-					if line.id == id_:
-						id_ += 1
-						break
+			while True:
+				if id_ in self._registered_lines:
+					id_ += 1
 				else:
-					id_ok = True
+					break
 
-		self._registered_lines.append(_KVDLine(self, id_, **kwargs))
+		self._registered_lines[id_] = _KVDLine(self, id_, **kwargs)
 		self.length += 1
 
 	def clear(self):
 		"""
 		Clears every line.
 		"""
-		for line in self._registered_lines:
+		for line in self._registered_lines.values():
 			line.clear()
 
 	def get_value(self, key):
@@ -288,7 +283,7 @@ class KeyValueDisplay(ttk.Frame):
 		"""
 		Returns line by id. Meant for internal use.
 		"""
-		for line in self._registered_lines:
-			if id_ == line.id:
-				return line
-		raise KeyError(f"Key {id_} not found.")
+		if id_ in self._registered_lines:
+			return self._registered_lines[id_]
+		else:
+			raise KeyError(f"Key {id_} not found.")

@@ -7,21 +7,16 @@ import tkinter as tk
 
 def _generate_readonly_cmd(w):
 	cmd = (
-		("command", {"label": "Copy",
-			"command": lambda: w.event_generate("<<Copy>>")}, 2),
-		("command", {"label": "Select all",
-			"command": lambda: w.event_generate("<<SelectAll>>")})
+		("command", {"label": "Copy", "command": lambda: w.event_generate("<<Copy>>")}, 2),
+		("command", {"label": "Select all", "command": lambda: w.event_generate("<<SelectAll>>")})
 	)
 	return cmd
 
 def _generate_normal_cmd(w):
 	cmd = (
-		("command", {"label": "Cut",
-			"command": lambda: w.event_generate("<<Cut>>")}),
-		("command", {"label": "Clear",
-			"command": lambda: w.event_generate("<<Clear>>")}),
-		("command", {"label": "Paste",
-			"command": lambda: w.event_generate("<<Paste>>")}),
+		("command", {"label": "Cut", "command": lambda: w.event_generate("<<Cut>>")}),
+		("command", {"label": "Clear", "command": lambda: w.event_generate("<<Clear>>")}),
+		("command", {"label": "Paste", "command": lambda: w.event_generate("<<Paste>>")}),
 	)
 	return cmd
 
@@ -61,10 +56,7 @@ def multiframelist_cb(event, mfl, demo_ops):
 	"""
 	w = event.widget
 	x, y = mfl.getlastclick()
-	add_elems = []
-	for i in demo_ops:
-		add_elems.append(("command", {"label": f"{i[0]}...", "command": i[2]}))
-
+	add_elems = [("command", {"label": f"{s0}...", "command": cmd}) for s0, _, cmd in demo_ops]
 	men = PopupMenu(mfl, add_elems)
 	men.post(x, y)
 

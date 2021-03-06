@@ -7,10 +7,14 @@ class DIAGSIG:
 	"""
 	This class is a constant collection of a few numeral flags.
 
+	GLITCHED: 0x3, dialog closed and was created as a duplicate. This flag is set
+		directly after show() was called and determined the dialog to be a dupe,
+		closing it immediatedly. See warning in BaseDialog docstring.
 	OPEN: 0x2, dialog is still running, result undefined.
 	SUCCESS: 0x0, dialog closed and succeeded.
 	FAILURE: 0x1, dialog closed and failed.
 	"""
+	GLITCHED = 0x3
 	OPEN = 0x2
 	SUCCESS = 0x0
 	FAILURE = 0x1

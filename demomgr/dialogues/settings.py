@@ -40,9 +40,10 @@ class Settings(BaseDialog):
 	"""
 
 	REMEMBER_DEFAULT = [0]
-	REQUIRED_CFG_KEYS = ("datagrabmode", "previewdemos", "date_format", "steampath",
-		"hlaepath", "ui_theme", "lazyreload", "rcon_pwd", "rcon_port", "evtblocksz",
-		"date_format")
+	REQUIRED_CFG_KEYS = (
+		"datagrabmode", "previewdemos", "date_format", "steampath", "hlaepath", "ui_theme", "lazyreload",
+		"rcon_pwd", "rcon_port", "evtblocksz", "date_format"
+	)
 
 	def __init__(self, parent, cfg, remember):
 		"""
@@ -67,8 +68,7 @@ class Settings(BaseDialog):
 		self._selected_pane = None
 		self.ui_remember = self.validate_and_update_remember(remember)
 
-		self.blockszvals = {convertunit(i, "B"): i
-			for i in [2**pw for pw in range(12, 28)]}
+		self.blockszvals = {convertunit(i, "B"): i for i in (2**pw for pw in range(12, 28))}
 
 	def body(self, master):
 		"""UI setup."""
@@ -81,75 +81,92 @@ class Settings(BaseDialog):
 		suboptions_pane = ttk.Frame(mainframe)
 		suboptions_pane.grid_columnconfigure(0, weight = 1)
 
-		display_labelframe = ttk.LabelFrame(suboptions_pane, padding = 8,
-			labelwidget = frmd_label(suboptions_pane, "Display"))
+		display_labelframe = ttk.LabelFrame(
+			suboptions_pane, padding = 8, labelwidget = frmd_label(suboptions_pane, "Display")
+		)
 		display_labelframe.grid_columnconfigure(0, weight = 1)
-		ttk.Checkbutton(display_labelframe, variable = self.preview_var,
-			text = "Preview demos?", style = "Contained.TCheckbutton").grid(
-			sticky = "w", ipadx = 4) # Preview
-		lazyreload_btn = ttk.Checkbutton(display_labelframe,
-			variable = self.lazyreload_var, text = "Lazy reload of main demo view",
-			style = "Contained.TCheckbutton")
-		lazyreload_txt = ttk.Label(display_labelframe,
-			text = "Will not reload the entire directory on minor\n" \
-				"changes such as bookmark modification.",
-			justify = tk.LEFT, style = "Contained.TLabel")
+		ttk.Checkbutton(
+			display_labelframe, variable = self.preview_var, text = "Preview demos?",
+			style = "Contained.TCheckbutton"
+		).grid(sticky = "w", ipadx = 4) # Preview
+		lazyreload_btn = ttk.Checkbutton(
+			display_labelframe, variable = self.lazyreload_var, text = "Lazy reload of main demo view",
+			style = "Contained.TCheckbutton"
+		)
+		lazyreload_txt = ttk.Label(
+			display_labelframe, text = "Will not reload the entire directory on minor\n" \
+			"changes such as bookmark modification.", justify = tk.LEFT, style = "Contained.TLabel"
+		)
 		lazyreload_btn.grid(sticky = "w", ipadx = 4, pady = (2, 0))
 		lazyreload_txt.grid(sticky = "w", padx = (8, 0)) # Lazy reload
-		ui_style_labelframe = ttk.Labelframe(display_labelframe,
-			style = "Contained.TLabelframe", padding = 8,
-			labelwidget = frmd_label(display_labelframe, "UI Style")) #Style LF
+
+		ui_style_labelframe = ttk.Labelframe(
+			display_labelframe, style = "Contained.TLabelframe", padding = 8,
+			labelwidget = frmd_label(display_labelframe, "UI Style")
+		) # Style LF
 		for i in CNST.THEME_PACKAGES.keys():
-			b = ttk.Radiobutton(ui_style_labelframe, variable = self.ui_style_var,
-				text = i, value = i, style = "Contained.TRadiobutton")
+			b = ttk.Radiobutton(
+				ui_style_labelframe, variable = self.ui_style_var, text = i, value = i,
+				style = "Contained.TRadiobutton"
+			)
 			b.grid(ipadx = 4, sticky = "w") # Style btns
-		ttk.Radiobutton(ui_style_labelframe, variable = self.ui_style_var,
-			text = "Default", value = "_DEFAULT", style =
-			"Contained.TRadiobutton").grid(ipadx = 4, sticky = "w") # Default style
+		ttk.Radiobutton(
+			ui_style_labelframe, variable = self.ui_style_var, text = "Default", value = "_DEFAULT",
+			style = "Contained.TRadiobutton"
+		).grid(ipadx = 4, sticky = "w") # Default style
 		ui_style_labelframe.grid(sticky = "news", pady = 4)
 
-		date_format_labelframe = ttk.LabelFrame(suboptions_pane, padding = 8,
-			labelwidget = frmd_label(suboptions_pane, "Date format"))
+		date_format_labelframe = ttk.LabelFrame(
+			suboptions_pane, padding = 8, labelwidget = frmd_label(suboptions_pane, "Date format")
+		)
 		date_format_labelframe.grid_columnconfigure(0, weight = 1)
-		self.date_fmt_combobox = ttk.Combobox(date_format_labelframe, state = "readonly",
-			values = CNST.DATE_FORMATS)
+		self.date_fmt_combobox = ttk.Combobox(
+			date_format_labelframe, state = "readonly", values = CNST.DATE_FORMATS
+		)
 		self.date_fmt_combobox.grid(sticky = "ew")
 
-		path_labelframe = ttk.LabelFrame(suboptions_pane, padding = 8,
-			labelwidget = frmd_label(suboptions_pane, "Paths"))
+		path_labelframe = ttk.LabelFrame(
+			suboptions_pane, padding = 8, labelwidget = frmd_label(suboptions_pane, "Paths")
+		)
 		path_labelframe.grid_columnconfigure(1, weight = 1)
-		for i, j in enumerate((("Steam:", self.steampath_var),
-					("HLAE:", self.hlaepath_var))):
-			desc_label = ttk.Label(path_labelframe,
-				style = "Contained.TLabel", text = j[0])
-			path_entry = ttk.Entry(path_labelframe, state = "readonly",
-				textvariable = j[1])
+		for i, j in enumerate((
+			("Steam:", self.steampath_var),
+			("HLAE:", self.hlaepath_var),
+		)):
+			desc_label = ttk.Label(path_labelframe, style = "Contained.TLabel", text = j[0])
+			path_entry = ttk.Entry(path_labelframe, state = "readonly", textvariable = j[1])
 			def _tmp_handler(self = self, var = j[1]): # that's a no from me dawg
 				return self._sel_dir(var)
-			change_btn = ttk.Button(path_labelframe, text = "Change...",
-				command = _tmp_handler, style = "Contained.TButton")
+			change_btn = ttk.Button(
+				path_labelframe, text = "Change...", command = _tmp_handler, style = "Contained.TButton"
+			)
 			desc_label.grid(row = i, column = 0, sticky = "w")
 			path_entry.grid(row = i, column = 1, sticky = "ew")
 			change_btn.grid(row = i, column = 2, padx = (3, 0))
 
-		datagrab_labelframe = ttk.LabelFrame(suboptions_pane, padding = 8,
-			labelwidget = frmd_label(suboptions_pane, "Get demo information via..."))
+		datagrab_labelframe = ttk.LabelFrame(
+			suboptions_pane, padding = 8, labelwidget = frmd_label(suboptions_pane, "Get demo information via...")
+		)
 		datagrab_labelframe.grid_columnconfigure(0, weight = 1)
 		for i, j in ((".json files", 2), (CNST.EVENT_FILE, 1), ("None", 0)):
-			b = ttk.Radiobutton(datagrab_labelframe, value = j,
-				variable = self.datagrabmode_var, text = i,
-				style = "Contained.TRadiobutton")
+			b = ttk.Radiobutton(
+				datagrab_labelframe, value = j, variable = self.datagrabmode_var, text = i,
+				style = "Contained.TRadiobutton"
+			)
 			b.grid(sticky = "w", ipadx = 4)
 
-		eventread_labelframe = ttk.LabelFrame(suboptions_pane, padding = 8,
-			labelwidget = frmd_label(suboptions_pane, "Read _events.txt in chunks of size..."))
+		eventread_labelframe = ttk.LabelFrame(
+			suboptions_pane, padding = 8,
+			labelwidget = frmd_label(suboptions_pane, "Read _events.txt in chunks of size...")
+		)
 		eventread_labelframe.grid_columnconfigure(0, weight = 1)
 		self.blockszselector = ttk.Combobox(eventread_labelframe,
 			state = "readonly", values = [k for k in self.blockszvals])
 		self.blockszselector.grid(sticky = "ew")
 
-		rcon_pwd_labelframe = ttk.LabelFrame(suboptions_pane, padding = 8,
-			labelwidget = frmd_label(suboptions_pane, "RCON password"))
+		rcon_pwd_labelframe = ttk.LabelFrame(
+			suboptions_pane, padding = 8, labelwidget = frmd_label(suboptions_pane, "RCON password")
+		)
 		rcon_pwd_labelframe.grid_columnconfigure(0, weight = 1)
 		rcon_entry = ttk.Entry(rcon_pwd_labelframe, textvariable = self.rcon_pwd_var, show = "\u25A0")
 		rcon_entry.grid(column = 0, row = 0, sticky = "ew")
@@ -159,11 +176,13 @@ class Settings(BaseDialog):
 		entry_visibility_toggle.grid(column = 1, row = 0)
 
 		int_val_id = master.register(int_validator)
-		rcon_port_labelframe = ttk.LabelFrame(suboptions_pane, padding = 8,
-			labelwidget = frmd_label(suboptions_pane, "RCON port"))
+		rcon_port_labelframe = ttk.LabelFrame(
+			suboptions_pane, padding = 8, labelwidget = frmd_label(suboptions_pane, "RCON port")
+		)
 		rcon_port_labelframe.grid_columnconfigure(0, weight = 1)
 		self.rcon_port_entry = ttk.Entry(rcon_port_labelframe, validate = "key",
-			validatecommand = (int_val_id, "%S", "%P"))
+			validatecommand = (int_val_id, "%S", "%P")
+		)
 		self.rcon_port_entry.insert(0, str(self.cfg["rcon_port"]))
 		self.rcon_port_entry.grid(column = 0, row = 0, sticky = "ew")
 
@@ -194,15 +213,13 @@ class Settings(BaseDialog):
 		sidebar_outerframe.grid_rowconfigure(0, weight = 1)
 		sidebar = ttk.Frame(sidebar_outerframe, style = "Contained.TFrame")
 
-		for i, k, v in zip(
-			range(len(self._interface)),
-			self._interface.keys(),
-			self._interface.values()
-		):
+		for i, (k, v) in enumerate(self._interface.items()):
 			def _handler(self = self, k = k):
 				self._reload_options_pane(k)
-			curbtn = ttk.Radiobutton(sidebar, text = k, value = i, command = _handler,
-				variable = self._selectedpane_var, style = "Contained.TRadiobutton")
+			curbtn = ttk.Radiobutton(
+				sidebar, text = k, value = i, command = _handler, variable = self._selectedpane_var,
+				style = "Contained.TRadiobutton"
+			)
 			curbtn.grid(column = 0, row = i, sticky = "w", ipadx = 4, padx = 4)
 			if i == self.ui_remember[0]:
 				tmp_inibtn = curbtn
@@ -221,17 +238,16 @@ class Settings(BaseDialog):
 		btcancel.grid(column = 1, row = 1, padx = (3, 0), pady = (3, 0), sticky = "news")
 
 	def _create_tk_var(self, type_, name, inivalue):
-		"""Creates a tkinter variable of type "str", "int", "bool", "double",
-		registers it as an attribute of the dialog with name name and sets
-		it to inivalue.
 		"""
-		try:
-			getattr(self, name)
+		Creates a tkinter variable of type "str", "int", "bool", "double",
+		registers it as an attribute of the dialog with name `name` and sets
+		it to `inivalue`.
+		"""
+		if hasattr(self, name):
 			raise ValueError(f"Variable {name} already exists.")
-		except AttributeError:
-			pass
-		setattr(self, name, _TK_VARTYPES[type_]())
-		getattr(self, name).set(inivalue)
+		var = _TK_VARTYPES[type_]()
+		var.set(inivalue)
+		setattr(self, name, var)
 
 	def done(self, save=False):
 		self.withdraw()
@@ -256,8 +272,9 @@ class Settings(BaseDialog):
 		self.destroy()
 
 	def _sel_dir(self, variable):
-		"""Prompt the user to select a directory, then modify the tkinter
-		variable variable with the selected value.
+		"""
+		Prompt the user to select a directory, then modify the tkinter
+		variable `variable` with the selected value.
 		"""
 		sel = tk_fid.askdirectory()
 		if sel == "":
@@ -267,7 +284,7 @@ class Settings(BaseDialog):
 	def _reload_options_pane(self, key):
 		"""
 		Clears and repopulates right pane with the widgets in
-		self._interface[key]
+		self._interface[`key`]
 		"""
 		for widget in self._interface[self._selected_pane]:
 			widget.grid_forget()
@@ -277,5 +294,4 @@ class Settings(BaseDialog):
 				3 * (i != 0),
 				3 * (i != len(self._interface[key]) - 1),
 			)
-			widget.grid(column = 0, row = i, sticky = "nesw",
-				padx = (3, 0), pady = pady)
+			widget.grid(column = 0, row = i, sticky = "nesw", padx = (3, 0), pady = pady)

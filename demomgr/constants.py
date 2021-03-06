@@ -44,12 +44,13 @@ DEFAULT_CFG_SCHEMA = {
 	},
 	"ui_theme": str,
 }
-WELCOME = ("Hi and Thank You for using Demomgr!\n\nA config file has been "
-	"created.\n\nThis script is able to delete files if you tell it to.\nI in no way "
-	"guarantee that this script is safe or 100% reliable and will not take any "
-	"responsibility for lost data, damaged drives and/or destroyed hopes and dreams.\n"
-	"This program is licensed via the MIT Licence, by clicking the accept button below "
-	"you confirm that you have read and accepted the license.")
+WELCOME = \
+	"Hi and Thank You for using Demomgr!\n\nA config file has been " \
+	"created.\n\nThis script is able to delete files if you tell it to.\nI in no way " \
+	"guarantee that this script is safe or 100% reliable and will not take any " \
+	"responsibility for lost data, damaged drives and/or destroyed hopes and dreams.\n" \
+	"This program is licensed via the MIT Licence, by clicking the accept button below " \
+	"you confirm that you have read and accepted the license."
 EVENT_FILE = "_events.txt"
 DATE_FORMATS = (
 	"%d.%m.%Y %H:%M:%S",
@@ -77,17 +78,19 @@ LAUNCHOPTIONSKEYS = (
 	"UserLocalConfigStore", "Software", "Valve", "Steam", "Apps", "440", "LaunchOptions",
 )
 STEAM_CFG_USER_NAME = '["UserLocalConfigStore"]["friends"]["PersonaName"]'
-GUI_UPDATE_WAIT = 20 # Setting this to lower values might lock the UI, use with care.
+GUI_UPDATE_WAIT = 30 # Setting this to lower values might lock the UI, use with care.
 THEME_SUBDIR = "ui_themes"
+# 0: tcl file, 1: theme name, 2: resource dir name
 THEME_PACKAGES = {
 	"Dark": ("dark.tcl", "demomgr_dark", "dark"),
 }
-# 0: tcl file, 1: theme name, 2: resource dir name
-FALLBACK_HEADER = {"dem_prot": 3, "net_prot": 24, "hostname": "",
+FALLBACK_HEADER = {
+	"dem_prot": 3, "net_prot": 24, "hostname": "",
 	"clientid": "", "map_name": "", "game_dir": "", "playtime": 0,
 	"tick_num": 0, "framenum": 0, "tickrate": 0,
 }
-HEADER_HUMAN_NAMES = {"hostname": "Hostname", "clientid": "Playername",
+HEADER_HUMAN_NAMES = {
+	"hostname": "Hostname", "clientid": "Playername",
 	"map_name": "Map", "playtime": "Playtime",
 	"tick_num": "No. of ticks", "game_dir": "Game directory",
 }

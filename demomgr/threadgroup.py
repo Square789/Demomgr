@@ -102,12 +102,12 @@ class ThreadGroup():
 				while True:
 					try:
 						queue_obj = self.queue.get_nowait()
-						# Should be a bound method, so self (targetobj) is passed in automatically
-						res = cb_method(queue_obj)
-						if res == THREADGROUPSIG.FINISHED:
-							finished = True
 					except queue.Empty:
 						break
+					# Should be a bound method, so self (targetobj) is passed in automatically
+					res = cb_method(queue_obj)
+					if res == THREADGROUPSIG.FINISHED:
+						finished = True
 				if not finished and reschedule:
 					# decorated is made a bound class method below, which this will access.
 					self.after_handle = self.tk_wdg.after(CNST.GUI_UPDATE_WAIT, decorated)
@@ -117,13 +117,13 @@ class ThreadGroup():
 				while True:
 					try:
 						queue_obj = self.queue.get_nowait()
-						res = cb_method(queue_obj)
-						if res == THREADGROUPSIG.FINISHED:
-							finished = True
-						elif res == THREADGROUPSIG.HOLDBACK:
-							self.heldback_queue_elem = queue_obj
 					except queue.Empty:
 						break
+					res = cb_method(queue_obj)
+					if res == THREADGROUPSIG.FINISHED:
+						finished = True
+					elif res == THREADGROUPSIG.HOLDBACK:
+						self.heldback_queue_elem = queue_obj
 				if not finished and reschedule:
 					self.after_handle = self.tk_wdg.after(CNST.GUI_UPDATE_WAIT, decorated)
 				else:
@@ -151,8 +151,9 @@ class ThreadGroup():
 		argument.
 		"""
 		if self._decorated_cb is None:
-			raise ValueError("No callback defined in threadgroup. Call "
-				"decorate_and_patch on a suitable callback function.")
+			raise ValueError(
+				"No callback defined in threadgroup. Call decorate_and_patch on a suitable callback function."
+			)
 		self.heldback_queue_elem = None
 		self.thread = self.thread_cls(self.queue, *args, **kwargs)
 		self.thread.start()

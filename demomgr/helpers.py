@@ -116,14 +116,18 @@ def getstreakpeaks(killstreaks):
 	be in a correct order.
 	"""
 	streakpeaks = []
-	if killstreaks:
-		localkillstreaks = killstreaks.copy()
-		localkillstreaks.append((-1, -1))
-		prv = (-1, -1)
-		for i in localkillstreaks:
-			if i[0] <= prv[0]:
-				streakpeaks.append(prv)
-			prv = i
+
+	if not killstreaks:
+		return streakpeaks
+
+	prv = (-1, -1)
+	for streaktup in killstreaks:
+		if streaktup[0] <= prv[0]:
+			streakpeaks.append(prv)
+		prv = streaktup
+	# Get last streak, won't attach (-1, -1) since killstreaks is at least 1 element long
+	streakpeaks.append(prv)
+
 	return streakpeaks
 
 def assign_demo_info(files, demo_info):

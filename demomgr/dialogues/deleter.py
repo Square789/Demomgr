@@ -87,7 +87,8 @@ class Deleter(BaseDialog):
 			self.startmsg = "! Error getting JSON files: !\n{}{}\n\n{}".format(error.__class__.__name__, str(error), self.startmsg)
 
 	def body(self, master):
-		'''UI'''
+		self.protocol("WM_DELETE_WINDOW", self.destroy)
+
 		self.okbutton = ttk.Button(master, text = "Delete!", command = lambda: self.confirm(1) )
 		self.cancelbutton = ttk.Button(master, text = "Cancel", command = self.destroy )
 		self.closebutton = ttk.Button(master, text = "Close", command = self.destroy )

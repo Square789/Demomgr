@@ -62,8 +62,9 @@ class ThreadFilter(_StoppableBaseThread):
 					demo_data = queueobj[1]
 				elif queueobj[0] < 0x100: # Finish signal
 					if queueobj[0] == THREADSIG.FAILURE:
-						self.queue_out_put(THREADSIG.INFO_STATUSBAR, ("Demo fetching thread failed "
-							"unexpectedly during filtering.", 4000))
+						self.queue_out_put(THREADSIG.INFO_STATUSBAR, (
+							"Demo fetching thread failed unexpectedly during filtering.", 4000)
+						)
 						self.queue_out_put(THREADSIG.FAILURE); return
 					break
 			except queue.Empty:
@@ -107,7 +108,9 @@ class ThreadFilter(_StoppableBaseThread):
 				self.queue_out_put(THREADSIG.ABORTED); return
 
 		del filters
-		self.queue_out_put(THREADSIG.INFO_STATUSBAR,
-			(f"Filtered {file_amnt} demos in {round(time.time() - starttime, 3)} seconds.", 3000))
+		self.queue_out_put(
+			THREADSIG.INFO_STATUSBAR,
+			(f"Filtered {file_amnt} demos in {round(time.time() - starttime, 3)} seconds.", 3000)
+		)
 		self.queue_out_put(THREADSIG.RESULT_DEMODATA, filtered_demo_data)
 		self.queue_out_put(THREADSIG.SUCCESS)

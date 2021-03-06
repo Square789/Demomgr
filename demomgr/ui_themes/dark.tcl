@@ -8,7 +8,7 @@ ttk::style theme create demomgr_dark -settings \
 	ttk::style configure MultiframeList.Listbox \
 		-foreground #EEEEEE -background #333333 -active none -highlightthickness 1 \
 		-highlightbackground #656565 -highlightcolor #656565 \
-		-activestyle none -borderwidth 1 -relief groove -selectbackground #EEEEEE \
+		-activestyle none -borderwidth 1 -relief flat -selectbackground #EEEEEE \
 		-selectforeground #000000 -selectborderwidth 1
 	ttk::style configure TEntry \
 		-foreground #EEEEEE -selectbackground #EEEEEE -selectforeground #000000

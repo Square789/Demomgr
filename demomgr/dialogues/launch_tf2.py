@@ -98,70 +98,74 @@ class LaunchTF2(BaseDialog):
 		dir_sel_lblfrm.grid_columnconfigure(0, weight = 1)
 		ds_widgetframe = ttk.Frame(dir_sel_lblfrm, style = "Contained.TFrame")
 		ds_widgetframe.grid_columnconfigure(1, weight = 1)
-		for i, j in enumerate((("Steam:", self.steamdir_var),
-					("HLAE:", self.hlaedir_var))):
-			dir_label = ttk.Label(ds_widgetframe, style = "Contained.TLabel",
-				text = j[0])
-			dir_entry = ttk.Entry(ds_widgetframe, state = "readonly",
-				textvariable = j[1])
+		for i, j in enumerate((
+			("Steam:", self.steamdir_var),
+			("HLAE:", self.hlaedir_var),
+		)):
+			dir_label = ttk.Label(ds_widgetframe, style = "Contained.TLabel", text = j[0])
+			dir_entry = ttk.Entry(ds_widgetframe, state = "readonly", textvariable = j[1])
 			def tmp_handler(self = self, var = j[1]):
 				return self._sel_dir(var)
-			dir_btn = ttk.Button(ds_widgetframe,
-				style = "Contained.TButton", command = tmp_handler,
-				text = "Change path...")
+			dir_btn = ttk.Button(
+				ds_widgetframe, style = "Contained.TButton", command = tmp_handler,
+				text = "Change path..."
+			)
 			dir_label.grid(row = i, column = 0)
 			dir_entry.grid(row = i, column = 1, sticky = "ew")
 			dir_btn.grid(row = i, column = 2, padx = (3, 0))
-		self.error_steamdir_invalid = ttk.Label(dir_sel_lblfrm, anchor = tk.N,
-			justify = tk.CENTER, style = "Error.Contained.TLabel",
-			text = ("Getting steam users failed! Please select the root folder"
-			" called \"Steam\".\nEventually check for permission conflicts.") )
-		self.warning_steamdir_mislocated = ttk.Label(dir_sel_lblfrm,
-			anchor = tk.N, style = "Warning.Contained.TLabel",
-			text = ("The queried demo and the Steam directory are on"
-			" seperate drives."))
+		self.error_steamdir_invalid = ttk.Label(
+			dir_sel_lblfrm, anchor = tk.N, justify = tk.CENTER, style = "Error.Contained.TLabel",
+			text = "Getting steam users failed! Please select the root folder called \"Steam\".\n" \
+				"Eventually check for permission conflicts."
+		)
+		self.warning_steamdir_mislocated = ttk.Label(
+			dir_sel_lblfrm, anchor = tk.N, style = "Warning.Contained.TLabel",
+			text = "The queried demo and the Steam directory are on seperate drives."
+		)
 
-		userselectframe = ttk.LabelFrame(master, padding = (10, 8, 10, 8),
-			labelwidget = frmd_label(master, "Select user profile if needed"))
+		userselectframe = ttk.LabelFrame(
+			master, padding = (10, 8, 10, 8),
+			labelwidget = frmd_label(master, "Select user profile if needed")
+		)
 		userselectframe.grid_columnconfigure(0, weight = 1)
-		self.info_launchoptions_not_found = ttk.Label(userselectframe,
-			anchor = tk.N, style = "Info.Contained.TLabel", text = ("Launch "
-			"configuration not found, it likely does not exist.") )
-		self.userselectbox = ttk.Combobox(userselectframe,
-			textvariable = self.userselectvar, state = "readonly")
+		self.info_launchoptions_not_found = ttk.Label(
+			userselectframe, anchor = tk.N, style = "Info.Contained.TLabel",
+			text = "Launch configuration not found, it likely does not exist."
+		)
+		self.userselectbox = ttk.Combobox(userselectframe, textvariable = self.userselectvar, state = "readonly")
 		# Once changed, observer callback triggered by self.userselectvar
 
-		launchoptionsframe = ttk.LabelFrame(master, padding = (10, 8, 10, 8),
-			labelwidget = frmd_label(master, "Launch options"))
+		launchoptionsframe = ttk.LabelFrame(
+			master, padding = (10, 8, 10, 8), labelwidget = frmd_label(master, "Launch options")
+		)
 		launchoptionsframe.grid_columnconfigure(0, weight = 1)
-		launchoptwidgetframe = ttk.Frame(launchoptionsframe, borderwidth = 4,
-			relief = tk.RAISED, padding = (5, 4, 5, 4), )
+		launchoptwidgetframe = ttk.Frame(
+			launchoptionsframe, borderwidth = 4, relief = tk.RAISED, padding = (5, 4, 5, 4)
+		)
 		launchoptwidgetframe.grid_columnconfigure((1, ), weight = 10)
-		self.head_args_lbl = ttk.Label(launchoptwidgetframe,
-			text = "[...]/hl2.exe -steam -game tf")
-		self.launchoptionsentry = ttk.Entry(launchoptwidgetframe,
-			textvariable = self.launchoptionsvar)
+		self.head_args_lbl = ttk.Label(launchoptwidgetframe, text = "[...]/hl2.exe -steam -game tf")
+		self.launchoptionsentry = ttk.Entry(launchoptwidgetframe, textvariable = self.launchoptionsvar)
 		pluslabel = ttk.Label(launchoptwidgetframe, text = "+")
-		self.demo_play_arg_entry = ttk.Entry(launchoptwidgetframe,
-			state = "readonly", textvariable = self.playdemoarg)
+		self.demo_play_arg_entry = ttk.Entry(launchoptwidgetframe, state = "readonly", textvariable = self.playdemoarg)
 		self.end_q_mark_label = ttk.Label(launchoptwidgetframe, text = "")
 		#launchoptwidgetframe.grid_propagate(False)
 
-		self.use_hlae_checkbox = ttk.Checkbutton(launchoptionsframe,
-			variable = self.usehlae_var, text = "Launch using HLAE",
-			style = "Contained.TCheckbutton", command = self._toggle_hlae_cb)
+		self.use_hlae_checkbox = ttk.Checkbutton(
+			launchoptionsframe, variable = self.usehlae_var, text = "Launch using HLAE",
+			style = "Contained.TCheckbutton", command = self._toggle_hlae_cb
+		)
 
-		self.warning_not_in_tf_dir = ttk.Label(launchoptionsframe,
-			anchor = tk.N, style = "Warning.Contained.TLabel",
-			text = ("The demo can not be played as it is not in"
-			" Team Fortress\' file system (/tf/)"))
+		self.warning_not_in_tf_dir = ttk.Label(
+			launchoptionsframe, anchor = tk.N, style = "Warning.Contained.TLabel",
+			text = "The demo can not be played as it is not in  Team Fortress\' file system (/tf/)"
+		)
 		# self.demo_play_arg_entry.config(width = len(self.playdemoarg.get()) + 2)
 
-		rconlabelframe = ttk.LabelFrame(master, padding = (10, 8, 10, 8),
-			labelwidget = frmd_label(master, "RCON"))
+		rconlabelframe = ttk.LabelFrame(master, padding = (10, 8, 10, 8), labelwidget = frmd_label(master, "RCON"))
 		rconlabelframe.grid_columnconfigure(1, weight = 1)
-		self.rcon_btn = ttk.Button(rconlabelframe, text = "Send command", command = self._rcon,
-			width = 15, style = "Centered.TButton")
+		self.rcon_btn = ttk.Button(
+			rconlabelframe, text = "Send command", command = self._rcon, width = 15, style = "Centered.TButton"
+		)
 		self.rcon_btn.grid(row = 0, column = 0)
 		self.rcon_txt = TtkText(rconlabelframe, self._style, height = 4, width = 48, wrap = tk.CHAR)
 		rcon_scrollbar = ttk.Scrollbar(rconlabelframe, orient = tk.HORIZONTAL, command = self.rcon_txt.xview)
@@ -251,11 +255,10 @@ class LaunchTF2(BaseDialog):
 				cnf_file = os.path.join(toget, user, CNST.STEAM_CFG_PATH1)
 				with open(cnf_file, encoding = "utf-8") as h:
 					vdfdata = vdf.load(h)
-					username = eval(f"vdfdata{CNST.STEAM_CFG_USER_NAME}")
+				username = eval(f"vdfdata{CNST.STEAM_CFG_USER_NAME}")
 				username = tk_secure_str(username)
 				users[index] = (users[index], username)
-			except (OSError, PermissionError, FileNotFoundError, KeyError,
-					SyntaxError):
+			except (OSError, PermissionError, FileNotFoundError, KeyError, SyntaxError):
 				users[index] = (users[index], None)
 		self.errstates[ERR_IDX.STEAMDIR] = False
 		return users
@@ -266,9 +269,10 @@ class LaunchTF2(BaseDialog):
 			if tmp == -1:
 				raise KeyError("Bad or empty (?) steam folder")
 			user_id = self.users[tmp][0]
-			with open(os.path.join(self.steamdir_var.get(),
-					CNST.STEAM_CFG_PATH0, user_id,
-					CNST.STEAM_CFG_PATH1), encoding = "utf-8") as h:
+			with open(os.path.join(
+					self.steamdir_var.get(), CNST.STEAM_CFG_PATH0, user_id, CNST.STEAM_CFG_PATH1
+				), encoding = "utf-8"
+			) as h:
 				subelem = vdf.load(h)
 			for i in CNST.LAUNCHOPTIONSKEYS:
 				if i in subelem:
@@ -279,8 +283,8 @@ class LaunchTF2(BaseDialog):
 					raise KeyError("Could not find launch options in vdf.")
 			self.errstates[ERR_IDX.LAUNCHOPT] = False
 			return subelem
-		except (KeyError, FileNotFoundError, OSError, PermissionError,
-				SyntaxError) as e: #SyntaxError raised by vdf module
+		# SyntaxError raised by vdf module
+		except (KeyError, FileNotFoundError, OSError, PermissionError, SyntaxError) as e:
 			self.errstates[ERR_IDX.LAUNCHOPT] = True
 			return ""
 
@@ -297,32 +301,26 @@ class LaunchTF2(BaseDialog):
 			return
 		self._load_users_ui()
 
-	def _load_users_ui(self, init = False):
+	def _load_users_ui(self):
 		"""
 		Get users, store them in `self.users`, update related widgets.
 		Also creates a list of strings as inserted into the combobox,
 		stored in `self.users_str`
-
-		init: If set to True, will not touch some interface elements
-			which may not exist during initialization.
 		"""
 		self.users = self.getusers()
-		self.users_str = ["{}{}".format(t[0],
-			(" - " + t[1]) if t[1] is not None else "") for t in self.users]
+		self.users_str = [t[0] + ((" - " + t[1]) if t[1] is not None else "") for t in self.users]
 		self.userselectbox.config(values = self.users_str)
 		if self.users:
 			self.userselectbox.current(0)
 		else:
-			self.userselectvar.set("") # if this is not the call in __init__,
-				# will trigger self.userchange
+			self.userselectvar.set("")
 		self._constructshortdemopath()
 		self._showerrs()
 
 	def _toggle_hlae_cb(self):
 		"""Changes some labels."""
 		if self.usehlae_var.get():
-			self.head_args_lbl.configure(text = "[...]/hlae.exe [...] "
-				"-cmdLine \" -steam -game tf -insecure +sv_lan 1")
+			self.head_args_lbl.configure(text = "[...]/hlae.exe [...] -cmdLine \" -steam -game tf -insecure +sv_lan 1")
 			self.end_q_mark_label.configure(text = '"')
 		else:
 			self.head_args_lbl.configure(text = "[...]/hl2.exe -steam -game tf")
@@ -336,8 +334,9 @@ class LaunchTF2(BaseDialog):
 
 	def _constructshortdemopath(self):
 		try:
-			self.shortdemopath = os.path.relpath(self.demopath,
-				os.path.join(self.steamdir_var.get(), CNST.TF2_HEAD_PATH))
+			self.shortdemopath = os.path.relpath(
+				self.demopath, os.path.join(self.steamdir_var.get(), CNST.TF2_HEAD_PATH)
+			)
 			self.errstates[ERR_IDX.STEAMDIR_DRIVE] = False
 		except ValueError:
 			self.shortdemopath = ""
@@ -397,26 +396,25 @@ class LaunchTF2(BaseDialog):
 		if launch:
 			USE_HLAE = self.usehlae_var.get()
 			user_args = self.launchoptionsvar.get().split()
-			tf2_launch_args = CNST.TF2_LAUNCHARGS + user_args + \
-				["+playdemo", self.shortdemopath] # args for hl2.exe
+			# args for hl2.exe
+			tf2_launch_args = CNST.TF2_LAUNCHARGS + user_args + ["+playdemo", self.shortdemopath]
 			if USE_HLAE:
 				tf2_launch_args.extend(CNST.HLAE_ADD_TF2_ARGS)
 				executable = os.path.join(self.hlaedir_var.get(), CNST.HLAE_EXE)
 				launch_args = CNST.HLAE_LAUNCHARGS0.copy() # hookdll required
-				launch_args.append(os.path.join(self.hlaedir_var.get(),
-					CNST.HLAE_HOOK_DLL))
-				launch_args.extend(CNST.HLAE_LAUNCHARGS1) # hl2 exe path required
-				launch_args.append(os.path.join(self.steamdir_var.get(),
-					CNST.TF2_EXE_PATH))
+				launch_args.append(os.path.join(self.hlaedir_var.get(), CNST.HLAE_HOOK_DLL))
+				# hl2 exe path required
+				launch_args.extend(CNST.HLAE_LAUNCHARGS1)
+				launch_args.append(os.path.join(self.steamdir_var.get(), CNST.TF2_EXE_PATH))
 				launch_args.extend(CNST.HLAE_LAUNCHARGS2)
-				launch_args.append(" ".join(tf2_launch_args)) # has to be supplied as string
+				# has to be supplied as string
+				launch_args.append(" ".join(tf2_launch_args))
 			else:
 				executable = os.path.join(self.steamdir_var.get(), CNST.TF2_EXE_PATH)
 				launch_args = tf2_launch_args
 			final_launchoptions = [executable] + launch_args
 
-			self.result.data = {"steampath": self.steamdir_var.get(), 
-				"hlaepath": self.hlaedir_var.get()}
+			self.result.data = {"steampath": self.steamdir_var.get(), "hlaepath": self.hlaedir_var.get()}
 
 			try:
 				subprocess.Popen(final_launchoptions)
@@ -427,10 +425,11 @@ class LaunchTF2(BaseDialog):
 				tk_msg.showerror("Demomgr - Error", "Executable not found.", parent = self)
 			except (OSError, PermissionError) as error:
 				self.result.data["game_launched"] = False
-				tk_msg.showerror("Demomgr - Error",
-					"Could not access executable :\n{}".format(str(error)), parent = self)
+				tk_msg.showerror("Demomgr - Error", f"Could not access executable :\n{error}", parent = self)
 
-		self.result.remember = [self.usehlae_var.get(),
-			self.users[self.userselectbox.current()][0] if self.userselectbox.current() != -1 else ""]
+		self.result.remember = [
+			self.usehlae_var.get(),
+			self.users[self.userselectbox.current()][0] if self.userselectbox.current() != -1 else ""
+		]
 
 		self.destroy()
