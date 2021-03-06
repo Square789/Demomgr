@@ -25,7 +25,7 @@ from demomgr import platforming
 from demomgr.threadgroup import ThreadGroup, THREADGROUPSIG
 from demomgr.threads import THREADSIG, ThreadFilter, ThreadReadFolder, ThreadDemoInfo
 
-__version__ = "1.7.3"
+__version__ = "1.7.4"
 __author__ = "Square789"
 
 class MainApp():
