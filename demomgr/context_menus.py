@@ -69,7 +69,7 @@ def entry_cb(event):
 	w = event.widget
 	x = w.winfo_rootx() + event.x
 	y = w.winfo_rooty() + event.y
-	
+
 	add_elems = []
 	w_state = str(w.configure("state")[-1])
 	if w_state != "disabled":

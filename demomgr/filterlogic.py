@@ -12,9 +12,9 @@ A key-parameter pair looks like this:
 The k-p pair seperator is optional if the k-p pair is the last one.
 
 Valid parameters include:
-	A tuple of strings [ ("a", "b", 'c', ) ] <regex module required>
+	A tuple of strings [ ("a", "b", 'c', ) ]
 	A tuple of unquoted strings [ (a, b, c) ]
-	A string [ "a" ]  <regex module required>
+	A string [ "a" ]
 	An unquoted string [ a ]
 	A numeric range [ 1..2 ] [ ..2 ]
 		(Ranges are inclusive.)
@@ -62,51 +62,54 @@ FAIL_OUT_LEN = 10
 
 # Current quoteless string chars: [A-Za-z0-9_-]
 
-re_quoted_string = re.compile(r"""(?:(['"])(.*?(?:(?<!\\)(?:\\\\)*))\1)""")
+RE_QUOTED_STRING = re.compile(r"""(?:(['"])(.*?(?:(?<!\\)(?:\\\\)*))\1)""")
 # For some reason, groups will be inaccessible without the encasing
 # non-capturing group.
 
-re_unesc_dbl_quotes = re.compile(r"""(?<!\\)(?P<slashes>\\\\)*(?=\")""")
+RE_UNESC_DBL_QUOT = re.compile(r"""(?<!\\)(?P<slashes>\\\\)*(?=\")""")
 
-re_key = re.compile("^[A-Za-z0-9_-]*" + KEY_PARAM_SEP + "\\s*")
+RE_KEY = re.compile(r"^[A-Za-z0-9_-]*" + KEY_PARAM_SEP + r"\s*")
 
 # Parameter format regex
 # 0: validation regex; 1: parameter matching regex (gets applied to the full
-# match of 0), 2: group of 1 to read from, unless 2 is "RANGE"
-re_params = {
+# match of 0), 2: group of 1 to read from, unless 2 is -1.
+# In that case it's a range extraction regex, which must have 2 groups called
+# "start" and "end"
+RE_PARAMS = {
 	"quoteless_string_tuple": (
-		re.compile(r"^\([A-Za-z0-9_-]+(?:\s*,\s*[A-Za-z0-9_-]+)" \
-			"*\s*(?:,\s*)?\)\s*(?:,\s*|$)"),
-		re.compile(r"[A-Za-z0-9_-]+"), 0,
+		re.compile(r"^\([A-Za-z0-9_-]+(?:\s*,\s*[A-Za-z0-9_-]+)*\s*(?:,\s*)?\)\s*(?:,\s*|$)"),
+		re.compile(r"[A-Za-z0-9_-]+"),
+		0,
 	),
 	"num_range": (
 		re.compile(r"(?:(^[0-9]+)|^)\.\.(?(1)[0-9]*|[0-9]+)\s*(?:,\s*|$)"),
 		re.compile(r"(?:(?P<start>[0-9]+)?\.\.(?P<end>[0-9]+)?)"),
-		"RANGE",
-		# range extraction regex must have 2 groups called "start" and "end"
+		-1,
 	),
 	"quoteless_string": (
 		re.compile(r"^[A-Za-z0-9_-]+\s*(?:,\s*|$)"),
-		re.compile(r"^[A-Za-z0-9_-]*"), 0,
+		re.compile(r"^[A-Za-z0-9_-]+"),
+		0,
 	),
 	"string_tuple": (
 		regex.compile(r"""
-		(?(DEFINE)
-			(?<string> (['"]).*?(?&even_backslash)\2 )
-			(?<even_backslash> (?:((?<=[^\\]))(?:\\\\)*) )
-			(?<separator> \s*,\s* )
-			(?<separator_end> \s*(?:,\s*)? )
-			(?<separator_end_line> \s*(?:,\s*|$) )
-		)
-		\(\s*(?>(?&string))((?&separator)(?&string))*(?&separator_end)?\)
-		(?&separator_end_line)""", re.X + regex.VERSION1
-	), re_quoted_string, 2, ),
-	# DO NOT BACKTRACK INTO FIRST string GROUP
-	# good got all the hours gone to waste and i just had to make that
-	# group atomic
+			(?(DEFINE)
+				(?<string> (['"]).*?(?&even_backslash)\2 )
+				(?<even_backslash> (?:((?<=[^\\]))(?:\\\\)*) )
+				(?<separator> \s*,\s* )
+				(?<separator_end> \s*(?:,\s*)? )
+				(?<separator_end_line> \s*(?:,\s*|$) )
+			)
+			\(\s*(?>(?&string))((?&separator)(?&string))*(?&separator_end)?\)
+			(?&separator_end_line)""", re.X + regex.VERSION1),
+		RE_QUOTED_STRING,
+		2
+	),
 	"string": (
-		regex.compile(r"""^(?>(['"]).*?(?:(?<=[^\\])(?:\\\\)*)\1)?""" \
-			"""\s*(,\s*|$)"""), re_quoted_string, 2, ),
+		regex.compile(r"""^(?>(['"]).*?(?:(?<=[^\\])(?:\\\\)*)\1)\s*(,\s*|$)"""),
+		RE_QUOTED_STRING,
+		2,
+	),
 }
 
 def escapeinput(raw):
@@ -130,10 +133,9 @@ def _extract_key(inp):
 	if inp[0] == KEY_NEGATOR:
 		key_negated = True
 		inp = inp[len(KEY_NEGATOR):]
-	raw_key = re_key.search(inp)
+	raw_key = RE_KEY.search(inp)
 	if raw_key is None:
-		raise ValueError("Could not find valid key at around: " \
-			"\"{}\"".format(inp[:FAIL_OUT_LEN]))
+		raise ValueError(f"Could not find valid key around: \"{inp[:FAIL_OUT_LEN]}\"")
 	raw_key = raw_key[0]
 	key_name = raw_key.split(KEY_PARAM_SEP)[0]
 
@@ -150,34 +152,32 @@ def _ident_and_extract_param(inp):
 	the input with parameters and whitespace as well as a potential comma
 	following it cut off.
 	"""
-	for exp_name, exp_tuple in re_params.items():
-		expression = exp_tuple[0]
-		res = expression.search(inp)
+	for exp_name, (id_re, val_re, re_group) in RE_PARAMS.items():
+		res = id_re.search(inp)
 		if res is not None:
 			break
-	if res is None:
-		raise ValueError("No parameter could be identified at around: " \
-			" \"{}\"".format(inp[:FAIL_OUT_LEN]))
+	else:
+		raise ValueError(f"No parameter could be identified around: \"{inp[:FAIL_OUT_LEN]}\"")
 	raw_param = res[0]
 
-	param_matches = exp_tuple[1].finditer(raw_param)
+	param_matches = val_re.finditer(raw_param)
+	if not param_matches:
+		raise ValueError(
+			f"Apparently, the validator function {exp_name} is garbage. "
+			f"Please report this."
+		)
 
-	if exp_tuple[2] == "RANGE":
+	if re_group == -1:
+		is_range = True
 		# param_matches should be of length 1, the single element defining
 		# the capture groups "start" and "end"
-		is_range = True
 		param_matches = next(param_matches)
 		final_params = [param_matches["start"], param_matches["end"]]
 	else:
 		is_range = False
-		if not param_matches:
-			raise ValueError("Apparently, the validator function {} is " \
-				"garbage. Please report this.".format(exp_name))
-		tmp_params = [i[exp_tuple[2]] for i in param_matches]
-		tmp_params = [re_unesc_dbl_quotes.sub(r"\g<slashes>\\", i)
-			for i in tmp_params]
-		final_params = [escapeinput(
-			literal_eval('"' + i + '"')) for i in tmp_params]
+		tmp_params = [i[re_group] for i in param_matches]
+		tmp_params = [RE_UNESC_DBL_QUOT.sub(r"\g<slashes>\\", i) for i in tmp_params]
+		final_params = [escapeinput(literal_eval('"' + i + '"')) for i in tmp_params]
 		# As the string is encased with double quotes for the literal eval,
 		# which allows for parsing of escape characters, non-escaped double
 		# quotes would raise a parser error within literal_eval. Those are
@@ -194,12 +194,11 @@ def _extract_keys_and_params(inp):
 	filterstring = inp.strip()
 	parsed_str = {}
 
-	while filterstring != "":
-		keyres = _extract_key(filterstring)
-		filterstring = keyres[2]
-		paramres = _ident_and_extract_param(filterstring)
-		parsed_str[keyres[0]] = [paramres[0], keyres[1], paramres[1]]
-		filterstring = paramres[2]
+	while filterstring:
+		key, key_negated, key_remainder = _extract_key(filterstring)
+		params, is_range, param_remainder = _ident_and_extract_param(key_remainder)
+		parsed_str[key] = [params, key_negated, is_range]
+		filterstring = param_remainder
 
 	return parsed_str
 
@@ -213,12 +212,9 @@ def process_filterstring(inp):
 	flags = 0
 
 	key_param_dict = _extract_keys_and_params(inp)
-	for key, spec in key_param_dict.items():
-		params = spec[0]
-		is_negated = spec[1]
-		is_range = spec[2]
-		if not key in FILTERDICT:
-			raise ValueError("Unknown key: \"{}\"".format(key))
+	for key, (params, is_negated, is_range) in key_param_dict.items():
+		if key not in FILTERDICT:
+			raise ValueError(f"Unknown key: {key!r}")
 		flags |= FILTERDICT[key][2]
 		lambdastub = FILTERDICT[key][0]
 		req_type = FILTERDICT[key][1]
@@ -230,17 +226,17 @@ def process_filterstring(inp):
 				rngtup = ((params[0], SIGNS.GTE), (params[1], SIGNS.LTE))
 				logic_conjugator = " and "
 
-			lambdastubs = [lambdastub.format(req_type(i), sign = sign)
-				for i, sign in rngtup if i is not None]
-			lambdas.append(eval("lambda x: {}".format(
-				logic_conjugator.join(lambdastubs))))
+			lambdastubs = [
+				lambdastub.format(req_type(i), sign = sign)
+				for i, sign in rngtup if i is not None
+			]
+			lambdas.append(eval(f"lambda x: {logic_conjugator.join(lambdastubs)}"))
 			#!(1..5) -> !(>= 1 & <= 5) -> (< 1 | > 5)
 			#!(1..) ->  !(>= 1) ->        (< 1)
 			#!(..5) ->  !(<= 5) ->        (> 5)
 			#!(5..1) -> !(>= 5 & <= 1) -> (< 5 | > 1)
 		else: # Regular comparision
-			lambdastubs = [lambdastub.format(req_type(i), sign = SIGNS.EQ)
-				for i in params]
+			lambdastubs = [lambdastub.format(req_type(i), sign = SIGNS.EQ) for i in params]
 			lambdas.append(eval(
 				"lambda x: {}{}{}".format(
 					"not (" * is_negated,

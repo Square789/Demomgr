@@ -93,8 +93,9 @@ class LaunchTF2(BaseDialog):
 
 		master.grid_columnconfigure((0, 1), weight = 1)
 
-		dir_sel_lblfrm = ttk.LabelFrame(master, padding = (10, 8, 10, 8), 
-			labelwidget = frmd_label(master, "Paths"))
+		dir_sel_lblfrm = ttk.LabelFrame(
+			master, padding = (10, 8, 10, 8), labelwidget = frmd_label(master, "Paths")
+		)
 		dir_sel_lblfrm.grid_columnconfigure(0, weight = 1)
 		ds_widgetframe = ttk.Frame(dir_sel_lblfrm, style = "Contained.TFrame")
 		ds_widgetframe.grid_columnconfigure(1, weight = 1)
@@ -115,8 +116,8 @@ class LaunchTF2(BaseDialog):
 			dir_btn.grid(row = i, column = 2, padx = (3, 0))
 		self.error_steamdir_invalid = ttk.Label(
 			dir_sel_lblfrm, anchor = tk.N, justify = tk.CENTER, style = "Error.Contained.TLabel",
-			text = "Getting steam users failed! Please select the root folder called \"Steam\".\n" \
-				"Eventually check for permission conflicts."
+			text = "Getting steam users failed! Please select the root folder called " \
+				"\"Steam\".\nEventually check for permission conflicts."
 		)
 		self.warning_steamdir_mislocated = ttk.Label(
 			dir_sel_lblfrm, anchor = tk.N, style = "Warning.Contained.TLabel",
@@ -132,7 +133,9 @@ class LaunchTF2(BaseDialog):
 			userselectframe, anchor = tk.N, style = "Info.Contained.TLabel",
 			text = "Launch configuration not found, it likely does not exist."
 		)
-		self.userselectbox = ttk.Combobox(userselectframe, textvariable = self.userselectvar, state = "readonly")
+		self.userselectbox = ttk.Combobox(
+			userselectframe, textvariable = self.userselectvar, state = "readonly"
+		)
 		# Once changed, observer callback triggered by self.userselectvar
 
 		launchoptionsframe = ttk.LabelFrame(
@@ -146,7 +149,9 @@ class LaunchTF2(BaseDialog):
 		self.head_args_lbl = ttk.Label(launchoptwidgetframe, text = "[...]/hl2.exe -steam -game tf")
 		self.launchoptionsentry = ttk.Entry(launchoptwidgetframe, textvariable = self.launchoptionsvar)
 		pluslabel = ttk.Label(launchoptwidgetframe, text = "+")
-		self.demo_play_arg_entry = ttk.Entry(launchoptwidgetframe, state = "readonly", textvariable = self.playdemoarg)
+		self.demo_play_arg_entry = ttk.Entry(
+			launchoptwidgetframe, state = "readonly", textvariable = self.playdemoarg
+		)
 		self.end_q_mark_label = ttk.Label(launchoptwidgetframe, text = "")
 		#launchoptwidgetframe.grid_propagate(False)
 
@@ -157,18 +162,25 @@ class LaunchTF2(BaseDialog):
 
 		self.warning_not_in_tf_dir = ttk.Label(
 			launchoptionsframe, anchor = tk.N, style = "Warning.Contained.TLabel",
-			text = "The demo can not be played as it is not in  Team Fortress\' file system (/tf/)"
+			text = "The demo can not be played as it is not in Team Fortress' file system (/tf)"
 		)
 		# self.demo_play_arg_entry.config(width = len(self.playdemoarg.get()) + 2)
 
-		rconlabelframe = ttk.LabelFrame(master, padding = (10, 8, 10, 8), labelwidget = frmd_label(master, "RCON"))
+		rconlabelframe = ttk.LabelFrame(
+			master, padding = (10, 8, 10, 8), labelwidget = frmd_label(master, "RCON")
+		)
 		rconlabelframe.grid_columnconfigure(1, weight = 1)
 		self.rcon_btn = ttk.Button(
-			rconlabelframe, text = "Send command", command = self._rcon, width = 15, style = "Centered.TButton"
+			rconlabelframe, text = "Send command", command = self._rcon,
+			width = 15, style = "Centered.TButton"
 		)
 		self.rcon_btn.grid(row = 0, column = 0)
-		self.rcon_txt = TtkText(rconlabelframe, self._style, height = 4, width = 48, wrap = tk.CHAR)
-		rcon_scrollbar = ttk.Scrollbar(rconlabelframe, orient = tk.HORIZONTAL, command = self.rcon_txt.xview)
+		self.rcon_txt = TtkText(
+			rconlabelframe, self._style, height = 4, width = 48, wrap = tk.CHAR
+		)
+		rcon_scrollbar = ttk.Scrollbar(
+			rconlabelframe, orient = tk.HORIZONTAL, command = self.rcon_txt.xview
+		)
 		self.rcon_txt.insert(tk.END, "Status: [.]\n\n\n")
 		self.rcon_txt.mark_set("spinner", "1.9")
 		self.rcon_txt.mark_gravity("spinner", tk.LEFT)
@@ -288,7 +300,7 @@ class LaunchTF2(BaseDialog):
 			self.errstates[ERR_IDX.LAUNCHOPT] = True
 			return ""
 
-	def _sel_dir(self, variable): #Triggered by user clicking on the Dir choosing btn
+	def _sel_dir(self, variable): # Triggered by user clicking on the Dir choosing btn
 		"""
 		Opens up a file selection dialog. If the changed variable was the
 		steam dir one, updates related widgets.
@@ -308,7 +320,9 @@ class LaunchTF2(BaseDialog):
 		stored in `self.users_str`
 		"""
 		self.users = self.getusers()
-		self.users_str = [t[0] + ((" - " + t[1]) if t[1] is not None else "") for t in self.users]
+		self.users_str = [
+			t[0] + (f" - {t[1]}" if t[1] is not None else "") for t in self.users
+		]
 		self.userselectbox.config(values = self.users_str)
 		if self.users:
 			self.userselectbox.current(0)
@@ -320,7 +334,9 @@ class LaunchTF2(BaseDialog):
 	def _toggle_hlae_cb(self):
 		"""Changes some labels."""
 		if self.usehlae_var.get():
-			self.head_args_lbl.configure(text = "[...]/hlae.exe [...] -cmdLine \" -steam -game tf -insecure +sv_lan 1")
+			self.head_args_lbl.configure(
+				text = "[...]/hlae.exe [...] -cmdLine \" -steam -game tf -insecure +sv_lan 1"
+			)
 			self.end_q_mark_label.configure(text = '"')
 		else:
 			self.head_args_lbl.configure(text = "[...]/hl2.exe -steam -game tf")
@@ -414,7 +430,10 @@ class LaunchTF2(BaseDialog):
 				launch_args = tf2_launch_args
 			final_launchoptions = [executable] + launch_args
 
-			self.result.data = {"steampath": self.steamdir_var.get(), "hlaepath": self.hlaedir_var.get()}
+			self.result.data = {
+				"steampath": self.steamdir_var.get(),
+				"hlaepath": self.hlaedir_var.get(),
+			}
 
 			try:
 				subprocess.Popen(final_launchoptions)
@@ -425,11 +444,14 @@ class LaunchTF2(BaseDialog):
 				tk_msg.showerror("Demomgr - Error", "Executable not found.", parent = self)
 			except (OSError, PermissionError) as error:
 				self.result.data["game_launched"] = False
-				tk_msg.showerror("Demomgr - Error", f"Could not access executable :\n{error}", parent = self)
+				tk_msg.showerror(
+					"Demomgr - Error", f"Could not access executable :\n{error}", parent = self
+				)
 
 		self.result.remember = [
 			self.usehlae_var.get(),
-			self.users[self.userselectbox.current()][0] if self.userselectbox.current() != -1 else ""
+			self.users[self.userselectbox.current()][0] \
+				if self.userselectbox.current() != -1 else ""
 		]
 
 		self.destroy()

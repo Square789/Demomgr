@@ -5,7 +5,7 @@ import os
 import json
 
 from demomgr.dialogues._base import BaseDialog
-from demomgr import constants as CNST 
+from demomgr import constants as CNST
 
 class CfgError(BaseDialog):
 	"""
@@ -38,7 +38,7 @@ class CfgError(BaseDialog):
 				("read from" if self.mode == 0 else "written to"),
 				(" either corrupted, deleted," if self.mode == 0 else ""),
 				(" or has bad values" if self.mode == 0 else ""),
-				self.error.__class__.__name__,
+				type(self.error).__name__,
 				self.error
 			)
 		slickframe = ttk.Frame(parent, relief = tk.SUNKEN, border = 5,

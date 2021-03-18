@@ -26,8 +26,10 @@ class Deleter(BaseDialog):
 		thread's termination signal.
 	"""
 
-	def __init__(self, parent, demodir, files, selected, evtblocksz,
-			deluselessjson, styleobj, eventfileupdate = "passive"):
+	def __init__(
+		self, parent, demodir, files, selected, evtblocksz, deluselessjson,
+		styleobj, eventfileupdate = "passive"
+	):
 		"""
 		parent: Parent widget, should be a `Tk` or `Toplevel` instance.
 		demodir: Absolute path to the directory containing the demos. (str)
@@ -62,34 +64,34 @@ class Deleter(BaseDialog):
 
 		self.filestodel = [j for i, j in enumerate(self.files) if self.selected[i]]
 
-		self.startmsg = "This operation will delete the following file(s):\n\n" + "\n".join(self.filestodel)
-
 		self.threadgroup = ThreadGroup(ThreadDelete, self.master)
 		self.threadgroup.decorate_and_patch(self, self._after_callback)
 
-		try: #Try block should only catch from the os.listdir call directly below.
+	def body(self, master):
+		self.protocol("WM_DELETE_WINDOW", self.destroy)
+
+		try: # Try block should only catch from the os.listdir call directly below.
 			jsonfiles = [i for i in os.listdir(self.demodir) if os.path.splitext(i)[1] == ".json"]
-			choppedfilestodel = [os.path.splitext(i)[0] for i in self.filestodel] #add json files to self.todel if their demo files are in todel
+			# Add json files to self.todel if their demo files are in todel
+			choppedfilestodel = [os.path.splitext(i)[0] for i in self.filestodel]
 			choppedfiles = None
 
 			for i, j in enumerate(jsonfiles):
 				if os.path.splitext(j)[0] in choppedfilestodel:
 					self.filestodel.append(jsonfiles[i])
-			if self.deluselessjson: #also delete orphaned files
+			if self.deluselessjson: # also delete orphaned files
 				choppedfilestodel = None
-				choppedfiles = [os.path.splitext(i)[0] for i in self.files]
+				choppedfiles = {os.path.splitext(i)[0] for i in self.files}
 				for i, j in enumerate(jsonfiles):
 					if not os.path.splitext(j)[0] in choppedfiles:
 						self.filestodel.append(jsonfiles[i])
-			del jsonfiles, choppedfilestodel, choppedfiles
-			self.startmsg = "This operation will delete the following file(s):\n\n" + "\n".join(self.filestodel)
+			self.startmsg = "This operation will delete the following file(s):\n\n" + \
+				"\n".join(self.filestodel)
 		except (OSError, PermissionError, FileNotFoundError) as error:
-			self.startmsg = "! Error getting JSON files: !\n{}{}\n\n{}".format(error.__class__.__name__, str(error), self.startmsg)
+			self.startmsg = f"Error getting JSON files: !\n{type(error).__name__}: {error}\n\n" \
+				f"This operation will delete the following file(s):\n\n" + "\n".join(self.filestodel)
 
-	def body(self, master):
-		self.protocol("WM_DELETE_WINDOW", self.destroy)
-
-		self.okbutton = ttk.Button(master, text = "Delete!", command = lambda: self.confirm(1) )
+		self.okbutton = ttk.Button(master, text = "Delete!", command = lambda: self.confirm(1))
 		self.cancelbutton = ttk.Button(master, text = "Cancel", command = self.destroy )
 		self.closebutton = ttk.Button(master, text = "Close", command = self.destroy )
 		self.canceloperationbutton = ttk.Button(master, text = "Abort", command = self._stopoperation)
@@ -152,7 +154,7 @@ class Deleter(BaseDialog):
 
 	def appendtextbox(self, _inp):
 		with self.textbox:
-			self.textbox.insert(tk.END, str(_inp) )
+			self.textbox.insert(tk.END, str(_inp))
 			self.textbox.yview_moveto(1.0)
 			self.textbox.update()
 

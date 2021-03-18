@@ -25,7 +25,7 @@ from demomgr import platforming
 from demomgr.threadgroup import ThreadGroup, THREADGROUPSIG
 from demomgr.threads import THREADSIG, ThreadFilter, ThreadReadFolder, ThreadDemoInfo
 
-__version__ = "1.7.4"
+__version__ = "1.7.5"
 __author__ = "Square789"
 
 class MainApp():
@@ -83,7 +83,9 @@ class MainApp():
 					exist_ok = True
 				)
 			except (OSError, IOError, PermissionError) as exc:
-				tk_msg.showerror("Demomgr - Error", f"The following error occurred during startup: {exc}")
+				tk_msg.showerror(
+					"Demomgr - Error", f"The following error occurred during startup: {exc}"
+				)
 				sys.exit()
 			self.writecfg(CNST.DEFAULT_CFG)
 			self.cfg = deepcopy(CNST.DEFAULT_CFG)
@@ -118,7 +120,9 @@ class MainApp():
 			self.root.bind_class(class_tag, f"<Button-{self.RCB}>" \
 				f"<Leave><ButtonRelease-{self.RCB}>", lambda _: None)
 			if ctxmen_name is not None:
-				self.root.bind_class(class_tag, f"<KeyPress-{ctxmen_name}>", context_menus.entry_cb)
+				self.root.bind_class(
+					class_tag, f"<KeyPress-{ctxmen_name}>", context_menus.entry_cb
+				)
 
 		if os.path.exists(self.cfg["lastpath"]):
 			self.spinboxvar.set(self.cfg["lastpath"])
@@ -144,9 +148,9 @@ class MainApp():
 
 		self.filterentry_var = tk.StringVar()
 
-		widgetframe0 = ttk.Frame(self.mainframe) #Directory Selection, Settings/About
-		widgetframe1 = ttk.Frame(self.mainframe) #Filtering / Cleanup by filter
-		widgetframe2 = ttk.Frame(self.mainframe) #Buttons here interact with the currently selected demo
+		widgetframe0 = ttk.Frame(self.mainframe) # Directory Selection, Settings/About
+		widgetframe1 = ttk.Frame(self.mainframe) # Filtering / Cleanup by filter
+		widgetframe2 = ttk.Frame(self.mainframe) # Buttons here interact with the currently selected demo
 		self.listboxframe = ttk.Frame(self.mainframe)
 		demoinfframe = HeadedFrame(self.mainframe, hlabel_conf = {"text": "Demo information"})
 		dirinfframe = HeadedFrame(self.mainframe, hlabel_conf = {"text": "Directory information"})
@@ -160,12 +164,12 @@ class MainApp():
 
 		self.listbox = mfl.MultiframeList(
 			self.listboxframe, inicolumns = (
-				{"name": "Filename", "col_id": "col_filename", "sort": True, "weight": 5, "minsize": 100,
-					"w_width": 20},
+				{"name": "Filename", "col_id": "col_filename", "sort": True, "weight": 5,
+					"minsize": 100, "w_width": 20},
 				{"name": "Information", "col_id": "col_demo_info", "sort": False, "minsize": 26,
 					"weight": 1, "w_width": 26, "formatter": format_bm_pair},
-				{"name": "Date created", "col_id": "col_ctime", "sort": True, "minsize": 19, "weight": 1,
-					"w_width": 19, "formatter": build_date_formatter(self.cfg)},
+				{"name": "Date created", "col_id": "col_ctime", "sort": True, "minsize": 19,
+					"weight": 1, "w_width": 19, "formatter": build_date_formatter(self.cfg)},
 				{"name": "Filesize", "col_id": "col_filesize", "sort": True, "minsize": 10,
 					"weight": 1, "w_width": 10, "formatter": convertunit}
 			), rightclickbtn = self.RCB
@@ -203,11 +207,16 @@ class MainApp():
 		self.filterentry = ttk.Entry(widgetframe1, textvariable = self.filterentry_var)
 		self.filterentry.bind("<Return>", self._filter)
 		self.filterbtn = ttk.Button(widgetframe1, text = "Apply Filter", command = self._filter)
-		self.resetfilterbtn = ttk.Button(widgetframe1, text = "Clear Filter / Refresh", command = self.reloadgui)
-		self.cleanupbtn = ttk.Button(widgetframe1, text = "Cleanup by Filter...", command = self._cleanup)
+		self.resetfilterbtn = ttk.Button(
+			widgetframe1, text = "Clear Filter / Refresh", command = self.reloadgui
+		)
+		self.cleanupbtn = ttk.Button(
+			widgetframe1, text = "Cleanup by Filter...", command = self._cleanup
+		)
 
 		demoopbuttons = [
-			ttk.Button(widgetframe2, text = s0 + s1, command = cmd) for s0, s1, cmd in self.demooperations
+			ttk.Button(widgetframe2, text = s0 + s1, command = cmd)
+			for s0, s1, cmd in self.demooperations
 		]
 		self.statusbarlabel = ttk.Label(self.statusbar, text = "Ready.", style = "Statusbar.TLabel")
 
@@ -294,7 +303,6 @@ class MainApp():
 		dialog.show()
 		update_needed = 0
 		if dialog.result.state == DIAGSIG.GLITCHED:
-			print("glitched, returning")
 			return
 		if self.cfg["ui_remember"]["settings"] != dialog.result.remember:
 			self.cfg["ui_remember"]["settings"] = dialog.result.remember
@@ -303,7 +311,9 @@ class MainApp():
 			update_needed = 2
 			# what a hardcoded piece of garbage, there must be better ways
 			if self.cfg["date_format"] != dialog.result.data["date_format"]:
-				self.listbox.configcolumn("col_ctime", formatter = build_date_formatter(dialog.result.data))
+				self.listbox.configcolumn(
+					"col_ctime", formatter = build_date_formatter(dialog.result.data)
+				)
 			deepupdate_dict(self.cfg, dialog.result.data)
 		if update_needed:
 			self.writecfg(self.cfg)
@@ -368,7 +378,8 @@ class MainApp():
 				)
 				self.directory_inf_kvd.set_value(
 					"l_totalsize",
-					self.directory_inf_kvd.get_value("l_totalsize") - self.listbox.getcell("col_filesize", index)
+					self.directory_inf_kvd.get_value("l_totalsize") - \
+						self.listbox.getcell("col_filesize", index)
 				)
 				self.listbox.removerow(index)
 				self._updatedemowindow(clear = True)
@@ -433,7 +444,8 @@ class MainApp():
 			tk_msg.showerror("Demomgr - Error", f"A tcl error occurred:\n{error}")
 		except (OSError, PermissionError, FileNotFoundError) as error:
 			tk_msg.showerror(
-				"Demomgr - Error", f"The theme file was not found or a permission problem occurred:\n{error}"
+				"Demomgr - Error",
+				f"The theme file was not found or a permission problem occurred:\n{error}"
 			)
 
 	def _updatedemowindow(self, clear = False, no_io = False):
@@ -571,7 +583,6 @@ class MainApp():
 
 	def _filter(self, *_):
 		"""Starts a filtering thread and configures the filtering button."""
-		print("_filter")
 		if self.filterentry_var.get() == "" or self.curdir == "":
 			return
 		self.filterbtn.config(text = "Stop Filtering",

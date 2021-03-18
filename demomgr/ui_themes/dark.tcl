@@ -51,7 +51,7 @@ ttk::style theme create demomgr_dark -settings \
 	ttk::style element create Combobox.field image [list $IMG(combobox.png) \
 		{focus !active} $IMG(combobox-f.png)] \
 		-border {4 6 24 15} \
-		-padding {6 6 5} -sticky news 
+		-padding {6 6 5} -sticky news
 	ttk::style element create Combobox.downarrow image $IMG(combobox-darr.png) \
 		-sticky e -border {15 0 0 0}
 	ttk::style element create Horizontal.Scrollbar.trough image $IMG(scr-h-trough.png) \
@@ -98,61 +98,47 @@ ttk::style theme create demomgr_dark -settings \
 		selected $IMG(radiobtn-s.png)] \
 		-sticky nsew
 
-	ttk::style layout TButton \
-	{
-		Button.button -children \
-		{
+	ttk::style layout TButton {
+		Button.button -children {
 			Button.label -sticky sn -side top -expand true
 		}
 	}
-	ttk::style layout Vertical.TScrollbar \
-	{
+	ttk::style layout Vertical.TScrollbar {
 		Vertical.Scrollbar.uparrow -side top -sticky ""
 		Vertical.Scrollbar.downarrow -side bottom -sticky ""
-		Vertical.Scrollbar.trough -expand false -sticky ns -children \
-		{
-			Vertical.Scrollbar.thumb -expand false -sticky ns -unit 1 -children \
-			{
+		Vertical.Scrollbar.trough -expand false -sticky ns -children {
+			Vertical.Scrollbar.thumb -expand false -sticky ns -unit 1 -children {
 				Vertical.Scrollbar.grip -sticky ""
 			}
 		}
 	}
-	ttk::style layout Horizontal.TScrollbar \
-	{
+	ttk::style layout Horizontal.TScrollbar {
 		Horizontal.Scrollbar.leftarrow -side left -sticky ""
 		Horizontal.Scrollbar.rightarrow -side right -sticky ""
-		Horizontal.Scrollbar.trough -expand false -sticky ew -children \
-		{
-			Horizontal.Scrollbar.thumb -expand false -sticky ew -unit 1 -children \
-			{
+		Horizontal.Scrollbar.trough -expand false -sticky ew -children {
+			Horizontal.Scrollbar.thumb -expand false -sticky ew -unit 1 -children {
 				Horizontal.Scrollbar.grip -sticky ""
 			}
 		}
 	}
-	ttk::style layout TCheckbutton \
-	{
-		Checkbutton.padding -sticky nswe -children \
-		{
+	ttk::style layout TCheckbutton {
+		Checkbutton.padding -sticky nswe -children {
 			Checkbutton.indicator -side left -sticky w
 			Checkbutton.label -side right -sticky e
 		}
 	}
-	ttk::style layout TRadiobutton \
-	{
+	ttk::style layout TRadiobutton {
 		Radiobutton.indicator -side left -sticky w
 		Radiobutton.label -side right -sticky e
 	}
-	ttk::style layout TLabelframe \
-	{
-		Labelframe.border -sticky news -children \
-		{
+	ttk::style layout TLabelframe {
+		Labelframe.border -sticky news -children {
 			Labelframe.t_border -sticky enw -side top
 			Labelframe.r_border -sticky nes -side right
 			Labelframe.b_border -sticky esw -side bottom
 			Labelframe.l_border -sticky swn -side left
 		}
 	}
-	ttk::style map TButton -foreground [list active #FFFFFF !disabled #DDDDDD \
-		disabled #999999]
+	ttk::style map TButton -foreground [list active #FFFFFF !disabled #DDDDDD disabled #999999]
 	ttk::style map TEntry -foreground [list readonly #999999]
 }

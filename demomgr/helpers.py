@@ -9,8 +9,10 @@ from math import log10, floor
 
 from demomgr import constants as CNST
 
-_CONVPREF = ["y", "z", "a", "f", "p", "n", "µ", "m", "", "k", "M", "G", "T",
-	"P", "E", "Z", "Y", ]
+_CONVPREF = (
+	"y", "z", "a", "f", "p", "n", "µ", "m", "", "k", "M", "G", "T",
+	"P", "E", "Z", "Y"
+)
 _CONVPREF_CENTER = 8
 
 class CfgReducing:
@@ -48,7 +50,7 @@ def convertunit(inp, ext = "B"):
 		inp = abs(inp)
 	mag = floor(log10(inp)) // 3
 	return (
-		f"{isneg * '-'}{round((inp / (10**(mag*3))), 3)}"
+		f"{isneg * '-'}{round((inp / (10**(mag * 3))), 3)}"
 		f"{_CONVPREF[_CONVPREF_CENTER + mag]}{ext}"
 	)
 
@@ -81,7 +83,8 @@ def readbinFlt(handle):
 	rawbin = handle.read(4)
 	return struct.unpack("f", rawbin)[0]
 
-def readdemoheader(path): #Code happily duplicated from https://developer.valvesoftware.com/wiki/DEM_Format
+# Code happily duplicated from https://developer.valvesoftware.com/wiki/DEM_Format
+def readdemoheader(path):
 	"""
 	Reads the header information of a demo. May raise exceptions on
 	denied read access or malformed demos.

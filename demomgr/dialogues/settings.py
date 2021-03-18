@@ -36,13 +36,13 @@ class Settings(BaseDialog):
 			bookmark setting. (bool)
 
 	Widget state remembering:
-		0: Last visited section 
+		0: Last visited section
 	"""
 
 	REMEMBER_DEFAULT = [0]
 	REQUIRED_CFG_KEYS = (
-		"datagrabmode", "previewdemos", "date_format", "steampath", "hlaepath", "ui_theme", "lazyreload",
-		"rcon_pwd", "rcon_port", "evtblocksz", "date_format"
+		"datagrabmode", "previewdemos", "date_format", "steampath", "hlaepath", "ui_theme",
+		"lazyreload", "rcon_pwd", "rcon_port", "evtblocksz", "date_format"
 	)
 
 	def __init__(self, parent, cfg, remember):
@@ -217,8 +217,8 @@ class Settings(BaseDialog):
 			def _handler(self = self, k = k):
 				self._reload_options_pane(k)
 			curbtn = ttk.Radiobutton(
-				sidebar, text = k, value = i, command = _handler, variable = self._selectedpane_var,
-				style = "Contained.TRadiobutton"
+				sidebar, text = k, value = i, command = _handler,
+				variable = self._selectedpane_var, style = "Contained.TRadiobutton"
 			)
 			curbtn.grid(column = 0, row = i, sticky = "w", ipadx = 4, padx = 4)
 			if i == self.ui_remember[0]:

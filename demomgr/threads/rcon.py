@@ -69,8 +69,12 @@ class RCONThread(_StoppableBaseThread):
 		for idx, value in enumerate(potential_targets):
 			af, type_, proto, _, addr = value
 			self._socket = error = None
-			self.queue_out_put(THREADSIG.INFO_IDX_PARAM, 0, f"Connecting to candidate {idx}/{len(potential_targets) - 1}")
-	
+			self.queue_out_put(
+				THREADSIG.INFO_IDX_PARAM,
+				0,
+				f"Connecting to candidate {idx}/{len(potential_targets) - 1}"
+			)
+
 			try:
 				self._socket = socket.socket(af, type_, proto)
 				self._socket.settimeout(3)
@@ -87,8 +91,10 @@ class RCONThread(_StoppableBaseThread):
 				break # Success
 
 		if error is not None:
-			self.queue_out_put(THREADSIG.INFO_IDX_PARAM, 0, f"Failure establishing connection. Is TF2 running with " \
-				f"-usercon and net_start?: {error}")
+			self.queue_out_put(
+				THREADSIG.INFO_IDX_PARAM, 0, f"Failure establishing connection. " \
+					f"Is TF2 running with -usercon and net_start?: {error}"
+			)
 			self.queue_out_put(THREADSIG.FAILURE); return
 
 		if self.stoprequest.is_set():
@@ -155,18 +161,14 @@ class RCONThread(_StoppableBaseThread):
 		"""
 		packet_header = self._socket.recv(12)
 
-		# print("HEADER :", packet_header)
 		packet_size, packet_id, packet_type = struct.unpack("<iii", packet_header)
 		body = self._socket.recv(packet_size - 8)
-		# print("message received")
-		# print("RCVD:   ", _.as_bytes())
 		return RCONPacket(packet_id, packet_type, body)
 
 	def send_packet(self, packet):
 		"""
 		Sends bytes to the socket.
 		"""
-		# print("SENDING:", packet.as_bytes())
 		self._socket.sendall(packet.as_bytes())
 
 	def __stopsock(self, signal):

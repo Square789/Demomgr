@@ -10,7 +10,7 @@ from here in order to prevent a circular import.
 #
 # Two-Parameter values:  0x300 - 0x4FF
 # |---Info level:        |- 0x300 - 0x3FF
-# '---Result level:      '- 0x400 - 0x4FF 
+# '---Result level:      '- 0x400 - 0x4FF
 # etc.
 class THREADSIG:
 	SUCCESS = 0x0

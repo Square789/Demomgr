@@ -16,7 +16,7 @@ class BaseDialog(tk.Toplevel, CfgReducing):
 	closing.
 	The `result`s `data` will be None, as this is the base dialog, but in
 	inheriting dialogs the returned data should be documented in the class
-	docstring. 
+	docstring.
 
 	! WARNING ! Tkinter or maybe the way I handle dialogs is bugged in a way
 	that allows two dialogs to pop up when spamming the activation key (Space)
