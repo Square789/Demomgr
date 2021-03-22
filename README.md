@@ -15,20 +15,20 @@ Demomgr is a python script designed to keep track of, cleanup and play demo file
 * Cleanup entire folders by multiple criteria
   * Removes unneccessary entries from \_events.txt and also deletes useless .json files
 
-The script has so far only been tested on python 3.8.5
-
 ### Start Instructions:
 Simply get it with `pip install demomgr`. This should create an entry point script in your python
 installations's `Scripts` directory. If it's on your system's path, you should now be
 able to run `demomgr` pretty much anywhere.
 
-If that does not work out for you, create a procedure that invokes the python commands
-`from demomgr.main_app import MainApp; MainApp()`
+If that does not work out for you, try `py -m demomgr`, or in a very extravagant case create a
+procedure that invokes the python commands  
+`from demomgr.main_app import MainApp; MainApp()`.
 
-After accepting the license, you will be presented with an empty UI. In order to view your demos, click "Add demo path" and select the directory containing your demos.  
+After accepting the license, you will be presented with an empty UI. In order to view your demos,
+click "Add demo path" and select the directory containing your demos.  
 You can switch between directories using the selection box at the top of the window.  
 
-#### Filter instructions:
+### Filter instructions:
 The filter criteria must be entered as follows:  
 `<keyname>:<parameter>`, seperated by commas.  
 **You can negate all key-parameter pairs by prefixing the key with **`!`**.**  
@@ -36,7 +36,8 @@ The filter criteria must be entered as follows:
 **You can enter multiple parameters by seperating them with **`,`**.**
 
 Example: `!map:(mvm_,plr_, tr_, ), killstreaks:2.. , beststreak:5.. `  
-Returns all demos where: The user has gotten at least two killstreaks, at least one of those streaks were 5 or more and the game does not take place on maps containing the substrings `mvm_`,`plr_` or `tr_`.  
+Returns all demos where: The user has gotten at least two killstreaks, at least one of those streaks was 5 or more
+and the game does not take place on maps containing the substrings `mvm_`,`plr_` or `tr_`.  
 
 You can currently filter the directory you are in by the following:
  * map : _Name of the map the demo is playing on. (String)_
