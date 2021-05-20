@@ -1,5 +1,10 @@
 from schema import And
 
+class DATAGRABMODE:
+	NONE = 0
+	EVENTS = 1
+	JSON = 2
+
 CFG_FOLDER = ".demomgr"
 CFG_NAME = "config.cfg"
 DEFAULT_CFG = {
@@ -8,7 +13,7 @@ DEFAULT_CFG = {
 	"demopaths": [],
 	"evtblocksz": 65536,
 	"__comment": "By messing with the firstrun parameter you acknowledge "
-		"that you've read the Terms of use.",
+		"the disclaimer :P",
 	"firstrun": True,
 	"hlaepath": "",
 	"lastpath": "",
@@ -46,11 +51,10 @@ DEFAULT_CFG_SCHEMA = {
 }
 WELCOME = \
 	"Hi and Thank You for using Demomgr!\n\nA config file has been " \
-	"created.\n\nThis script is able to delete files if you tell it to.\nI in no way " \
+	"created.\n\nThis script is able to delete files if you tell it to.\nI can't " \
 	"guarantee that this script is safe or 100% reliable and will not take any " \
 	"responsibility for lost data, damaged drives and/or destroyed hopes and dreams.\n" \
-	"This program is licensed via the MIT Licence, by clicking the accept button below " \
-	"you confirm that you have read and accepted the license."
+	"This program is licensed via the MIT License."
 EVENT_FILE = "_events.txt"
 DATE_FORMATS = (
 	"%d.%m.%Y %H:%M:%S",

@@ -54,8 +54,10 @@ class ThreadReadFolder(_StoppableBaseThread):
 		starttime = time.time()
 
 		try:
-			files = [i for i in os.listdir(self.targetdir) if (os.path.splitext(i)[1] == ".dem")
-				and (os.path.isfile(os.path.join(self.targetdir, i)))]
+			files = [
+				i for i in os.listdir(self.targetdir)
+				if os.path.splitext(i)[1] == ".dem" and os.path.isfile(os.path.join(self.targetdir, i))
+			]
 			datescreated = [os.path.getmtime(os.path.join(self.targetdir, i)) for i in files]
 			if self.stoprequest.is_set():
 				self.queue_out_put(THREADSIG.ABORTED); return
@@ -64,13 +66,12 @@ class ThreadReadFolder(_StoppableBaseThread):
 				self.queue_out_put(THREADSIG.ABORTED); return
 		except FileNotFoundError:
 			self.__stop(
-				(f"ERROR: Current directory \"{self.targetdir}\" does not exist.", None),
+				(f"ERROR: Current directory {self.targetdir!r} does not exist.", None),
 				{}, THREADSIG.FAILURE
 			)
 			return
 		except (OSError, PermissionError) as error:
-			self.__stop(("ERROR reading directory: {}.".format(str(error)), None),
-				{}, THREADSIG.FAILURE)
+			self.__stop((f"ERROR reading directory: {error}.", None), {}, THREADSIG.FAILURE)
 			return
 
 		# Grab demo information (returned through col_demo_info)
@@ -78,7 +79,7 @@ class ThreadReadFolder(_StoppableBaseThread):
 		if datamode == 0: #Disabled
 			self.__stop(
 				("Demo information disabled.", 3000),
-				{"col_filename": files, "col_demo_info": [None for _ in files],
+				{"col_filename": files, "col_ks": [None] * len(files), "col_bm": [None] * len(files),
 					"col_ctime": datescreated, "col_filesize": sizes},
 				THREADSIG.SUCCESS
 			)
@@ -91,22 +92,22 @@ class ThreadReadFolder(_StoppableBaseThread):
 					logchunk_list = parse_events(h, self.cfg["evtblocksz"])
 			except Exception as exc:
 				self.__stop(
-					("\"{}\" has not been found, can not be opened or is malformed.".format(
-						CNST.EVENT_FILE), 5000),
-					{"col_filename": files, "col_demo_info": [None for _ in files],
+					(f"{CNST.EVENT_FILE!r} has not been found, can not be opened or is malformed.", 5000),
+					{"col_filename": files, "col_ks": [None] * len(files), "col_bm": [None] * len(files),
 						"col_ctime": datescreated, "col_filesize": sizes}, THREADSIG.FAILURE)
 				return
 
 		elif datamode == 2: #.json
 			try: # Get json files
-				jsonfiles = [i for i in os.listdir(self.targetdir)
-					if os.path.splitext(i)[1] == ".json"]
-				jsonfiles = [i for i in jsonfiles if os.path.exists(
-					os.path.join(self.targetdir, os.path.splitext(i)[0] + ".dem"))]
+				jsonfiles = [
+					i for i in os.listdir(self.targetdir) if
+					os.path.splitext(i)[1] == ".json" and
+					os.path.exists(os.path.join(self.targetdir, os.path.splitext(i)[0] + ".dem"))
+				]
 			except (OSError, FileNotFoundError, PermissionError) as error:
 				self.__stop(
-					("Error getting .json files: {}".format(str(error)), 5000),
-					{"col_filename": files, "col_demo_info": [None for _ in files],
+					(f"Error getting .json files: {error}", 5000),
+					{"col_filename": files, "col_ks": [None] * len(files), "col_bm": [None] * len(files),
 						"col_ctime": datescreated, "col_filesize": sizes},
 					THREADSIG.FAILURE)
 				return
@@ -117,8 +118,7 @@ class ThreadReadFolder(_StoppableBaseThread):
 					self.queue_out_put(THREADSIG.ABORTED); return
 				try: # Attempt to open the json file
 					with open(os.path.join(self.targetdir, json_file)) as h:
-						logchunk_list.append(parse_json(h,
-							os.path.splitext(json_file)[0] + ".dem"))
+						logchunk_list.append(parse_json(h, os.path.splitext(json_file)[0] + ".dem"))
 				except (OSError, PermissionError, FileNotFoundError) as error:
 					continue
 				except (json.decoder.JSONDecodeError, KeyError, ValueError) as error:
@@ -130,14 +130,21 @@ class ThreadReadFolder(_StoppableBaseThread):
 
 		# Parallelize, order of _events.txt uncertain; json likely retrieved in bad order.
 		logchunk_list = assign_demo_info(files, logchunk_list)
-		listout = [((i.killstreaks, i.bookmarks) if i is not None else None)
-			for i in logchunk_list] # Reduce to just the relevant data
+		# Create final demo info lists
+		killstreaks = [None] * len(logchunk_list)
+		bookmarks = [None] * len(logchunk_list)
+		for i, chunk in enumerate(logchunk_list):
+			if chunk is None:
+				continue
+			killstreaks[i] = chunk.killstreaks
+			bookmarks[i] = chunk.bookmarks
 
 		self.__stop(
-			("Processed data from {} files in {} seconds.".format(
-				len(files), round(time.time() - starttime, 4)
-			), 3000),
-			{"col_filename": files, "col_demo_info": listout,
+			(f"Processed data from {len(files)} files in " \
+				f"{round(time.time() - starttime, 4)} seconds.", 3000),
+			{"col_filename": files, "col_ks": killstreaks, "col_bm": bookmarks,
 				"col_ctime": datescreated, "col_filesize": sizes},
-			THREADSIG.SUCCESS, len(files))
+			THREADSIG.SUCCESS,
+			len(files)
+		)
 		return

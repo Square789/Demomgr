@@ -152,7 +152,8 @@ class ThreadGroup():
 		"""
 		if self._decorated_cb is None:
 			raise ValueError(
-				"No callback defined in threadgroup. Call decorate_and_patch on a suitable callback function."
+				"No callback defined in threadgroup. Call decorate_and_patch on a "
+				"suitable callback function."
 			)
 		self.heldback_queue_elem = None
 		self.thread = self.thread_cls(self.queue, *args, **kwargs)

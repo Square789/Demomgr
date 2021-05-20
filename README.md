@@ -9,22 +9,24 @@ Demomgr is a python script designed to keep track of, cleanup and play demo file
 * View and edit bookmark information of individual demos
 * View header information of individual demos
 * Sort and filter demos by multiple criteria
+* Cleanup entire folders by multiple criteria
+  * Removes unneccessary entries from \_events.txt and also deletes useless .json files
 * Launch TF2 with a playdemo command attached
   * Optionally with HLAE
 * Play a demo into an already running instance of TF2 using [RCON](https://developer.valvesoftware.com/wiki/Source_RCON_Protocol)
-* Cleanup entire folders by multiple criteria
-  * Removes unneccessary entries from \_events.txt and also deletes useless .json files
 
 ### Start Instructions:
-Simply get it with `pip install demomgr`. This should create an entry point script in your python
-installations's `Scripts` directory. If it's on your system's path, you should now be
-able to run `demomgr` pretty much anywhere.
+If you don't have python, get it from [the official website](https://www.python.org).
+
+Demomgr is in python's package index (PyPI), you can install it using `pip install demomgr`.
+This should create an entry point script in your python installations's `Scripts` directory.
+If that is on your system's path, you should now be able to run `demomgr` pretty much anywhere.
 
 If that does not work out for you, try `py -m demomgr`, or in a very extravagant case create a
-procedure that invokes the python commands  
+python script that runs  
 `from demomgr.main_app import MainApp; MainApp()`.
 
-After accepting the license, you will be presented with an empty UI. In order to view your demos,
+After accepting the disclaimer (I have no idea how to set up tests for deletion/file management logic), you will be presented an empty UI. In order to view your demos,
 click "Add demo path" and select the directory containing your demos.  
 You can switch between directories using the selection box at the top of the window.  
 
@@ -33,13 +35,13 @@ The filter criteria must be entered as follows:
 `<keyname>:<parameter>`, seperated by commas.  
 **You can negate all key-parameter pairs by prefixing the key with **`!`**.**  
 **Do not use the same filtering key (Even if negated) in a filter request, as one will replace the other.**  
-**You can enter multiple parameters by seperating them with **`,`**.**
+**You can enter multiple criteria by seperating them with **`,`**.**
 
-Example: `!map:(mvm_,plr_, tr_, ), killstreaks:2.. , beststreak:5.. `  
-Returns all demos where: The user has gotten at least two killstreaks, at least one of those streaks was 5 or more
-and the game does not take place on maps containing the substrings `mvm_`,`plr_` or `tr_`.  
+Example: `!map:(mvm_,plr_,tr_), killstreaks:2.., beststreak:5.. `  
+This will display all demos where: The user has gotten at least two killstreaks, at least one of those streaks was 5 or more
+and the game does not take place on maps containing the substrings `mvm_`, `plr_` or `tr_`.  
 
-You can currently filter the directory you are in by the following:
+You can currently filter the directory you are in by the following keys:
  * map : _Name of the map the demo is playing on. (String)_
  * name : _Filename of the demo. (String)_
  * killstreaks : (Inclusive) _Minimum amount of present killstreaks._ (Range/Integer)
@@ -49,10 +51,10 @@ You can currently filter the directory you are in by the following:
  * bookmark_contains : _Bookmarks containing this String (String)_
  * hostname : _Name of the server the demo took place on. (String) (Usually in IPv4 format)_
  * clientid : _Steam community name of the player. (String)_
- * moddate : _Modified (created) after this date. (UNIX Timestamp)_ (Range/Integer)
+ * moddate : _Modified at this date. (UNIX Timestamp)_ (Range/Integer)
  * filesize : _Filesize in bytes_ (Integer)
 
-Accepted parameters are:
+Possible parameters are:
  * Quoteless string: `foo`
    * Quoteless strings may consist out of A-Z, a-z, \_, -
  * Quoteless string tuple: `(foo, bar, baz)`
