@@ -11,7 +11,7 @@ import tkinter.messagebox as tk_msg
 from _tkinter import TclError
 import queue
 
-import multiframe_list as mfl
+import multiframe_list.multiframe_list as mfl
 import schema
 from schema import SchemaError
 
@@ -19,13 +19,14 @@ from demomgr import constants as CNST
 from demomgr import context_menus
 from demomgr.dialogues import *
 from demomgr.tk_widgets import KeyValueDisplay, HeadedFrame
-from demomgr.helpers import build_date_formatter, convertunit, deepupdate_dict, format_bm_pair
+from demomgr.helpers import build_date_formatter, convertunit, deepupdate_dict, \
+	none_len_formatter, none_len_sortkey
 from demomgr.style_helper import StyleHelper
 from demomgr import platforming
 from demomgr.threadgroup import ThreadGroup, THREADGROUPSIG
 from demomgr.threads import THREADSIG, ThreadFilter, ThreadReadFolder, ThreadDemoInfo
 
-__version__ = "1.7.6"
+__version__ = "1.8.0"
 __author__ = "Square789"
 
 class MainApp():
@@ -124,27 +125,32 @@ class MainApp():
 					class_tag, f"<KeyPress-{ctxmen_name}>", context_menus.entry_cb
 				)
 
-		if os.path.exists(self.cfg["lastpath"]):
-			self.spinboxvar.set(self.cfg["lastpath"])
-			self.curdir = self.cfg["lastpath"]
-		elif self.cfg["demopaths"]:
-			self.spinboxvar.set(self.cfg["demopaths"][0])
-			self.curdir = self.cfg["demopaths"][0]
+		# If someone messed with the cfg and the lastpath is not in demopaths, select 1st
+		# path in demopaths. If demopaths is empty, clear curdir.
+		if self.cfg["lastpath"] not in self.cfg["demopaths"]:
+			if self.cfg["demopaths"]:
+				self.cfg["lastpath"] = self.cfg["demopaths"][0]
+			else:
+				self.cfg["lastpath"] = ""
+		self.curdir = self.cfg["lastpath"]
+		self.spinboxvar.set(self.cfg["lastpath"])
 		self.reloadgui()
 
 		# All subsequent changes to the spinbox will call
 		# self._spinboxsel -> self.reloadgui, and update main view.
 		self.spinboxvar.trace("w", self._spinboxsel)
-		self.root.deiconify() #end startup; show UI
+
+		self.root.deiconify() # end startup; show UI
 		self.root.focus()
 
 	def _setupgui(self):
 		"""Sets up UI inside of self.root widget."""
 		self.mainframe = ttk.Frame(self.root, padding = (5, 3, 5, 3))
 
-		self.mainframe.grid_columnconfigure(0, weight = 2)
-		self.mainframe.grid_columnconfigure(1, weight = 1)
-		self.mainframe.grid_rowconfigure((3, 4), weight = 1)
+		self.mainframe.grid_columnconfigure(0, weight = 10)
+		self.mainframe.grid_columnconfigure(1, weight = 15)
+		self.mainframe.grid_rowconfigure(3, weight = 2)
+		self.mainframe.grid_rowconfigure(4, weight = 1)
 
 		self.filterentry_var = tk.StringVar()
 
@@ -162,17 +168,22 @@ class MainApp():
 		demoinfframe.internal_frame.grid_columnconfigure(0, weight = 1)
 		demoinfframe.internal_frame.grid_rowconfigure(1, weight = 1)
 
+		# Hardcoded weights that approximately relate to the length of each of the column's strings
 		self.listbox = mfl.MultiframeList(
 			self.listboxframe, inicolumns = (
-				{"name": "Filename", "col_id": "col_filename", "sort": True, "weight": 5,
-					"minsize": 100, "w_width": 20},
-				{"name": "Information", "col_id": "col_demo_info", "sort": False, "minsize": 26,
-					"weight": 1, "w_width": 26, "formatter": format_bm_pair},
-				{"name": "Date created", "col_id": "col_ctime", "sort": True, "minsize": 19,
-					"weight": 1, "w_width": 19, "formatter": build_date_formatter(self.cfg)},
-				{"name": "Filesize", "col_id": "col_filesize", "sort": True, "minsize": 10,
-					"weight": 1, "w_width": 10, "formatter": convertunit}
-			), rightclickbtn = self.RCB
+				{"name": "Name", "col_id": "col_filename", "sort": True,
+					"weight": round(1.5 * mfl.WEIGHT), "dblclick_cmd": lambda _: self._playdem()},
+				{"name": "Killstreaks", "col_id": "col_ks", "sort": True,
+					"weight": round(0.2 * mfl.WEIGHT), "formatter": none_len_formatter,
+					"sortkey": none_len_sortkey},
+				{"name": "Bookmarks", "col_id": "col_bm", "sort": True,
+					"weight": round(0.2 * mfl.WEIGHT), "formatter": none_len_formatter,
+					"sortkey": none_len_sortkey, "dblclick_cmd": lambda _: self._managebookmarks()},
+				{"name": "Creation time", "col_id": "col_ctime", "sort": True,
+					"weight": round(0.9 * mfl.WEIGHT), "formatter": build_date_formatter(self.cfg)},
+				{"name": "Size", "col_id": "col_filesize", "sort": True,
+					"weight": round(0.42 * mfl.WEIGHT), "formatter": convertunit}
+			), rightclickbtn = self.RCB, resizable = True, reorderable = True,
 		)
 
 		self.pathsel_spinbox = ttk.Combobox(widgetframe0, state = "readonly")
@@ -186,21 +197,21 @@ class MainApp():
 		self.demo_header_kvd = KeyValueDisplay(
 			demoinfframe.internal_frame, self.ttkstyle,
 			inipairs = ({"id_": v, "name": v} for v in CNST.HEADER_HUMAN_NAMES.values()),
-			width = 300, height = 80,
+			width = 240, height = 80,
 		)
 		self.demoeventmfl = mfl.MultiframeList(
 			demoinfframe.internal_frame, inicolumns = (
-				{"name": "Type", "col_id": "col_type", "sort": True, "w_width": 10},
-				{"name": "Tick", "col_id": "col_tick", "sort": True, "w_width": 8},
+				{"name": "Type", "col_id": "col_type", "sort": True, "minsize": 40},
+				{"name": "Tick", "col_id": "col_tick", "sort": True, "minsize": 30},
 				{"name": "Value", "col_id": "col_value", "sort": False},
-			), rightclickbtn = self.RCB, listboxheight = 5
+			), rightclickbtn = self.RCB, listboxheight = 5,
 		)
 
 		self.directory_inf_kvd = KeyValueDisplay(
 			dirinfframe.internal_frame, self.ttkstyle, inipairs = (
 				{"id_": "l_totalsize", "name": "Size", "formatter": convertunit},
 				{"id_": "l_amount", "name": "Amount of demos"}
-			), width = 300, height = 60
+			), width = 240, height = 60,
 		)
 
 		filterlabel = ttk.Label(widgetframe1, text = "Filter demos: ")
@@ -242,7 +253,9 @@ class MainApp():
 		widgetframe2.grid(column = 0, row = 2, columnspan = 2, sticky = "ew", pady = 5)
 
 		#listbox
-		self.listbox.pack(fill = tk.BOTH, expand = 1)
+		self.listboxframe.grid_columnconfigure(0, weight = 1, minsize = 500)
+		self.listboxframe.grid_rowconfigure(0, weight = 1)
+		self.listbox.grid(column = 0, row = 0, sticky = "nesw")
 		self.listboxframe.grid(column = 0, row = 3, rowspan = 2, sticky = "nesw")
 
 		#demoinfframe
@@ -252,7 +265,7 @@ class MainApp():
 
 		#dirinfframe
 		self.directory_inf_kvd.grid(sticky = "nesw", padx = 5, pady = 5)
-		dirinfframe.grid(column = 1, row = 4, sticky = "new", padx = 5, pady = (5, 0))
+		dirinfframe.grid(column = 1, row = 4, sticky = "nesw", padx = 5, pady = (5, 0))
 
 		#Statusbar
 		self.statusbarlabel.pack(anchor = tk.W)
@@ -274,6 +287,11 @@ class MainApp():
 			g.cancel_after() # Calling first to cancel running after callbacks asap
 		for g in self.threadgroups.values():
 			g.join_thread(finalize = False)
+		if self.cfg["lastpath"] != self.curdir: # Update lastpath entry
+			self.cfg["lastpath"] = self.curdir
+		disk_cfg = self.getcfg()
+		if disk_cfg != self.cfg:
+			self.writecfg(self.cfg)
 		# Without the stuff below, the root.destroy method will produce
 		# strange errors on closing, due to some dark magic regarding after
 		# commands.
@@ -301,33 +319,26 @@ class MainApp():
 			remember = self.cfg["ui_remember"]["settings"],
 		)
 		dialog.show()
-		update_needed = 0
 		if dialog.result.state == DIAGSIG.GLITCHED:
 			return
-		if self.cfg["ui_remember"]["settings"] != dialog.result.remember:
-			self.cfg["ui_remember"]["settings"] = dialog.result.remember
-			update_needed = 1
+		self.cfg["ui_remember"]["settings"] = dialog.result.remember
 		if dialog.result.state == DIAGSIG.SUCCESS:
-			update_needed = 2
 			# what a hardcoded piece of garbage, there must be better ways
 			if self.cfg["date_format"] != dialog.result.data["date_format"]:
-				self.listbox.configcolumn(
+				self.listbox.config_column(
 					"col_ctime", formatter = build_date_formatter(dialog.result.data)
 				)
 			deepupdate_dict(self.cfg, dialog.result.data)
-		if update_needed:
-			self.writecfg(self.cfg)
-			if update_needed == 2:
-				self.reloadgui()
-				self._applytheme()
+			self.reloadgui()
+			self._applytheme()
 
 	def _playdem(self):
 		"""Opens dialog which arranges for TF2 launch."""
-		index = self.listbox.getselectedcell()[1]
+		index = self.listbox.get_selected_cell()[1]
 		if index == None:
 			self.setstatusbar("Please select a demo file.", 1500)
 			return
-		filename = self.listbox.getcell("col_filename", index)
+		filename = self.listbox.get_cell("col_filename", index)
 		path = os.path.join(self.curdir, filename)
 		dialog = LaunchTF2(
 			self.root,
@@ -337,27 +348,21 @@ class MainApp():
 			remember = self.cfg["ui_remember"]["launch_tf2"],
 		)
 		dialog.show()
-		update_needed = False
 		if dialog.result.state == DIAGSIG.GLITCHED:
 			return
-		if self.cfg["ui_remember"]["launch_tf2"] != dialog.result.remember:
-			update_needed = True
-			self.cfg["ui_remember"]["launch_tf2"] = dialog.result.remember
+		self.cfg["ui_remember"]["launch_tf2"] = dialog.result.remember
 		if dialog.result.state == DIAGSIG.SUCCESS:
 			for i in ("steampath", "hlaepath"):
 				if i in dialog.result.data and dialog.result.data[i] != self.cfg[i]:
-					update_needed = True
 					self.cfg[i] = dialog.result.data[i]
-		if update_needed:
-			self.writecfg(self.cfg)
 
 	def _deldem(self):
 		"""Deletes the currently selected demo."""
-		index = self.listbox.getselectedcell()[1]
+		index = self.listbox.get_selected_cell()[1]
 		if index == None:
 			self.setstatusbar("Please select a demo file.", 1500)
 			return
-		filename = self.listbox.getcell("col_filename", index)
+		filename = self.listbox.get_cell("col_filename", index)
 		dialog = Deleter(
 			self.root,
 			demodir = self.curdir,
@@ -367,9 +372,9 @@ class MainApp():
 			deluselessjson = False,
 			styleobj = self.ttkstyle,
 		)
-		if dialog is None:
-			return
 		dialog.show()
+		if dialog.state == DIAGSIG.GLITCHED:
+			return
 		if dialog.result.state == DIAGSIG.SUCCESS:
 			if self.cfg["lazyreload"]:
 				self.directory_inf_kvd.set_value(
@@ -379,26 +384,25 @@ class MainApp():
 				self.directory_inf_kvd.set_value(
 					"l_totalsize",
 					self.directory_inf_kvd.get_value("l_totalsize") - \
-						self.listbox.getcell("col_filesize", index)
+						self.listbox.get_cell("col_filesize", index)
 				)
-				self.listbox.removerow(index)
+				self.listbox.remove_row(index)
 				self._updatedemowindow(clear = True)
 			else:
 				self.reloadgui()
 
 	def _managebookmarks(self):
 		"""Offers dialog to manage a demo's bookmarks."""
-		index = self.listbox.getselectedcell()[1]
+		index = self.listbox.get_selected_cell()[1]
 		if index == None:
 			self.setstatusbar("Please select a demo file.", 1500)
 			return
-		filename = self.listbox.getcell("col_filename", index)
-		demo_bm = self.listbox.getcell("col_demo_info", index)
+		filename = self.listbox.get_cell("col_filename", index)
 		path = os.path.join(self.curdir, filename)
 		dialog = BookmarkSetter(
 			self.root,
 			targetdemo = path,
-			bm_dat = demo_bm,
+			bm_dat = self.listbox.get_cell("col_bm", index),
 			styleobj = self.ttkstyle,
 			evtblocksz = self.cfg["evtblocksz"],
 			remember = self.cfg["ui_remember"]["bookmark_setter"],
@@ -406,16 +410,18 @@ class MainApp():
 		dialog.show()
 		if dialog.result.state == DIAGSIG.GLITCHED:
 			return
-		if self.cfg["ui_remember"]["bookmark_setter"] != dialog.result.remember:
-			self.cfg["ui_remember"]["bookmark_setter"] = dialog.result.remember
-			self.writecfg(self.cfg)
+		self.cfg["ui_remember"]["bookmark_setter"] = dialog.result.remember
 		if dialog.result.state == DIAGSIG.SUCCESS:
-			if self.cfg["lazyreload"] and self.cfg["datagrabmode"] != 0:
-				ksdata = self.listbox.getcell("col_demo_info", index)
-				ksdata = ksdata[0] if ksdata is not None else ()
-				new_bmdata = (ksdata, list(dialog.result.data))
-				self.listbox.setcell("col_demo_info", index, new_bmdata)
-				self.listbox.format(("col_demo_info", ), (index, ))
+			if self.cfg["lazyreload"]:
+				if self.cfg["datagrabmode"] == 0:
+					return
+				container_state = dialog.result.data["containers"][self.cfg["datagrabmode"] - 1]
+				if container_state is None:
+					return
+				self.listbox.set_cell(
+					"col_bm", index, dialog.result.data["bookmarks"] if container_state else None
+				)
+				self.listbox.format(("col_bm", ), (index, ))
 				self._updatedemowindow(no_io = True)
 			else:
 				self.reloadgui()
@@ -433,7 +439,7 @@ class MainApp():
 			# Really hacky way of doing this
 			theme_path = os.path.join(os.path.dirname(__file__), CNST.THEME_SUBDIR, theme_tuple[0])
 		except (KeyError):
-			tk_msg.showerror("Demomgr - error", "Cannot load theme, interface will look butchered.")
+			tk_msg.showerror("Demomgr - Error", "Cannot find Tcl theme, using default.")
 			return
 		try:
 			stylehelper = StyleHelper(self.root)
@@ -441,7 +447,7 @@ class MainApp():
 			stylehelper.load_image_dir(imagedir = imgdir, filetypes = ("png", ), imgvarname = "IMG")
 			stylehelper.load_theme(theme_path, theme_tuple[1])
 		except TclError as error:
-			tk_msg.showerror("Demomgr - Error", f"A tcl error occurred:\n{error}")
+			tk_msg.showerror("Demomgr - Error", f"A Tcl error occurred:\n{error}")
 		except (OSError, PermissionError, FileNotFoundError) as error:
 			tk_msg.showerror(
 				"Demomgr - Error",
@@ -450,18 +456,19 @@ class MainApp():
 
 	def _updatedemowindow(self, clear = False, no_io = False):
 		"""Renew contents of demo information windows"""
-		index = self.listbox.getselectedcell()[1]
+		index = self.listbox.get_selected_cell()[1]
 		if not no_io:
 			self.demo_header_kvd.clear()
 		self.demoeventmfl.clear()
 		if clear or index is None:
 			return
 
-		demo_info = self.listbox.getcell("col_demo_info", index)
-		if demo_info is not None:
-			for t, n in ((demo_info[0], "Killstreak"), (demo_info[1], "Bookmark")):
-				for streak, tick in t: # Killstreaks
-					self.demoeventmfl.insertrow({
+		ks = self.listbox.get_cell("col_ks", index)
+		bm = self.listbox.get_cell("col_bm", index)
+		if not (ks is None or bm is None):
+			for t, n in ((ks, "Killstreak"), (bm, "Bookmark")):
+				for streak, tick in t:
+					self.demoeventmfl.insert_row({
 						"col_type": n,
 						"col_tick": tick,
 						"col_value": str(streak),
@@ -470,7 +477,7 @@ class MainApp():
 		if not self.cfg["previewdemos"] or no_io:
 			return
 
-		demname = self.listbox.getcell("col_filename", index)
+		demname = self.listbox.get_cell("col_filename", index)
 		# In case of a super slow drive, this will hang in order to
 		# prevent multiple referenceless threads going wild in the demo directory
 		self.threadgroups["demoinfo"].join_thread()
@@ -523,13 +530,14 @@ class MainApp():
 		elif queue_elem[0] == THREADSIG.RESULT_DEMO_AMOUNT:
 			self.directory_inf_kvd.set_value("l_amount", queue_elem[1])
 		elif queue_elem[0] == THREADSIG.RESULT_DEMODATA:
-			self.listbox.setdata(queue_elem[1])
+			self.listbox.set_data(queue_elem[1])
 			self.listbox.format()
 		return THREADGROUPSIG.CONTINUE
 
 	def _finalization_fetchdata(self, qeue_elem):
-		self.directory_inf_kvd.set_value("l_totalsize", sum(
-			self.listbox.getcolumn("col_filesize")))
+		self.directory_inf_kvd.set_value(
+			"l_totalsize", sum(self.listbox.get_column("col_filesize"))
+		)
 
 	def _cleanup(self):
 		"""
@@ -583,10 +591,11 @@ class MainApp():
 
 	def _filter(self, *_):
 		"""Starts a filtering thread and configures the filtering button."""
-		if self.filterentry_var.get() == "" or self.curdir == "":
+		if not self.filterentry_var.get() or self.curdir == "":
 			return
-		self.filterbtn.config(text = "Stop Filtering",
-			command = lambda: self._stopfilter(True))
+		self.filterbtn.config(
+			text = "Stop Filtering", command = lambda: self._stopfilter(True)
+		)
 		self.filterentry.unbind("<Return>")
 		self.resetfilterbtn.config(state = tk.DISABLED)
 		self.threadgroups["filter"].start_thread(
@@ -623,7 +632,7 @@ class MainApp():
 			self.setstatusbar(*queue_elem[1])
 			return THREADGROUPSIG.CONTINUE
 		elif queue_elem[0] == THREADSIG.RESULT_DEMODATA:
-			self.listbox.setdata(queue_elem[1])
+			self.listbox.set_data(queue_elem[1])
 			self.listbox.format()
 			return THREADGROUPSIG.CONTINUE
 
@@ -636,9 +645,6 @@ class MainApp():
 		"""
 		selpath = self.spinboxvar.get()
 		if selpath != self.curdir:
-			if self.cfg["lastpath"] != selpath: # Update lastpath entry
-				self.cfg["lastpath"] = selpath
-				self.writecfg(self.cfg)
 			self.curdir = selpath
 			self.reloadgui()
 
@@ -663,7 +669,6 @@ class MainApp():
 		if dirpath in self.cfg["demopaths"]:
 			return
 		self.cfg["demopaths"].append(dirpath)
-		self.writecfg(self.cfg)
 		self.spinboxvar.set(dirpath)
 		self.pathsel_spinbox.config(values = tuple(self.cfg["demopaths"]))
 		self.reloadgui()
@@ -674,11 +679,10 @@ class MainApp():
 		automatically moves to another one or sets the current directory
 		to "" if none are available anymore.
 		"""
-		if len(self.cfg["demopaths"]) == 0:
+		if not self.cfg["demopaths"]:
 			return
 		popindex = self.cfg["demopaths"].index(self.curdir)
 		self.cfg["demopaths"].pop(popindex)
-		self.writecfg(self.cfg)
 		if len(self.cfg["demopaths"]) > 0:
 			self.spinboxvar.set(self.cfg["demopaths"][(popindex - 1) % len(self.cfg["demopaths"])])
 		else:

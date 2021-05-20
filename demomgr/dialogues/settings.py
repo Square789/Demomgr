@@ -148,7 +148,11 @@ class Settings(BaseDialog):
 			suboptions_pane, padding = 8, labelwidget = frmd_label(suboptions_pane, "Get demo information via...")
 		)
 		datagrab_labelframe.grid_columnconfigure(0, weight = 1)
-		for i, j in ((".json files", 2), (CNST.EVENT_FILE, 1), ("None", 0)):
+		for i, j in (
+			(".json files",   CNST.DATAGRABMODE.JSON),
+			(CNST.EVENT_FILE, CNST.DATAGRABMODE.EVENTS),
+			("None",          CNST.DATAGRABMODE.NONE),
+		):
 			b = ttk.Radiobutton(
 				datagrab_labelframe, value = j, variable = self.datagrabmode_var, text = i,
 				style = "Contained.TRadiobutton"
@@ -160,8 +164,9 @@ class Settings(BaseDialog):
 			labelwidget = frmd_label(suboptions_pane, "Read _events.txt in chunks of size...")
 		)
 		eventread_labelframe.grid_columnconfigure(0, weight = 1)
-		self.blockszselector = ttk.Combobox(eventread_labelframe,
-			state = "readonly", values = [k for k in self.blockszvals])
+		self.blockszselector = ttk.Combobox(
+			eventread_labelframe, state = "readonly", values = [k for k in self.blockszvals]
+		)
 		self.blockszselector.grid(sticky = "ew")
 
 		rcon_pwd_labelframe = ttk.LabelFrame(
@@ -186,14 +191,16 @@ class Settings(BaseDialog):
 		self.rcon_port_entry.insert(0, str(self.cfg["rcon_port"]))
 		self.rcon_port_entry.grid(column = 0, row = 0, sticky = "ew")
 
-		try:
-			self.blockszvals[convertunit(self.cfg["evtblocksz"], "B")]
-			self.blockszselector.set(convertunit(self.cfg["evtblocksz"], "B"))
-		except KeyError:
+		# Set from config, default to first-ish values when not available
+		tmp = convertunit(self.cfg["evtblocksz"], "B")
+		if tmp in self.blockszvals:
+			self.blockszselector.set(tmp)
+		else:
 			self.blockszselector.set(next(iter(self.blockszvals)))
 
-		if self.cfg["date_format"] in CNST.DATE_FORMATS:
-			self.date_fmt_combobox.set(self.cfg["date_format"])
+		tmp = self.cfg["date_format"]
+		if tmp in CNST.DATE_FORMATS:
+			self.date_fmt_combobox.set(tmp)
 		else:
 			self.date_fmt_combobox.set(CNST.DATE_FORMATS[0])
 

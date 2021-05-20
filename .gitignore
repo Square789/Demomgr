@@ -126,3 +126,6 @@ dmypy.json
 
 # VSC
 .vscode/
+
+# Local ideas/garbage
+_*.png

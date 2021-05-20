@@ -32,8 +32,9 @@ def build_date_formatter(cfg):
 	"""
 	Creates a date formatter method that takes an UNIX timestamp and
 	converts it to what's dictated by "date_fmt" in the supplied cfg
-	dict, value not bound to cfg.
+	dict, value not bound to cfg as long as it's immutable.
 	"""
+	# i sure hope that docstring is correct
 	dfmt = cfg["date_format"]
 	return lambda ts: datetime.datetime.fromtimestamp(ts).strftime(dfmt)
 
@@ -56,7 +57,7 @@ def convertunit(inp, ext = "B"):
 
 def deepupdate_dict(target, update):
 	"""
-	Updates dicts and calls self recursively if a list or dict is encountered
+	Updates dicts and calls itself recursively if a list or dict is encountered
 	to perform updating at nesting levels instead of just the first one.
 	Does not work with tuples.
 	"""
@@ -108,6 +109,18 @@ def readdemoheader(path):
 
 	return demhdr
 
+def none_len_formatter(pair):
+	"""If input is None, returns "?", otherwise the length of input as string."""
+	if pair is None:
+		return "?"
+	return str(len(pair))
+
+def none_len_sortkey(pair):
+	"""If input is None, returns -1, otherwise the length of input."""
+	if pair is None:
+		return -1
+	return len(pair)
+
 def getstreakpeaks(killstreaks):
 	"""
 	Takes a list of tuples where: element 0 is a number and 1 is a time
@@ -150,17 +163,10 @@ def assign_demo_info(files, demo_info):
 				break
 	return assigned_dat
 
-def format_bm_pair(toformat):
-	"""
-	Formats a primitive killstreak/bookmark pair ((), ())
-	into a readable string.
-	"""
-	if toformat is None:
-		return "None"
-	return f"{len(toformat[0])} Killstreaks; {len(toformat[1])} Bookmarks"
-
-def frmd_label(parent, text,
-		styles = ("Framed.Contained.TFrame", "Labelframe.Contained.TLabel")):
+def frmd_label(
+		parent, text,
+		styles = ("Framed.Contained.TFrame", "Labelframe.Contained.TLabel")
+	):
 	"""
 	Returns a ttk.Frame object containing a ttk.Label with text specified
 	that is supposed to be integrated into a Labelframe.

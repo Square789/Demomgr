@@ -65,6 +65,7 @@ class BaseDialog(tk.Toplevel, CfgReducing):
 
 		self.grab_set()
 		self.focus_set()
+		self.withdraw()
 
 		self.rootframe = ttk.Frame(self)
 		self._mainframe = ttk.Frame(self.rootframe)
@@ -72,7 +73,6 @@ class BaseDialog(tk.Toplevel, CfgReducing):
 		self._mainframe.pack(expand = 1, fill = tk.BOTH, padx = 5, pady = 5)
 		self.rootframe.pack(expand = 1, fill = tk.BOTH)
 
-		self.withdraw()
 		if self.parent.winfo_viewable():
 			self.transient(self.parent)
 

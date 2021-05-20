@@ -32,10 +32,15 @@ class BookmarkSetter(BaseDialog):
 
 	After the dialog is closed:
 	If the thread succeeded at least once, `self.result.state` is SUCCESS,
-	the new bookmark tuple can be found in `self.result.data` in the usual
-	primitive format.
-	Else the thread failed or wasn't even started, in which case the data
-	is None.
+	the new bookmark tuple can be found in `self.result.data["bookmarks"]`
+	in the usual primitive format. These are not guaranteed to be the bookmarks
+	on disk, but the ones entered in the UI by the user.
+	`self.result.data["containers"]` will be a 2-value tuple of booleans denoting
+	the state of information containers, True if a container now exists, False if
+	it doesn't and None if something went wrong, in which case the container's
+	existence is unchanged. Containers are 0: _events.txt; 1: json file
+	If the thread failed or wasn't even started, `self.result.data` will be
+	an empty dict.
 
 	Widget state remembering:
 	0: json checkbox (bool)
@@ -55,6 +60,8 @@ class BookmarkSetter(BaseDialog):
 		remember: List of arbitrary values. See class docstring for details.
 		"""
 		super().__init__(parent, "Insert bookmark...")
+
+		self.result.data = {}
 
 		self.targetdemo = targetdemo
 		self.demo_dir = os.path.dirname(targetdemo)
@@ -87,54 +94,67 @@ class BookmarkSetter(BaseDialog):
 
 		self.listbox = mfl.MultiframeList(widgetcontainer, inicolumns = (
 			{"name": "Name", "col_id": "col_name"},
-			{"name": "Tick", "col_id": "col_tick"}))
+			{"name": "Tick", "col_id": "col_tick"},
+		))
 		self.listbox.grid(row = 0, column = 0, rowspan = 4, sticky = "news")
-		insert_opt_lblfrm = ttk.Labelframe(widgetcontainer, labelwidget = \
-			frmd_label(widgetcontainer, "Current:"))
+		insert_opt_lblfrm = ttk.Labelframe(
+			widgetcontainer, labelwidget = frmd_label(widgetcontainer, "Bookmark data:")
+		)
 		insert_opt_lblfrm.columnconfigure(1, weight = 1)
-		ttk.Label(insert_opt_lblfrm, style = "Contained.TLabel",
-			text = "Name:").grid(row = 0, column = 0)
-		ttk.Label(insert_opt_lblfrm, style = "Contained.TLabel",
-			text = "Tick:").grid(row = 1, column = 0)
-		self.name_entry = ttk.Entry(insert_opt_lblfrm, validatecommand = (
-			parent.register(name_validator), "%P"), validate = "key")
-		self.tick_entry = ttk.Entry(insert_opt_lblfrm, validatecommand = (
-			parent.register(int_validator), "%S", "%P"), validate = "key")
-		apply_btn = ttk.Button(insert_opt_lblfrm, text = "Apply",
-			command = self._apply_changes)
+		ttk.Label(
+			insert_opt_lblfrm, style = "Contained.TLabel", text = "Name:"
+		).grid(row = 0, column = 0)
+		ttk.Label(
+			insert_opt_lblfrm, style = "Contained.TLabel", text = "Tick:"
+		).grid(row = 1, column = 0)
+		self.name_entry = ttk.Entry(
+			insert_opt_lblfrm, validate = "key",
+			validatecommand = (parent.register(name_validator), "%P")
+		)
+		self.tick_entry = ttk.Entry(
+			insert_opt_lblfrm, validate = "key",
+			validatecommand = (parent.register(int_validator), "%S", "%P")
+		)
+		apply_btn = ttk.Button(
+			insert_opt_lblfrm, text = "Apply", command = self._apply_changes
+		)
 		self.name_entry.grid(row = 0, column = 1, sticky = "ew", padx = 5, pady = 5)
 		self.tick_entry.grid(row = 1, column = 1, sticky = "ew", padx = 5, pady = 5)
 		self.name_entry.bind("<Return>", self._apply_changes)
 		self.tick_entry.bind("<Return>", self._apply_changes)
 		apply_btn.grid(row = 2, column = 1, sticky = "ew", padx = 5, pady = 5)
-		insert_opt_lblfrm.grid(row = 0, column = 1, sticky = "ew", padx = (5, 0),
-			columnspan = 2)
+		insert_opt_lblfrm.grid(
+			row = 0, column = 1, sticky = "ew", padx = (5, 0), columnspan = 2
+		)
 
-		add_bm_btn = ttk.Button(widgetcontainer, text = "New",
-			command = self._add_bookmark)
-		rem_bm_btn = ttk.Button(widgetcontainer, text = "Remove",
-			command = self._rem_bookmark)
+		add_bm_btn = ttk.Button(widgetcontainer, text = "New", command = self._add_bookmark)
+		rem_bm_btn = ttk.Button(widgetcontainer, text = "Remove", command = self._rem_bookmark)
 
 		add_bm_btn.grid(row = 1, column = 1, sticky = "ew", padx = (5, 0), pady = 5)
 		rem_bm_btn.grid(row = 1, column = 2, sticky = "ew", padx = (5, 0), pady = 5)
 
-		save_loc_lblfrm = ttk.Labelframe(widgetcontainer, labelwidget = \
-			frmd_label(widgetcontainer, "Save changes to:"))
-		json_checkbox = ttk.Checkbutton(save_loc_lblfrm, text = ".json",
-			variable = self.jsonmark_var, style = "Contained.TCheckbutton")
-		events_checkbox = ttk.Checkbutton(save_loc_lblfrm,
-			text = CNST.EVENT_FILE, variable = self.eventsmark_var, style = \
-			"Contained.TCheckbutton")
+		save_loc_lblfrm = ttk.Labelframe(
+			widgetcontainer, labelwidget = frmd_label(widgetcontainer, "Save changes to:")
+		)
+		json_checkbox = ttk.Checkbutton(
+			save_loc_lblfrm, text = ".json",
+			variable = self.jsonmark_var, style = "Contained.TCheckbutton"
+		)
+		events_checkbox = ttk.Checkbutton(
+			save_loc_lblfrm, text = CNST.EVENT_FILE, variable = self.eventsmark_var,
+			style = "Contained.TCheckbutton"
+			)
 		json_checkbox.grid(sticky = "w", ipadx = 2, padx = 5, pady = 5)
 		events_checkbox.grid(sticky = "w", ipadx = 2, padx = 5, pady = 5)
-		save_loc_lblfrm.grid(row = 2, column = 1, sticky = "ew", padx = (5, 0),
-			columnspan = 2)
+		save_loc_lblfrm.grid(
+			row = 2, column = 1, sticky = "ew", padx = (5, 0), columnspan = 2
+		)
 
-		widgetcontainer.grid(row = 0, column = 0, columnspan = 2,
-			sticky = "news")
+		widgetcontainer.grid(row = 0, column = 0, columnspan = 2, sticky = "news")
 
-		self.textbox = TtkText(parent, self.styleobj, height = 8,
-			wrap = "none", takefocus = False)
+		self.textbox = TtkText(
+			parent, self.styleobj, height = 8, wrap = "none", takefocus = False
+		)
 		self.textbox.grid(row = 1, column = 0, columnspan = 2, sticky = "news", pady = 5)
 		self.textbox.lower()
 
@@ -148,9 +168,12 @@ class BookmarkSetter(BaseDialog):
 		self._log(f"Marking {os.path.split(self.targetdemo)[1]}\n")
 
 	def _add_bookmark(self):
-		self.listbox.insertrow(
-			{"col_name": "New Bookmark", "col_tick": 0},
-			self._find_insertion_index(0),
+		name = self.name_entry.get()
+		tick = self.tick_entry.get()
+		tick = int(tick) if tick else 0
+		self.listbox.insert_row(
+			{"col_name": name, "col_tick": tick},
+			self._find_insertion_index(tick),
 		)
 
 	def _apply_changes(self, *_):
@@ -158,24 +181,24 @@ class BookmarkSetter(BaseDialog):
 		Apply user-entered name and tick to the mfl entry and reinsert it
 		into the list at correct position.
 		"""
-		index = self.listbox.getselectedcell()[1]
+		index = self.listbox.get_selected_cell()[1]
 		if index is None:
 			self._log("No bookmark selected to change.")
 			return
 		new_name, new_tick = self.name_entry.get(), self.tick_entry.get()
 		new_tick = int(new_tick) if new_tick else 0
-		self.listbox.removerow(index)
+		self.listbox.remove_row(index)
 		new_idx = self._find_insertion_index(int(new_tick))
-		self.listbox.insertrow({"col_name": new_name, "col_tick": new_tick}, new_idx)
-		self.listbox.setselectedcell(0, new_idx)
+		self.listbox.insert_row({"col_name": new_name, "col_tick": new_tick}, new_idx)
+		self.listbox.set_selected_cell(0, new_idx)
 
 	def _callback_bookmark_selected(self, *_):
 		self.name_entry.delete(0, tk.END)
 		self.tick_entry.delete(0, tk.END)
-		idx = self.listbox.getselectedcell()[1]
+		idx = self.listbox.get_selected_cell()[1]
 		if idx is None:
 			return
-		data, col_idx = self.listbox.getrows(idx)
+		data, col_idx = self.listbox.get_rows(idx)
 		new_name, new_tick = data[0][col_idx["col_name"]], data[0][col_idx["col_tick"]]
 		self.name_entry.insert(0, new_name)
 		self.tick_entry.insert(0, str(new_tick))
@@ -189,8 +212,8 @@ class BookmarkSetter(BaseDialog):
 		sorted by tick ascending
 		"""
 		insidx = 0
-		for i in range(self.listbox.getlen()):
-			if self.listbox.getcell("col_tick", i) > tick:
+		for i in range(self.listbox.get_length()):
+			if self.listbox.get_cell("col_tick", i) > tick:
 				break
 			insidx += 1
 		return insidx
@@ -199,8 +222,8 @@ class BookmarkSetter(BaseDialog):
 		"""Called by body, loads bookmarks into the listbox."""
 		if self.bm_dat is None:
 			return
-		for i in self.bm_dat[1]:
-			self.listbox.insertrow({"col_name": i[0], "col_tick": i[1]})
+		for n, t in self.bm_dat:
+			self.listbox.insert_row({"col_name": n, "col_tick": t})
 
 	def _log(self, tolog):
 		"""Inserts "\n" + tolog into self.textbox."""
@@ -215,8 +238,8 @@ class BookmarkSetter(BaseDialog):
 		mark_evts = self.eventsmark_var.get()
 
 		raw_bookmarks = tuple(zip(
-			self.listbox.getcolumn("col_name"),
-			self.listbox.getcolumn("col_tick"),
+			self.listbox.get_column("col_name"),
+			self.listbox.get_column("col_tick"),
 		))
 
 		self.savebtn.configure(text = "Cancel", command = self._cancel_mark)
@@ -231,23 +254,25 @@ class BookmarkSetter(BaseDialog):
 	def _mark_after_callback(self, queue_elem):
 		if queue_elem[0] < 0x100: # Finish
 			self.savebtn.configure(text = "Save", command = self._mark)
-			if queue_elem[0] == 0x0:
+			if queue_elem[0] == THREADSIG.SUCCESS:
 				self.result.state = DIAGSIG.SUCCESS
-				self.result.data = tuple(zip(
-					self.listbox.getcolumn("col_name"),
-					[int(i) for i in self.listbox.getcolumn("col_tick")]
+				self.result.data["bookmarks"] = tuple(zip(
+					self.listbox.get_column("col_name"),
+					map(int, self.listbox.get_column("col_tick"))
 				))
 			return THREADGROUPSIG.FINISHED
+		elif queue_elem[0] == THREADSIG.INFO_INFORMATION_CONTAINERS:
+			self.result.data["containers"] = queue_elem[1]
 		elif queue_elem[0] == THREADSIG.INFO_CONSOLE:
 			self._log(queue_elem[1])
 			return THREADGROUPSIG.CONTINUE
 
 	def _rem_bookmark(self):
-		index = self.listbox.getselectedcell()[1]
+		index = self.listbox.get_selected_cell()[1]
 		if index is None:
 			self._log("No bookmark to remove selected.")
 			return
-		self.listbox.removerow(index)
+		self.listbox.remove_row(index)
 
 	def destroy(self):
 		self._cancel_mark()

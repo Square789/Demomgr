@@ -1,4 +1,4 @@
-multiframe_list==2.3.0
+multiframe_list==3.1.0
 regex
 schema
 vdf

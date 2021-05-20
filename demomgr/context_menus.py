@@ -55,7 +55,7 @@ def multiframelist_cb(event, mfl, demo_ops):
 		associated with that entry.
 	"""
 	w = event.widget
-	x, y = mfl.getlastclick()
+	x, y = mfl.get_last_click()
 	add_elems = [("command", {"label": f"{s0}...", "command": cmd}) for s0, _, cmd in demo_ops]
 	men = PopupMenu(mfl, add_elems)
 	men.post(x, y)

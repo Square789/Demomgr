@@ -69,8 +69,9 @@ class ThreadFilter(_StoppableBaseThread):
 					demo_data = queueobj[1]
 				elif queueobj[0] < 0x100: # Finish signal
 					if queueobj[0] == THREADSIG.FAILURE:
-						self.queue_out_put(THREADSIG.INFO_STATUSBAR, (
-							"Demo fetching thread failed unexpectedly during filtering.", 4000)
+						self.queue_out_put(
+							THREADSIG.INFO_STATUSBAR,
+							("Demo fetching thread failed unexpectedly during filtering.", 4000)
 						)
 						self.queue_out_put(THREADSIG.FAILURE); return
 					break
@@ -80,7 +81,7 @@ class ThreadFilter(_StoppableBaseThread):
 			self.queue_out_put(THREADSIG.ABORTED); return
 
 		filtered_demo_data = {
-			"col_filename": [], "col_demo_info": [], "col_ctime": [], "col_filesize":[]
+			"col_filename": [], "col_ks": [], "col_bm": [], "col_ctime": [], "col_filesize": []
 		}
 		file_amnt = len(demo_data["col_filename"])
 		for i, j in enumerate(demo_data["col_filename"]): # Filter
@@ -89,13 +90,10 @@ class ThreadFilter(_StoppableBaseThread):
 					THREADSIG.INFO_STATUSBAR, (f"Filtering demos; {i+1} / {file_amnt}", )
 				)
 
-			tmp_di = ((), ()) if demo_data["col_demo_info"][i] is None \
-				else demo_data["col_demo_info"][i]
-
 			curdataset = {
 				"name": j,
-				"killstreaks": tmp_di[0],
-				"bookmarks": tmp_di[1],
+				"killstreaks": () if demo_data["col_ks"][i] is None else demo_data["col_ks"][i],
+				"bookmarks": () if demo_data["col_bm"][i] is None else demo_data["col_bm"][i],
 				"header": None,
 				"filedata": {
 					"filesize": demo_data["col_filesize"][i],
@@ -107,14 +105,13 @@ class ThreadFilter(_StoppableBaseThread):
 					curdataset["header"] = readdemoheader(os.path.join(self.curdir, j))
 				except (FileNotFoundError, PermissionError, OSError):
 					break
-			for lambda_ in filters:
-				if not lambda_(curdataset):
-					break
-			else:
-				filtered_demo_data["col_filename" ].append(j)
-				filtered_demo_data["col_demo_info"].append(demo_data["col_demo_info"][i])
-				filtered_demo_data["col_ctime"    ].append(demo_data["col_ctime"][i])
-				filtered_demo_data["col_filesize" ].append(demo_data["col_filesize"][i])
+
+			if all(lambda_(curdataset) for lambda_ in filters):
+				filtered_demo_data["col_filename"].append(j)
+				filtered_demo_data["col_ks"      ].append(demo_data["col_ks"][i])
+				filtered_demo_data["col_bm"      ].append(demo_data["col_bm"][i])
+				filtered_demo_data["col_ctime"   ].append(demo_data["col_ctime"][i])
+				filtered_demo_data["col_filesize"].append(demo_data["col_filesize"][i])
 
 			if self.stoprequest.is_set():
 				self.queue_out_put(THREADSIG.ABORTED); return
