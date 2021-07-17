@@ -1,9 +1,7 @@
 """Various helper functions and classes used all over the program."""
 
-import os
 import datetime
 import struct
-import re
 from tkinter.ttk import Frame, Label
 from math import log10, floor
 

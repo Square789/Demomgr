@@ -6,7 +6,6 @@ from demomgr.dialogues._base import BaseDialog
 from demomgr.dialogues._diagresult import DIAGSIG
 
 from demomgr import constants as CNST
-from demomgr.tk_widgets import TtkText
 from demomgr.helpers import convertunit, frmd_label, int_validator
 
 _TK_VARTYPES = {

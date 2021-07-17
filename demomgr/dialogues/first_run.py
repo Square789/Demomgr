@@ -44,11 +44,11 @@ class FirstRun(BaseDialog):
 		btnframe = ttk.Frame(master)
 		btnframe.columnconfigure((0, 1), weight = 1)
 		btconfirm = ttk.Button(
-			btnframe, text = "I am okay with that and I accept.",
+			btnframe, text = "OK",
 			command = lambda: self.done(DIAGSIG.SUCCESS)
 		)
 		btcancel = ttk.Button(
-			btnframe, text = "Cancel!", command = lambda: self.done(DIAGSIG.FAILURE)
+			btnframe, text = "Exit", command = lambda: self.done(DIAGSIG.FAILURE)
 		)
 		btconfirm.grid(column = 0, row = 2, padx = (0, 3), sticky = "ew")
 		btcancel.grid(column = 1, row = 2, padx = (3, 0), sticky = "ew")

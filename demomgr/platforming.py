@@ -2,7 +2,6 @@
 Module to return values loosely based on the platform demomgr is run on.
 """
 
-import getpass
 import os
 from pathlib import Path
 import platform

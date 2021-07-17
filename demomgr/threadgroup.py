@@ -5,7 +5,6 @@ to simplify threading and tkinter.
 """
 
 import queue
-import threading
 import types
 
 import demomgr.constants as CNST

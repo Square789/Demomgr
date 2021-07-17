@@ -11,8 +11,6 @@ LIKE [, ], {, } ! (but why would they, really.);
 import os
 import re
 
-_DEF = {"imagedir": "", "filetype": "png", "imgvarname": "IMAGES"}
-
 RE_FORBIDDEN = [(re.compile(r"\["), "Attempted command call."),
 	(re.compile(r"(?:(?<=[^\\])|^)(\\(?:\\{2})*)(?=[^\\]|$)"),
 		"Odd amount of backslashes.")

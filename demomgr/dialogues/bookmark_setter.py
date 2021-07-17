@@ -9,9 +9,6 @@ import tkinter as tk
 import tkinter.ttk as ttk
 
 import os
-import re
-import threading
-import queue
 
 import multiframe_list as mfl
 

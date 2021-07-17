@@ -2,14 +2,11 @@ import os
 from copy import deepcopy
 import json
 import sys
-import threading
-import time
 import tkinter as tk
 import tkinter.ttk as ttk
 import tkinter.filedialog as tk_fid
 import tkinter.messagebox as tk_msg
 from _tkinter import TclError
-import queue
 
 import multiframe_list.multiframe_list as mfl
 import schema
@@ -26,7 +23,7 @@ from demomgr import platforming
 from demomgr.threadgroup import ThreadGroup, THREADGROUPSIG
 from demomgr.threads import THREADSIG, ThreadFilter, ThreadReadFolder, ThreadDemoInfo
 
-__version__ = "1.8.0"
+__version__ = "1.8.1"
 __author__ = "Square789"
 
 class MainApp():

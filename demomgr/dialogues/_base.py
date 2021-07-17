@@ -1,8 +1,6 @@
 import tkinter as tk
 import tkinter.ttk as ttk
 
-from tkinter.simpledialog import Dialog
-
 from demomgr.dialogues._diagresult import DIAGSIG, DiagResult
 from demomgr.helpers import CfgReducing
 

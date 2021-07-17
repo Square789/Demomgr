@@ -129,3 +129,6 @@ dmypy.json
 
 # Local ideas/garbage
 _*.png
+
+# nuitka build
+nuitka_build/

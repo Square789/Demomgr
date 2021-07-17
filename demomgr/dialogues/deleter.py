@@ -2,13 +2,10 @@ import tkinter as tk
 import tkinter.ttk as ttk
 
 import os
-import threading
-import queue
 
 from demomgr.dialogues._base import BaseDialog
 from demomgr.dialogues._diagresult import DIAGSIG
 
-from demomgr import constants as CNST
 from demomgr.tk_widgets import TtkText
 from demomgr.threadgroup import ThreadGroup, THREADGROUPSIG
 from demomgr.threads import THREADSIG, ThreadDelete
