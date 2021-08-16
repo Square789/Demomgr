@@ -39,10 +39,12 @@ class ThreadFilter(_StoppableBaseThread):
 			self.queue_out_put(
 				THREADSIG.INFO_STATUSBAR, (f"Error parsing filter request: {error}", 4000)
 			)
-			self.queue_out_put(THREADSIG.FAILURE); return
+			self.queue_out_put(THREADSIG.FAILURE)
+			return
 
 		if self.stoprequest.is_set():
-			self.queue_out_put(THREADSIG.ABORTED); return
+			self.queue_out_put(THREADSIG.ABORTED)
+			return
 
 		if not self.silent:
 			self.queue_out_put(
@@ -57,7 +59,8 @@ class ThreadFilter(_StoppableBaseThread):
 		# NOTE: Can't really wait for join to this thread here.
 		self.datafetcherthread.join(None, nostop = True)
 		if self.stoprequest.is_set():
-			self.queue_out_put(THREADSIG.ABORTED); return
+			self.queue_out_put(THREADSIG.ABORTED)
+			return
 
 		demo_data = None
 		while True:
@@ -71,12 +74,14 @@ class ThreadFilter(_StoppableBaseThread):
 							THREADSIG.INFO_STATUSBAR,
 							("Demo fetching thread failed unexpectedly during filtering.", 4000)
 						)
-						self.queue_out_put(THREADSIG.FAILURE); return
+						self.queue_out_put(THREADSIG.FAILURE)
+						return
 					break
 			except queue.Empty:
 				break
 		if self.stoprequest.is_set():
-			self.queue_out_put(THREADSIG.ABORTED); return
+			self.queue_out_put(THREADSIG.ABORTED)
+			return
 
 		filtered_demo_data = {
 			"col_filename": [], "col_ks": [], "col_bm": [], "col_ctime": [], "col_filesize": []
@@ -112,7 +117,8 @@ class ThreadFilter(_StoppableBaseThread):
 				filtered_demo_data["col_filesize"].append(demo_data["col_filesize"][i])
 
 			if self.stoprequest.is_set():
-				self.queue_out_put(THREADSIG.ABORTED); return
+				self.queue_out_put(THREADSIG.ABORTED)
+				return
 
 		self.queue_out_put(
 			THREADSIG.INFO_STATUSBAR,

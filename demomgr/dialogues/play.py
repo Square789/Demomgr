@@ -135,7 +135,8 @@ class Play(BaseDialog):
 			selection_type = SELECTION_TYPE.SINGLE,
 		)
 		self.tick_to_launch_options_checkbox = ttk.Checkbutton(
-			bookmark_region, style = "Contained.TCheckbutton", text = "Go to tick in launch options?"
+			bookmark_region, style = "Contained.TCheckbutton",
+			text = "Go to tick in launch options?"
 		)
 		self.tick_entry = ttk.Entry(bookmark_region, style = "Contained.TEntry")
 		self.rcon_send_gototick_button = ttk.Button(

@@ -55,7 +55,8 @@ class RCONThread(_StoppableBaseThread):
 		try:
 			encoded_pwd = self.password.encode("utf-8")
 		except UnicodeError:
-			self.queue_out_put(THREADSIG.FAILURE); return
+			self.queue_out_put(THREADSIG.FAILURE)
+			return
 
 		self.queue_out_put(THREADSIG.INFO_IDX_PARAM, 0, "Connecting to TF2...")
 		try:

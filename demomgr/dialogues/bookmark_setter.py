@@ -68,7 +68,8 @@ class BookmarkSetter(BaseDialog):
 		u_r = self.validate_and_update_remember(remember)
 		self.jsonmark_var = tk.BooleanVar()
 		self.eventsmark_var = tk.BooleanVar()
-		self.jsonmark_var.set(u_r[0]); self.eventsmark_var.set(u_r[1])
+		self.jsonmark_var.set(u_r[0])
+		self.eventsmark_var.set(u_r[1])
 
 		self.threadgroup = ThreadGroup(ThreadMarkDemo, parent)
 		self.threadgroup.decorate_and_patch(self, self._mark_after_callback)

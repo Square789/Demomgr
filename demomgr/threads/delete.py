@@ -44,7 +44,8 @@ class ThreadDelete(_StoppableBaseThread):
 	#-----------Deletion loop-----------#
 		for i in self.filestodel:
 			if self.stoprequest.is_set():
-				self.queue_out_put(THREADSIG.ABORTED); return
+				self.queue_out_put(THREADSIG.ABORTED)
+				return
 			try:
 				os.remove(os.path.join(self.demodir, i))
 				deletedfiles += 1
@@ -67,8 +68,10 @@ class ThreadDelete(_StoppableBaseThread):
 					THREADSIG.INFO_CONSOLE,
 					" Error updating eventfile:\n{}\n".format(str(error)),
 				)
-				if reader is not None: reader.destroy()
-				if writer is not None: writer.destroy()
+				if reader is not None:
+					reader.destroy()
+				if writer is not None:
+					writer.destroy()
 			else:
 				if self.eventfileupdate == "passive":
 					for outchunk in reader:
@@ -82,8 +85,7 @@ class ThreadDelete(_StoppableBaseThread):
 							writer.writechunk(outchunk)
 
 				elif self.eventfileupdate == "selectivemove": # Requires to have entire dir/actual files present in self.files;
-					okayfiles = set([j for i, j in enumerate(self.files)
-							if not self.selected[i]])
+					okayfiles = set([j for i, j in enumerate(self.files) if not self.selected[i]])
 					for outchunk in reader:
 						regres = re.search(CNST.EVENTFILE_FILENAMEFORMAT, outchunk.content)
 						if regres:
@@ -106,4 +108,4 @@ class ThreadDelete(_StoppableBaseThread):
 				round(time.time() - starttime, 3), deletedfiles, errorsencountered
 			)
 		)
-		self.queue_out_put(THREADSIG.SUCCESS); return
+		self.queue_out_put(THREADSIG.SUCCESS)
