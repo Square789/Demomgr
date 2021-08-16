@@ -13,18 +13,6 @@ _CONVPREF = (
 )
 _CONVPREF_CENTER = 8
 
-class CfgReducing:
-	REQUIRED_CFG_KEYS = ()
-
-	@classmethod
-	def reduce_cfg(class_, cfg):
-		"""
-		Reduces input cfg only to the values required for this thread/dialog.
-		(Class attribute `REQUIRED_CFG_KEYS`)
-		Will not create copies or perform error checks, so make sure only
-		immutables are used and cfg is actually complete.
-		"""
-		return {k: cfg[k] for k in class_.REQUIRED_CFG_KEYS}
 
 def build_date_formatter(cfg):
 	"""
@@ -33,7 +21,7 @@ def build_date_formatter(cfg):
 	dict, value not bound to cfg as long as it's immutable.
 	"""
 	# i sure hope that docstring is correct
-	dfmt = cfg["date_format"]
+	dfmt = cfg.date_format
 	return lambda ts: datetime.datetime.fromtimestamp(ts).strftime(dfmt)
 
 def convertunit(inp, ext = "B"):

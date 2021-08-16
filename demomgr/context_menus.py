@@ -8,7 +8,7 @@ import tkinter as tk
 def _generate_readonly_cmd(w):
 	cmd = (
 		("command", {"label": "Copy", "command": lambda: w.event_generate("<<Copy>>")}, 2),
-		("command", {"label": "Select all", "command": lambda: w.event_generate("<<SelectAll>>")})
+		("command", {"label": "Select all", "command": lambda: w.event_generate("<<SelectAll>>")}),
 	)
 	return cmd
 

@@ -39,10 +39,6 @@ class Settings(BaseDialog):
 	"""
 
 	REMEMBER_DEFAULT = [0]
-	REQUIRED_CFG_KEYS = (
-		"datagrabmode", "previewdemos", "date_format", "steampath", "hlaepath", "ui_theme",
-		"lazyreload", "rcon_pwd", "rcon_port", "evtblocksz", "date_format"
-	)
 
 	def __init__(self, parent, cfg, remember):
 		"""
@@ -54,15 +50,15 @@ class Settings(BaseDialog):
 
 		self.cfg = cfg
 
-		self._create_tk_var("int", "datagrabmode_var", cfg["datagrabmode"])
-		self._create_tk_var("bool", "preview_var", cfg["previewdemos"])
-		self._create_tk_var("str", "date_fmt_var", cfg["date_format"])
-		self._create_tk_var("str", "steampath_var", cfg["steampath"])
-		self._create_tk_var("str", "hlaepath_var", cfg["hlaepath"])
-		self._create_tk_var("str", "ui_style_var", cfg["ui_theme"])
-		self._create_tk_var("bool", "lazyreload_var", cfg["lazyreload"])
-		self._create_tk_var("str", "rcon_pwd_var", cfg["rcon_pwd"])
-		self._create_tk_var("int", "rcon_port_var", cfg["rcon_port"])
+		self._create_tk_var("int", "datagrabmode_var", cfg.data_grab_mode)
+		self._create_tk_var("bool", "preview_var", cfg.preview_demos)
+		self._create_tk_var("str", "date_fmt_var", cfg.date_format)
+		self._create_tk_var("str", "steampath_var", cfg.steam_path)
+		self._create_tk_var("str", "hlaepath_var", cfg.hlae_path)
+		self._create_tk_var("str", "ui_style_var", cfg.ui_theme)
+		self._create_tk_var("bool", "lazyreload_var", cfg.lazy_reload)
+		self._create_tk_var("str", "rcon_pwd_var", cfg.rcon_pwd)
+		self._create_tk_var("int", "rcon_port_var", cfg.rcon_port)
 
 		self._selected_pane = None
 		self.ui_remember = self.validate_and_update_remember(remember)
@@ -187,17 +183,17 @@ class Settings(BaseDialog):
 		self.rcon_port_entry = ttk.Entry(rcon_port_labelframe, validate = "key",
 			validatecommand = (int_val_id, "%S", "%P")
 		)
-		self.rcon_port_entry.insert(0, str(self.cfg["rcon_port"]))
+		self.rcon_port_entry.insert(0, str(self.cfg.rcon_port))
 		self.rcon_port_entry.grid(column = 0, row = 0, sticky = "ew")
 
 		# Set from config, default to first-ish values when not available
-		tmp = convertunit(self.cfg["evtblocksz"], "B")
+		tmp = convertunit(self.cfg.events_blocksize, "B")
 		if tmp in self.blockszvals:
 			self.blockszselector.set(tmp)
 		else:
 			self.blockszselector.set(next(iter(self.blockszvals)))
 
-		tmp = self.cfg["date_format"]
+		tmp = self.cfg.date_format
 		if tmp in CNST.DATE_FORMATS:
 			self.date_fmt_combobox.set(tmp)
 		else:
@@ -262,15 +258,15 @@ class Settings(BaseDialog):
 		if save:
 			self.result.state = DIAGSIG.SUCCESS
 			self.result.data = {
-				"datagrabmode": self.datagrabmode_var.get(),
-				"previewdemos": self.preview_var.get(),
+				"data_grab_mode": self.datagrabmode_var.get(),
+				"preview_demos": self.preview_var.get(),
 				"date_format": self.date_fmt_combobox.get(),
-				"steampath": self.steampath_var.get(),
-				"hlaepath": self.hlaepath_var.get(),
-				"evtblocksz": self.blockszvals[self.blockszselector.get()],
+				"steam_path": self.steampath_var.get() or None,
+				"hlae_path": self.hlaepath_var.get() or None,
+				"events_blocksize": self.blockszvals[self.blockszselector.get()],
 				"ui_theme": self.ui_style_var.get(),
-				"lazyreload": self.lazyreload_var.get(),
-				"rcon_pwd": self.rcon_pwd_var.get(),
+				"lazy_reload": self.lazyreload_var.get(),
+				"rcon_pwd": self.rcon_pwd_var.get() or None,
 				"rcon_port": int(self.rcon_port_entry.get()),
 			}
 		else:
@@ -281,6 +277,7 @@ class Settings(BaseDialog):
 		"""
 		Prompt the user to select a directory, then modify the tkinter
 		variable `variable` with the selected value.
+		Modification will not be made if nothing was selected.
 		"""
 		sel = tk_fid.askdirectory()
 		if sel == "":

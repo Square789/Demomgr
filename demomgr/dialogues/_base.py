@@ -2,9 +2,8 @@ import tkinter as tk
 import tkinter.ttk as ttk
 
 from demomgr.dialogues._diagresult import DIAGSIG, DiagResult
-from demomgr.helpers import CfgReducing
 
-class BaseDialog(tk.Toplevel, CfgReducing):
+class BaseDialog(tk.Toplevel):
 	"""
 	A base dialog that serves as ground for all other dialogs in the
 	program. Override self.body(), call self.destroy() for closing the dialog.

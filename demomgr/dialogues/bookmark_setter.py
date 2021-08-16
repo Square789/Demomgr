@@ -17,7 +17,6 @@ from demomgr.dialogues._diagresult import DIAGSIG
 
 from demomgr.helpers import frmd_label, int_validator, name_validator
 from demomgr import constants as CNST
-from demomgr import handle_events as handle_ev
 from demomgr.threadgroup import ThreadGroup, THREADGROUPSIG
 from demomgr.threads import THREADSIG, ThreadMarkDemo
 from demomgr.tk_widgets import TtkText

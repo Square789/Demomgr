@@ -1,54 +1,12 @@
-from schema import And
+from enum import IntEnum
 
-class DATAGRABMODE:
+class DATAGRABMODE(IntEnum):
 	NONE = 0
 	EVENTS = 1
 	JSON = 2
 
 CFG_FOLDER = ".demomgr"
 CFG_NAME = "config.cfg"
-DEFAULT_CFG = {
-	"datagrabmode": 0,
-	"date_format": "%d.%m.%Y %H:%M:%S",
-	"demopaths": [],
-	"evtblocksz": 65536,
-	"__comment": "By messing with the firstrun parameter you acknowledge "
-		"the disclaimer :P",
-	"firstrun": True,
-	"hlaepath": "",
-	"lastpath": "",
-	"lazyreload": False,
-	"previewdemos": True,
-	"rcon_port": 27015,
-	"rcon_pwd": "",
-	"steampath": "",
-	"ui_remember": {
-		"bookmark_setter": [],
-		"launch_tf2": [],
-		"settings": [],
-	},
-	"ui_theme": "Dark",
-}
-DEFAULT_CFG_SCHEMA = {
-	"datagrabmode": int,
-	"date_format": str,
-	"demopaths": [And(str, lambda x: x != "")],
-	"evtblocksz": int,
-	"__comment": str,
-	"firstrun": bool,
-	"hlaepath": str,
-	"lastpath": str,
-	"lazyreload": bool,
-	"previewdemos": bool,
-	"rcon_port": int,
-	"rcon_pwd": str,
-	"steampath": str,
-	"ui_remember": {
-		"bookmark_setter": [object], "launch_tf2": [object],
-		"settings": [object],
-	},
-	"ui_theme": str,
-}
 WELCOME = (
 	"Hi and Thank You for using Demomgr!\n\nA config file has been "
 	"created.\n\nThis program is able to delete files if you tell it to.\n"

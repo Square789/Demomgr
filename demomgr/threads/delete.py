@@ -57,20 +57,18 @@ class ThreadDelete(_StoppableBaseThread):
 		if not os.path.exists(evtpath):
 			self.queue_out_put(THREADSIG.INFO_CONSOLE, " Event file not found, skipping.")
 		else:
-			readeropen = False
-			writeropen = False
+			reader = None
+			writer = None
 			try:
 				reader = handle_ev.EventReader(evtpath, blocksz = self.evtblocksz)
-				readeropen = True
 				writer = handle_ev.EventWriter(tmpevtpath, clearfile = True)
-				writeropen = True
 			except (OSError, PermissionError) as error:
 				self.queue_out_put(
 					THREADSIG.INFO_CONSOLE,
 					" Error updating eventfile:\n{}\n".format(str(error)),
 				)
-				if readeropen: reader.destroy()
-				if writeropen: writer.destroy()
+				if reader is not None: reader.destroy()
+				if writer is not None: writer.destroy()
 			else:
 				if self.eventfileupdate == "passive":
 					for outchunk in reader:

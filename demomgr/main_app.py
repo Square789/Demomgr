@@ -9,11 +9,11 @@ import tkinter.messagebox as tk_msg
 from _tkinter import TclError
 
 import multiframe_list.multiframe_list as mfl
-import schema
 from schema import SchemaError
 
 from demomgr import constants as CNST
 from demomgr import context_menus
+from demomgr.config import Config
 from demomgr.dialogues import *
 from demomgr.tk_widgets import KeyValueDisplay, HeadedFrame
 from demomgr.helpers import build_date_formatter, convertunit, deepupdate_dict, \
@@ -23,7 +23,7 @@ from demomgr import platforming
 from demomgr.threadgroup import ThreadGroup, THREADGROUPSIG
 from demomgr.threads import THREADSIG, ThreadFilter, ThreadReadFolder, ThreadDemoInfo
 
-__version__ = "1.8.1"
+__version__ = "1.9.0"
 __author__ = "Square789"
 
 class MainApp():
@@ -47,7 +47,7 @@ class MainApp():
 		)
 
 		self.cfgpath = platforming.get_cfg_storage_path()
-		self.curdir = "" # This path should not be in self.cfg["demopaths"] at any time!
+		self.curdir = "" # Should NEVER be in self.cfg.demo_paths!
 		self.spinboxvar = tk.StringVar()
 
 		self.after_handle_statusbar = self.root.after(0, lambda: True)
@@ -72,7 +72,9 @@ class MainApp():
 		is_firstrun = False
 		if os.path.exists(self.cfgpath):
 			self.cfg = self.getcfg()
-			if self.cfg["firstrun"]:
+			if self.cfg is None: # Quit
+				return
+			if self.cfg.first_run:
 				is_firstrun = True
 		else:
 			try:
@@ -84,9 +86,10 @@ class MainApp():
 				tk_msg.showerror(
 					"Demomgr - Error", f"The following error occurred during startup: {exc}"
 				)
-				sys.exit()
-			self.writecfg(CNST.DEFAULT_CFG)
-			self.cfg = deepcopy(CNST.DEFAULT_CFG)
+				self.quit_app(False)
+				return
+			self.cfg = Config.get_default()
+			self.writecfg()
 			is_firstrun = True
 
 		# load style (For FirstRun)
@@ -100,9 +103,8 @@ class MainApp():
 			fr_dialog.show()
 			if fr_dialog.result.state != DIAGSIG.SUCCESS:
 				self.quit_app()
-				sys.exit()
-			self.cfg["firstrun"] = False
-			self.writecfg(self.cfg)
+				return
+			self.cfg.first_run = False
 
 		#set up UI; create widgets
 		self._setupgui()
@@ -112,27 +114,28 @@ class MainApp():
 
 		ctxmen_name = platforming.get_contextmenu_btn()
 		for class_tag in ("TEntry", "TCombobox"):
-			self.root.bind_class(class_tag, f"<Button-{self.RCB}>" \
-				f"<ButtonRelease-{self.RCB}>", context_menus.entry_cb)
+			self.root.bind_class(
+				class_tag,
+				f"<Button-{self.RCB}><ButtonRelease-{self.RCB}>",
+				context_menus.entry_cb
+			)
 			# This interrupts the event seq above
-			self.root.bind_class(class_tag, f"<Button-{self.RCB}>" \
-				f"<Leave><ButtonRelease-{self.RCB}>", lambda _: None)
+			self.root.bind_class(
+				class_tag,
+				f"<Button-{self.RCB}><Leave><ButtonRelease-{self.RCB}>",
+				lambda _: None
+			)
 			if ctxmen_name is not None:
 				self.root.bind_class(
 					class_tag, f"<KeyPress-{ctxmen_name}>", context_menus.entry_cb
 				)
 
-		# If someone messed with the cfg and the lastpath is not in demopaths, select 1st
-		# path in demopaths. If demopaths is empty, clear curdir.
-		if self.cfg["lastpath"] not in self.cfg["demopaths"]:
-			if self.cfg["demopaths"]:
-				self.cfg["lastpath"] = self.cfg["demopaths"][0]
-			else:
-				self.cfg["lastpath"] = ""
-		self.curdir = self.cfg["lastpath"]
-		self.spinboxvar.set(self.cfg["lastpath"])
+		last_path = ""
+		if self.cfg.last_path is not None:
+			last_path = self.cfg.demo_paths[self.cfg.last_path]
+		self.curdir = last_path
+		self.spinboxvar.set(last_path)
 		self.reloadgui()
-
 		# All subsequent changes to the spinbox will call
 		# self._spinboxsel -> self.reloadgui, and update main view.
 		self.spinboxvar.trace("w", self._spinboxsel)
@@ -184,7 +187,7 @@ class MainApp():
 		)
 
 		self.pathsel_spinbox = ttk.Combobox(widgetframe0, state = "readonly")
-		self.pathsel_spinbox.config(values = tuple(self.cfg["demopaths"]))
+		self.pathsel_spinbox.config(values = tuple(self.cfg.demo_paths))
 		self.pathsel_spinbox.config(textvariable = self.spinboxvar)
 
 		rempathbtn = ttk.Button(widgetframe0, text = "Remove demo path", command = self._rempath)
@@ -279,16 +282,15 @@ class MainApp():
 		if event.widget._w == self.listbox._w:
 			self._updatedemowindow()
 
-	def quit_app(self):
+	def quit_app(self, save_cfg = True):
 		for g in self.threadgroups.values():
 			g.cancel_after() # Calling first to cancel running after callbacks asap
 		for g in self.threadgroups.values():
 			g.join_thread(finalize = False)
-		if self.cfg["lastpath"] != self.curdir: # Update lastpath entry
-			self.cfg["lastpath"] = self.curdir
-		disk_cfg = self.getcfg()
-		if disk_cfg != self.cfg:
-			self.writecfg(self.cfg)
+		if save_cfg:
+			if self.curdir in self.cfg.demo_paths:
+				self.cfg.lastpath = self.cfg.demo_paths.index(self.curdir)
+				self.writecfg()
 		# Without the stuff below, the root.destroy method will produce
 		# strange errors on closing, due to some dark magic regarding after
 		# commands.
@@ -312,50 +314,47 @@ class MainApp():
 		"""Opens settings, acts based on results"""
 		dialog = Settings(
 			self.root,
-			cfg = Settings.reduce_cfg(self.cfg),
-			remember = self.cfg["ui_remember"]["settings"],
+			cfg = self.cfg,
+			remember = self.cfg.ui_remember["settings"],
 		)
 		dialog.show()
 		if dialog.result.state == DIAGSIG.GLITCHED:
 			return
-		self.cfg["ui_remember"]["settings"] = dialog.result.remember
+		self.cfg.ui_remember["settings"] = dialog.result.remember
 		if dialog.result.state == DIAGSIG.SUCCESS:
 			# what a hardcoded piece of garbage, there must be better ways
-			if self.cfg["date_format"] != dialog.result.data["date_format"]:
+			if self.cfg.date_format != dialog.result.data["date_format"]:
 				self.listbox.config_column(
 					"col_ctime", formatter = build_date_formatter(dialog.result.data)
 				)
+			# TODO: that's gonna be a bit of a bitch
 			deepupdate_dict(self.cfg, dialog.result.data)
 			self.reloadgui()
 			self._applytheme()
 
 	def _playdem(self):
 		"""Opens dialog which arranges for TF2 launch."""
-		index = self.listbox.get_selected_cell()[1]
+		index = self.listbox.get_active_cell()[1]
 		if index == None:
 			self.setstatusbar("Please select a demo file.", 1500)
 			return
 		filename = self.listbox.get_cell("col_filename", index)
 		path = os.path.join(self.curdir, filename)
-		dialog = LaunchTF2(
+		dialog = Play(
 			self.root,
 			demopath = path,
-			cfg = LaunchTF2.reduce_cfg(self.cfg),
+			cfg = self.cfg,
 			style = self.ttkstyle,
-			remember = self.cfg["ui_remember"]["launch_tf2"],
+			remember = self.cfg.ui_remember["launch_tf2"],
 		)
 		dialog.show()
 		if dialog.result.state == DIAGSIG.GLITCHED:
 			return
-		self.cfg["ui_remember"]["launch_tf2"] = dialog.result.remember
-		if dialog.result.state == DIAGSIG.SUCCESS:
-			for i in ("steampath", "hlaepath"):
-				if i in dialog.result.data and dialog.result.data[i] != self.cfg[i]:
-					self.cfg[i] = dialog.result.data[i]
+		self.cfg.ui_remember["launch_tf2"] = dialog.result.remember
 
 	def _deldem(self):
 		"""Deletes the currently selected demo."""
-		index = self.listbox.get_selected_cell()[1]
+		index = self.listbox.get_active_cell()[1]
 		if index == None:
 			self.setstatusbar("Please select a demo file.", 1500)
 			return
@@ -365,7 +364,7 @@ class MainApp():
 			demodir = self.curdir,
 			files = [filename],
 			selected = [True],
-			evtblocksz = self.cfg["evtblocksz"],
+			evtblocksz = self.cfg.events_blocksize,
 			deluselessjson = False,
 			styleobj = self.ttkstyle,
 		)
@@ -373,7 +372,7 @@ class MainApp():
 		if dialog.state == DIAGSIG.GLITCHED:
 			return
 		if dialog.result.state == DIAGSIG.SUCCESS:
-			if self.cfg["lazyreload"]:
+			if self.cfg.lazy_reload:
 				self.directory_inf_kvd.set_value(
 					"l_amount",
 					self.directory_inf_kvd.get_value("l_amount") - 1
@@ -390,7 +389,7 @@ class MainApp():
 
 	def _managebookmarks(self):
 		"""Offers dialog to manage a demo's bookmarks."""
-		index = self.listbox.get_selected_cell()[1]
+		index = self.listbox.get_active_cell()[1]
 		if index == None:
 			self.setstatusbar("Please select a demo file.", 1500)
 			return
@@ -401,18 +400,18 @@ class MainApp():
 			targetdemo = path,
 			bm_dat = self.listbox.get_cell("col_bm", index),
 			styleobj = self.ttkstyle,
-			evtblocksz = self.cfg["evtblocksz"],
-			remember = self.cfg["ui_remember"]["bookmark_setter"],
+			evtblocksz = self.cfg.events_blocksize,
+			remember = self.cfg.ui_remember["bookmark_setter"],
 		)
 		dialog.show()
 		if dialog.result.state == DIAGSIG.GLITCHED:
 			return
-		self.cfg["ui_remember"]["bookmark_setter"] = dialog.result.remember
+		self.cfg.ui_remember["bookmark_setter"] = dialog.result.remember
 		if dialog.result.state == DIAGSIG.SUCCESS:
-			if self.cfg["lazyreload"]:
-				if self.cfg["datagrabmode"] == 0:
+			if self.cfg.lazy_reload:
+				if self.cfg.data_grab_mode == 0:
 					return
-				container_state = dialog.result.data["containers"][self.cfg["datagrabmode"] - 1]
+				container_state = dialog.result.data["containers"][self.cfg.data_grab_mode - 1]
 				if container_state is None:
 					return
 				self.listbox.set_cell(
@@ -428,14 +427,14 @@ class MainApp():
 		Looks at self.cfg, attempts to apply an interface theme using a
 		StyleHelper.
 		"""
-		if self.cfg["ui_theme"] == "_DEFAULT":
+		if self.cfg.ui_theme == "_DEFAULT":
 			self.root.tk.call("ttk::setTheme", self._DEFAULT_THEME)
 			return
 		try:
-			theme_tuple = CNST.THEME_PACKAGES[self.cfg["ui_theme"]]
+			theme_tuple = CNST.THEME_PACKAGES[self.cfg.ui_theme]
 			# Really hacky way of doing this
 			theme_path = os.path.join(os.path.dirname(__file__), CNST.THEME_SUBDIR, theme_tuple[0])
-		except (KeyError):
+		except KeyError:
 			tk_msg.showerror("Demomgr - Error", "Cannot find Tcl theme, using default.")
 			return
 		try:
@@ -453,7 +452,7 @@ class MainApp():
 
 	def _updatedemowindow(self, clear = False, no_io = False):
 		"""Renew contents of demo information windows"""
-		index = self.listbox.get_selected_cell()[1]
+		index = self.listbox.get_active_cell()[1]
 		if not no_io:
 			self.demo_header_kvd.clear()
 		self.demoeventmfl.clear()
@@ -471,7 +470,7 @@ class MainApp():
 						"col_value": str(streak),
 					})
 
-		if not self.cfg["previewdemos"] or no_io:
+		if not self.cfg.preview_demos or no_io:
 			return
 
 		demname = self.listbox.get_cell("col_filename", index)
@@ -509,7 +508,7 @@ class MainApp():
 			g.join_thread(finalize = False)
 		self.threadgroups["fetchdata"].start_thread(
 			targetdir = self.curdir,
-			cfg = self.threadgroups["fetchdata"].thread_cls.reduce_cfg(self.cfg),
+			cfg = self.cfg,
 		)
 		self._updatedemowindow(clear = True)
 
@@ -547,7 +546,7 @@ class MainApp():
 			filterstring = self.filterentry_var.get(),
 			curdir = self.curdir,
 			silent = True,
-			cfg = self.threadgroups["cleanup"].thread_cls.reduce_cfg(self.cfg),
+			cfg = self.cfg,
 		)
 		self.cleanupbtn.config(text = "Cleanup by filter...", state = tk.DISABLED)
 
@@ -578,7 +577,7 @@ class MainApp():
 			files = queue_elem[1]["col_filename"],
 			selected = [True for _ in queue_elem[1]["col_filename"]],
 			deluselessjson = False,
-			evtblocksz = self.cfg["evtblocksz"],
+			evtblocksz = self.cfg.events_blocksize,
 			styleobj = self.ttkstyle,
 			eventfileupdate = "passive",
 		)
@@ -599,7 +598,7 @@ class MainApp():
 			filterstring = self.filterentry_var.get(),
 			curdir = self.curdir,
 			silent = False,
-			cfg = self.threadgroups["filter"].thread_cls.reduce_cfg(self.cfg),
+			cfg = self.cfg,
 		)
 
 	def _stopfilter(self, called_by_user = False):
@@ -663,11 +662,12 @@ class MainApp():
 		dirpath = tk_fid.askdirectory(title = "Select the folder containing your demos.")
 		if dirpath == "":
 			return
-		if dirpath in self.cfg["demopaths"]:
+		if dirpath in self.cfg.demo_paths:
 			return
-		self.cfg["demopaths"].append(dirpath)
+		self.cfg.demo_paths.append(dirpath)
+		# NOTE: doesnt this call reloadgui twice? check it
 		self.spinboxvar.set(dirpath)
-		self.pathsel_spinbox.config(values = tuple(self.cfg["demopaths"]))
+		self.pathsel_spinbox.config(values = tuple(self.cfg.demo_paths))
 		self.reloadgui()
 
 	def _rempath(self):
@@ -676,27 +676,27 @@ class MainApp():
 		automatically moves to another one or sets the current directory
 		to "" if none are available anymore.
 		"""
-		if not self.cfg["demopaths"]:
+		if not self.cfg.demo_paths:
 			return
-		popindex = self.cfg["demopaths"].index(self.curdir)
-		self.cfg["demopaths"].pop(popindex)
-		if len(self.cfg["demopaths"]) > 0:
-			self.spinboxvar.set(self.cfg["demopaths"][(popindex - 1) % len(self.cfg["demopaths"])])
+		popindex = self.cfg.demo_paths.index(self.curdir)
+		self.cfg.demo_paths.pop(popindex)
+		if len(self.cfg.demo_paths) > 0:
+			self.spinboxvar.set(self.cfg.demo_paths[(popindex - 1) % len(self.cfg.demo_paths)])
 		else:
 			self.spinboxvar.set("")
-		self.pathsel_spinbox.config(values = tuple(self.cfg["demopaths"]))
+		self.pathsel_spinbox.config(values = tuple(self.cfg.demo_paths))
 
-	def writecfg(self, data):
+	def writecfg(self):
 		"""
-		Writes config dict specified in data to self.cfgpath, converted
-		to JSON. On write error, calls the CfgError dialog, blocking until
-		the issue is fixed.
+		Writes the `Config` in `self.cfg` to self.cfgpath, converted to JSON.
+		On write error, opens the CfgError dialog, blocking until the issue is 
+		ixed.
 		"""
 		write_ok = False
 		while not write_ok:
 			try:
 				with open(self.cfgpath, "w") as handle:
-					handle.write(json.dumps(data, indent = 4))
+					handle.write(self.cfg.to_json())
 				write_ok = True
 			except Exception as error:
 				dialog = CfgError(self.root, cfgpath = self.cfgpath, error = error, mode = 1)
@@ -706,24 +706,20 @@ class MainApp():
 				elif dialog.result.data == 1: # Config replaced by dialog
 					pass
 				elif dialog.result.data == 2 or dialog.result.state == DIAGSIG.GLITCHED: # Quit
-					self.quit_app()
-					sys.exit()
+					self.quit_app(False)
+					return
 
 	def getcfg(self):
 		"""
 		Gets config from self.cfgpath and returns it. On error, blocks
 		until program is closed, config is replaced or fixed.
+		If the user chose to quit demomgr after an error, this method will
+		return `None`.
 		"""
-		cfg_ok = False
-		while not cfg_ok:
-			localcfg = CNST.DEFAULT_CFG.copy()
+		cfg = None
+		while cfg is None:
 			try:
-				with open(self.cfgpath, "r") as cfghandle:
-					deepupdate_dict(localcfg, json.load(cfghandle))
-				localcfg = schema.Schema(
-					CNST.DEFAULT_CFG_SCHEMA, ignore_extra_keys = True
-				).validate(localcfg)
-				cfg_ok = True
+				cfg = Config.load_and_validate(self.cfgpath)
 			except (json.decoder.JSONDecodeError, FileNotFoundError, OSError, SchemaError) as exc:
 				dialog = CfgError(self.root, cfgpath = self.cfgpath, error = exc, mode = 0)
 				dialog.show()
@@ -732,6 +728,6 @@ class MainApp():
 				elif dialog.result.data == 1: # Config replaced by dialog
 					pass
 				elif dialog.result.data == 2 or dialog.result.state == DIAGSIG.GLITCHED: # Quit
-					self.quit_app()
-					sys.exit()
-		return localcfg
+					self.quit_app(False)
+					return None
+		return cfg
