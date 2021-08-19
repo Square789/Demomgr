@@ -93,7 +93,7 @@ class RCONThread(_StoppableBaseThread):
 			self.queue_out_put(
 				THREADSIG.INFO_IDX_PARAM, 0,
 				f"Failure establishing connection. Is TF2 running with -usercon "
-					"and net_start?: {error}"
+					f"and net_start?: {error}"
 			)
 			self.queue_out_put(THREADSIG.FAILURE)
 			return

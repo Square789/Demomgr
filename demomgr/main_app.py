@@ -14,6 +14,7 @@ from schema import SchemaError
 from demomgr import constants as CNST
 from demomgr import context_menus
 from demomgr.config import Config
+from demomgr.demo_info import DemoInfo
 from demomgr.dialogues import *
 from demomgr.tk_widgets import KeyValueDisplay, HeadedFrame
 from demomgr.helpers import build_date_formatter, convertunit, deepupdate_dict, \
@@ -327,8 +328,7 @@ class MainApp():
 				self.listbox.config_column(
 					"col_ctime", formatter = build_date_formatter(dialog.result.data)
 				)
-			# TODO: that's gonna be a bit of a bitch
-			deepupdate_dict(self.cfg, dialog.result.data)
+			self.cfg.update(**dialog.result.data)
 			self.reloadgui()
 			self._applytheme()
 
@@ -338,11 +338,14 @@ class MainApp():
 		if index == None:
 			self.setstatusbar("Please select a demo file.", 1500)
 			return
-		filename = self.listbox.get_cell("col_filename", index)
-		path = os.path.join(self.curdir, filename)
 		dialog = Play(
 			self.root,
-			demopath = path,
+			demo_dir = self.curdir,
+			info = DemoInfo(
+				self.listbox.get_cell("col_filename", index),
+				self.listbox.get_cell("col_ks", index),
+				self.listbox.get_cell("col_bm", index),
+			),
 			cfg = self.cfg,
 			style = self.ttkstyle,
 			remember = self.cfg.ui_remember["launch_tf2"],

@@ -37,10 +37,10 @@ HLAE_ADD_TF2_ARGS = ["-insecure", "+sv_lan", "1"]
 STEAM_CFG_PATH0 = "userdata/"
 STEAM_CFG_PATH1 = "config/localconfig.vdf"
 REPLACEMENT_CHAR = "\uFFFD"
-LAUNCHOPTIONSKEYS = (
+STEAM_CFG_LAUNCH_OPTIONS = (
 	"UserLocalConfigStore", "Software", "Valve", "Steam", "Apps", "440", "LaunchOptions",
 )
-STEAM_CFG_USER_NAME = '["UserLocalConfigStore"]["friends"]["PersonaName"]'
+STEAM_CFG_USER_NAME = ("UserLocalConfigStore", "friends", "PersonaName")
 GUI_UPDATE_WAIT = 30 # Setting this to lower values might lock the UI, use with care.
 THEME_SUBDIR = "ui_themes"
 # 0: tcl file, 1: theme name, 2: resource dir name

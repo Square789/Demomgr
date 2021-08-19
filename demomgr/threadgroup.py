@@ -34,7 +34,7 @@ class ThreadGroup():
 		"""
 		self.thread_cls = thread_cls
 		self.tk_wdg = tk_widget
-		self.queue = queue.Queue()
+		self.queue_out = queue.Queue()
 		self.after_handle = self.tk_wdg.after(0, lambda: None)
 		self.thread = DummyThread()
 		self.caller_self = None
@@ -100,7 +100,7 @@ class ThreadGroup():
 				finished = False
 				while True:
 					try:
-						queue_obj = self.queue.get_nowait()
+						queue_obj = self.queue_out.get_nowait()
 					except queue.Empty:
 						break
 					# Should be a bound method, so self (targetobj) is passed in automatically
@@ -115,7 +115,7 @@ class ThreadGroup():
 				finished = False
 				while True:
 					try:
-						queue_obj = self.queue.get_nowait()
+						queue_obj = self.queue_out.get_nowait()
 					except queue.Empty:
 						break
 					res = cb_method(queue_obj)
@@ -145,9 +145,9 @@ class ThreadGroup():
 
 	def start_thread(self, *args, **kwargs):
 		"""
-		Start the thread with the supplied args and kwargs, except the
-		ThreadGroup's queue will be passed before them as the first
-		argument.
+		Instantiate the thread with the supplied args and kwargs, except the
+		ThreadGroup's output queue will always be passed in before them
+		as `queue_out`, and then start it.
 		"""
 		if self._decorated_cb is None:
 			raise ValueError(
@@ -155,7 +155,7 @@ class ThreadGroup():
 				"suitable callback function."
 			)
 		self.heldback_queue_elem = None
-		self.thread = self.thread_cls(self.queue, *args, **kwargs)
+		self.thread = self.thread_cls(queue_out = self.queue_out, *args, **kwargs)
 		self.thread.start()
 		self.after_handle = self.tk_wdg.after(0, self._decorated_cb)
 
@@ -180,7 +180,7 @@ class ThreadGroup():
 			self.thread.join(timeout, nostop)
 		if finalize:
 			self._decorated_cb(reschedule = False)
-		self.queue.queue.clear() # just to be reeeeeally safe
+		self.queue_out.queue.clear() # just to be reeeeeally safe
 
 	def cancel_after(self):
 		"""
