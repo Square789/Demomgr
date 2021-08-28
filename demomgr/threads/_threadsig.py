@@ -1,7 +1,12 @@
 """
-Unfortunately, threads will need to import THREADSIG
-from here in order to prevent a circular import.
+THREADSIG enum
+Located here in order to prevent a circular import.
 """
+
+from enum import IntEnum
+
+# NOTE: There are many signals in here specifically made
+# for and used by only one thread type
 
 # Zero-Parameter values:          0x0   - 0x1FF
 # |---Result level (Termination): |- 0x0   - 0xFF
@@ -13,20 +18,27 @@ from here in order to prevent a circular import.
 # |---Info level:                 |- 0x400 - 0x4FF
 # '---Result level:               '- 0x500 - 0x5FF
 # etc.
-class THREADSIG:
+
+
+class THREADSIG(IntEnum):
 	SUCCESS = 0x0
 	FAILURE = 0x1
 	ABORTED = 0x2
 
 	CONNECTED = 0x100
+	EVENT_FILE_MISSING = 0x101
 
-	INFO_CONSOLE = 0x100
-	INFO_STATUSBAR = 0x101
-	INFO_INFORMATION_CONTAINERS = 0x102
+	INFO_CONSOLE = 0x200
+	INFO_STATUSBAR = 0x201
+	INFO_INFORMATION_CONTAINERS = 0x202
 
-	RESULT_DEMODATA = 0x200
-	RESULT_FS_INFO = 0x201
-	RESULT_HEADER = 0x202
-	RESULT_DEMO_AMOUNT = 0x203
+	RESULT_DEMODATA = 0x300
+	RESULT_FS_INFO = 0x301
+	RESULT_HEADER = 0x302
+	RESULT_DEMO_AMOUNT = 0x303
 
-	INFO_IDX_PARAM = 0x300
+	INFO_IDX_PARAM = 0x400
+
+	def is_finish_signal(self):
+		return self.value < 0x100
+

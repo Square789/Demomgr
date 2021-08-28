@@ -82,11 +82,11 @@ class ThreadGroup():
 		Decorates and patches a class method so it works properly with the thread
 		and is able to process elements from its output queue.
 		The callback method must be structured as follows:
-			It should take two input arguments, self and queue_elem.
+			It should take three input arguments, self, sig and args.
 			It then performs actions on its class as normal depending on
-			the queue_elem.
+			the received thread signal and its args.
 			The method should return True to indicate that thread activity
-			has finished.
+			has finished (sig was a finish signal).
 		It will be changed to only take one parameter (self) and re-added to
 			targetobj under the same name, hiding the source method.
 
@@ -100,11 +100,11 @@ class ThreadGroup():
 				finished = False
 				while True:
 					try:
-						queue_obj = self.queue_out.get_nowait()
+						sig, *args = self.queue_out.get_nowait()
 					except queue.Empty:
 						break
 					# Should be a bound method, so self (targetobj) is passed in automatically
-					res = cb_method(queue_obj)
+					res = cb_method(sig, *args)
 					if res == THREADGROUPSIG.FINISHED:
 						finished = True
 				if not finished and reschedule:
@@ -115,18 +115,22 @@ class ThreadGroup():
 				finished = False
 				while True:
 					try:
-						queue_obj = self.queue_out.get_nowait()
+						sig, *args = self.queue_out.get_nowait()
 					except queue.Empty:
 						break
-					res = cb_method(queue_obj)
+					res = cb_method(sig, *args)
 					if res == THREADGROUPSIG.FINISHED:
 						finished = True
 					elif res == THREADGROUPSIG.HOLDBACK:
-						self.heldback_queue_elem = queue_obj
+						self.heldback_queue_elem = (sig, ) + args
 				if not finished and reschedule:
 					self.after_handle = self.tk_wdg.after(CNST.GUI_UPDATE_WAIT, decorated)
 				else:
-					self.finalization_method(self.heldback_queue_elem)
+					if self.heldback_queue_elem is None:
+						self.finalization_method(None)
+					else:
+						sig, *args = self.heldback_queue_elem
+						self.finalization_method(sig, *args)
 					self.heldback_queue_elem = None
 
 		if self.run_always_method is not None:

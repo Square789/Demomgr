@@ -1,7 +1,5 @@
 import os
-from copy import deepcopy
 import json
-import sys
 import tkinter as tk
 import tkinter.ttk as ttk
 import tkinter.filedialog as tk_fid
@@ -17,8 +15,7 @@ from demomgr.config import Config
 from demomgr.demo_info import DemoInfo
 from demomgr.dialogues import *
 from demomgr.tk_widgets import KeyValueDisplay, HeadedFrame
-from demomgr.helpers import build_date_formatter, convertunit, deepupdate_dict, \
-	none_len_formatter, none_len_sortkey
+from demomgr.helpers import build_date_formatter, convertunit, none_len_formatter, none_len_sortkey
 from demomgr.style_helper import StyleHelper
 from demomgr import platforming
 from demomgr.threadgroup import ThreadGroup, THREADGROUPSIG
@@ -41,10 +38,13 @@ class MainApp():
 		self.root.protocol("WM_DELETE_WINDOW", self.quit_app)
 		self.root.wm_title(f"Demomgr v{__version__} by {__author__}")
 
+		# Magic indices, maybe i should stop doing that. Anyways,
+		# 0: Name of operation, 1: Command, 2: Button widget, 3: Whether the command
+		# handles multiple selected demos.
 		self.demooperations = (
-			("Play", " selected demo...", self._playdem),
-			("Delete", " selected demo...", self._deldem),
-			("Manage bookmarks", " of selected demo...", self._managebookmarks)
+			["Play...", self._playdem, None, False],
+			["Delete...", self._deldem, None, True],
+			["Manage bookmarks...", self._managebookmarks, None, False]
 		)
 
 		self.cfgpath = platforming.get_cfg_storage_path()
@@ -110,7 +110,8 @@ class MainApp():
 		#set up UI; create widgets
 		self._setupgui()
 
-		self.root.bind("<<MultiframeSelect>>", self._mfl_lc_callback)
+
+		self.root.bind("<<MultiframeSelect>>", self._mfl_select_callback)
 		self.root.bind("<<MultiframeRightclick>>", self._mfl_rc_callback)
 
 		ctxmen_name = platforming.get_contextmenu_btn()
@@ -171,7 +172,8 @@ class MainApp():
 
 		# Hardcoded weights that approximately relate to the length of each of the column's strings
 		self.listbox = mfl.MultiframeList(
-			self.listboxframe, inicolumns = (
+			self.listboxframe,
+			inicolumns = (
 				{"name": "Name", "col_id": "col_filename", "sort": True,
 					"weight": round(1.5 * mfl.WEIGHT), "dblclick_cmd": lambda _: self._playdem()},
 				{"name": "Killstreaks", "col_id": "col_ks", "sort": True,
@@ -184,7 +186,10 @@ class MainApp():
 					"weight": round(0.9 * mfl.WEIGHT), "formatter": build_date_formatter(self.cfg)},
 				{"name": "Size", "col_id": "col_filesize", "sort": True,
 					"weight": round(0.42 * mfl.WEIGHT), "formatter": convertunit}
-			), rightclickbtn = self.RCB, resizable = True, reorderable = True,
+			),
+			rightclickbtn = self.RCB,
+			resizable = True,
+			reorderable = True,
 		)
 
 		self.pathsel_spinbox = ttk.Combobox(widgetframe0, state = "readonly")
@@ -201,11 +206,15 @@ class MainApp():
 			width = 240, height = 80,
 		)
 		self.demoeventmfl = mfl.MultiframeList(
-			demoinfframe.internal_frame, inicolumns = (
+			demoinfframe.internal_frame,
+			inicolumns = (
 				{"name": "Type", "col_id": "col_type", "sort": True, "minsize": 40},
 				{"name": "Tick", "col_id": "col_tick", "sort": True, "minsize": 30},
 				{"name": "Value", "col_id": "col_value", "sort": False},
-			), rightclickbtn = self.RCB, listboxheight = 5,
+			),
+			rightclickbtn = self.RCB,
+			listboxheight = 5,
+			selection_type = mfl.SELECTION_TYPE.SINGLE,
 		)
 
 		self.directory_inf_kvd = KeyValueDisplay(
@@ -226,10 +235,10 @@ class MainApp():
 			widgetframe1, text = "Cleanup by Filter...", command = self._cleanup
 		)
 
-		demoopbuttons = [
-			ttk.Button(widgetframe2, text = s0 + s1, command = cmd)
-			for s0, s1, cmd in self.demooperations
-		]
+		for i, (s, cmd, _, _) in enumerate(self.demooperations):
+			btn = ttk.Button(widgetframe2, text = s, command = cmd, state = tk.DISABLED)
+			self.demooperations[i][2] = btn
+
 		self.statusbarlabel = ttk.Label(self.statusbar, text = "Ready.", style = "Statusbar.TLabel")
 
 		#widget geometry mgmt here
@@ -249,8 +258,8 @@ class MainApp():
 		widgetframe1.grid(column = 0, row = 1, columnspan = 2, sticky = "ew", pady = 5)
 
 		#widgetframe2
-		for i in demoopbuttons:
-			i.pack(side = tk.LEFT, fill = tk.X, expand = 0, padx = (0, 6))
+		for _, _, btn, _ in self.demooperations:
+			btn.pack(side = tk.LEFT, fill = tk.X, expand = 0, padx = (0, 6))
 		widgetframe2.grid(column = 0, row = 2, columnspan = 2, sticky = "ew", pady = 5)
 
 		#listbox
@@ -279,9 +288,19 @@ class MainApp():
 		if event.widget._w == self.listbox._w:
 			context_menus.multiframelist_cb(event, self.listbox, self.demooperations)
 
-	def _mfl_lc_callback(self, event):
-		if event.widget._w == self.listbox._w:
-			self._updatedemowindow()
+	def _mfl_select_callback(self, event):
+		if event.widget._w != self.listbox._w:
+			return
+		for _, _, btn, multiple in self.demooperations:
+			# worst formatting of the year award 2007
+			btn.configure(
+				state = (
+					tk.NORMAL if self.listbox.selection and \
+						(len(self.listbox.selection) == 1 or multiple)
+					else tk.DISABLED
+				)
+			)
+		self._updatedemowindow()
 
 	def quit_app(self, save_cfg = True):
 		for g in self.threadgroups.values():
@@ -333,11 +352,13 @@ class MainApp():
 			self._applytheme()
 
 	def _playdem(self):
-		"""Opens dialog which arranges for TF2 launch."""
-		index = self.listbox.get_active_cell()[1]
-		if index == None:
-			self.setstatusbar("Please select a demo file.", 1500)
+		"""
+		Opens play dialog for the currently selected demo.
+		"""
+		# Safeguard, shouldn't happen but who knows if events go out of order
+		if len(self.listbox.selection) != 1:
 			return
+		index = next(iter(self.listbox.selection))
 		dialog = Play(
 			self.root,
 			demo_dir = self.curdir,
@@ -356,19 +377,22 @@ class MainApp():
 		self.cfg.ui_remember["launch_tf2"] = dialog.result.remember
 
 	def _deldem(self):
-		"""Deletes the currently selected demo."""
-		index = self.listbox.get_active_cell()[1]
-		if index == None:
-			self.setstatusbar("Please select a demo file.", 1500)
+		"""
+		Deletes the selected demos.
+		"""
+		# Safeguard, unlikely to ever be triggered
+		if not self.listbox.selection:
 			return
-		filename = self.listbox.get_cell("col_filename", index)
+
+		selected = [
+			x for i, x in enumerate(self.listbox.get_column("col_filename"))
+			if i in self.listbox.selection
+		]
 		dialog = Deleter(
 			self.root,
 			demodir = self.curdir,
-			files = [filename],
-			selected = [True],
-			evtblocksz = self.cfg.events_blocksize,
-			deluselessjson = False,
+			to_delete = selected,
+			cfg = self.cfg,
 			styleobj = self.ttkstyle,
 		)
 		dialog.show()
@@ -385,14 +409,14 @@ class MainApp():
 					self.directory_inf_kvd.get_value("l_totalsize") - \
 						self.listbox.get_cell("col_filesize", index)
 				)
-				self.listbox.remove_row(index)
+				self.listbox.remove_rows(index)
 				self._updatedemowindow(clear = True)
 			else:
 				self.reloadgui()
 
 	def _managebookmarks(self):
 		"""Offers dialog to manage a demo's bookmarks."""
-		index = self.listbox.get_active_cell()[1]
+		index = self.listbox.selection
 		if index == None:
 			self.setstatusbar("Please select a demo file.", 1500)
 			return
@@ -482,20 +506,20 @@ class MainApp():
 		self.threadgroups["demoinfo"].join_thread()
 		self.threadgroups["demoinfo"].start_thread(target_demo_path = os.path.join(self.curdir, demname))
 
-	def _after_callback_demoinfo(self, queue_elem):
+	def _after_callback_demoinfo(self, sig, *args):
 		"""
 		Loop worker for the demo_info thread.
 		Updates demo info window with I/O-obtained information.
 		(Incomplete, requires `self`-dependent decoration in __init__())
 		"""
-		if queue_elem[0] < 0x100: # Finish
+		if sig.value < 0x100: # Finish
 			return THREADGROUPSIG.FINISHED
-		elif queue_elem[0] == THREADSIG.RESULT_HEADER:
-			for k, v in queue_elem[1].items():
+		elif sig is THREADSIG.RESULT_HEADER:
+			for k, v in args[0].items():
 				if k in CNST.HEADER_HUMAN_NAMES:
 					self.demo_header_kvd.set_value(CNST.HEADER_HUMAN_NAMES[k], str(v))
 			return THREADGROUPSIG.CONTINUE
-		elif queue_elem[0] == THREADSIG.RESULT_FS_INFO:
+		elif sig is THREADSIG.RESULT_FS_INFO:
 			return THREADGROUPSIG.CONTINUE
 
 	def reloadgui(self):
@@ -515,25 +539,25 @@ class MainApp():
 		)
 		self._updatedemowindow(clear = True)
 
-	def _after_callback_fetchdata(self, queue_elem):
+	def _after_callback_fetchdata(self, sig, *args):
 		"""
 		Loop worker for the after callback decorator stub.
 		Grabs thread signals from the fetchdata queue and
 		acts accordingly.
 		(Incomplete, requires `self`-dependent decoration in __init__())
 		"""
-		if queue_elem[0] < 0x100: # Finish
+		if sig.is_finish_signal():
 			return THREADGROUPSIG.FINISHED
-		elif queue_elem[0] == THREADSIG.INFO_STATUSBAR:
-			self.setstatusbar(*queue_elem[1])
-		elif queue_elem[0] == THREADSIG.RESULT_DEMO_AMOUNT:
-			self.directory_inf_kvd.set_value("l_amount", queue_elem[1])
-		elif queue_elem[0] == THREADSIG.RESULT_DEMODATA:
-			self.listbox.set_data(queue_elem[1])
+		elif sig is THREADSIG.INFO_STATUSBAR:
+			self.setstatusbar(*args[0])
+		elif sig is THREADSIG.RESULT_DEMO_AMOUNT:
+			self.directory_inf_kvd.set_value("l_amount", args[0])
+		elif sig is THREADSIG.RESULT_DEMODATA:
+			self.listbox.set_data(args[0])
 			self.listbox.format()
 		return THREADGROUPSIG.CONTINUE
 
-	def _finalization_fetchdata(self, qeue_elem):
+	def _finalization_fetchdata(self, *_):
 		self.directory_inf_kvd.set_value(
 			"l_totalsize", sum(self.listbox.get_column("col_filesize"))
 		)
@@ -553,32 +577,32 @@ class MainApp():
 		)
 		self.cleanupbtn.config(text = "Cleanup by filter...", state = tk.DISABLED)
 
-	def _after_callback_cleanup(self, queue_elem):
+	def _after_callback_cleanup(self, sig, *args):
 		"""
 		Loop worker for the after callback decorator stub.
 		Grabs thread signals from the cleanup queue and acts
 		accordingly, opening a Deletion dialog once the thread is done.
 		(Incomplete, requires `self`-dependent decoration in __init__())
 		"""
-		if queue_elem[0] < 0x100: # Finish
+		if sig.is_finish_signal():
 			self.cleanupbtn.config(text = "Cleanup by filter...", state = tk.NORMAL)
 			return THREADGROUPSIG.FINISHED
-		elif queue_elem[0] == THREADSIG.INFO_STATUSBAR:
-			self.setstatusbar(*queue_elem[1])
+		elif sig is THREADSIG.INFO_STATUSBAR:
+			self.setstatusbar(*args[0])
 			return THREADGROUPSIG.CONTINUE
-		elif queue_elem[0] == THREADSIG.RESULT_DEMODATA:
+		elif sig is THREADSIG.RESULT_DEMODATA:
 			return THREADGROUPSIG.HOLDBACK
 
-	def _finalization_cleanup(self, queue_elem):
-		if queue_elem is None:
+	def _finalization_cleanup(self, sig, *args):
+		if sig is None:
 			return
-		if queue_elem[0] != THREADSIG.RESULT_DEMODATA: # weird
+		if sig is not THREADSIG.RESULT_DEMODATA: # weird
 			return
 		del_diag = Deleter(
 			self.root,
 			demodir = self.curdir,
-			files = queue_elem[1]["col_filename"],
-			selected = [True for _ in queue_elem[1]["col_filename"]],
+			files = args[0]["col_filename"],
+			selected = [True for _ in args[0]["col_filename"]],
 			deluselessjson = False,
 			evtblocksz = self.cfg.events_blocksize,
 			styleobj = self.ttkstyle,
@@ -611,7 +635,7 @@ class MainApp():
 		"""
 		self.threadgroups["filter"].join_thread()
 
-	def _after_callback_filter(self, queue_elem):
+	def _after_callback_filter(self, sig, *args):
 		"""
 		Loop worker for the after handler callback stub.
 		Grabs elements from the filter queue and updates the statusbar with
@@ -619,19 +643,19 @@ class MainApp():
 		dataset.
 		(Incomplete, requires `self`-dependent decoration in __init__())
 		"""
-		if queue_elem[0] < 0x100: # Finish
-			if queue_elem[0] == THREADSIG.ABORTED:
+		if sig.is_finish_signal(): # Finish
+			if sig is THREADSIG.ABORTED:
 				self.setstatusbar("", 0)
 			self.resetfilterbtn.config(state = tk.NORMAL)
 			self.filterbtn.config(text = "Apply Filter", command = self._filter)
 			self.filterentry.bind("<Return>", self._filter)
 			self._updatedemowindow(clear = True)
 			return THREADGROUPSIG.FINISHED
-		elif queue_elem[0] == THREADSIG.INFO_STATUSBAR:
-			self.setstatusbar(*queue_elem[1])
+		elif sig is THREADSIG.INFO_STATUSBAR:
+			self.setstatusbar(*args[0])
 			return THREADGROUPSIG.CONTINUE
-		elif queue_elem[0] == THREADSIG.RESULT_DEMODATA:
-			self.listbox.set_data(queue_elem[1])
+		elif sig is THREADSIG.RESULT_DEMODATA:
+			self.listbox.set_data(args[0])
 			self.listbox.format()
 			return THREADGROUPSIG.CONTINUE
 

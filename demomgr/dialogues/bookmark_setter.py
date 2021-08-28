@@ -248,20 +248,21 @@ class BookmarkSetter(BaseDialog):
 			evtblocksz = self.evtblocksz,
 		)
 
-	def _mark_after_callback(self, queue_elem):
-		if queue_elem[0] < 0x100: # Finish
+	def _mark_after_callback(self, sig, *args):
+		if sig.is_finish_signal():
 			self.savebtn.configure(text = "Save", command = self._mark)
-			if queue_elem[0] == THREADSIG.SUCCESS:
+			if sig is THREADSIG.SUCCESS:
 				self.result.state = DIAGSIG.SUCCESS
 				self.result.data["bookmarks"] = tuple(zip(
 					self.listbox.get_column("col_name"),
 					map(int, self.listbox.get_column("col_tick"))
 				))
 			return THREADGROUPSIG.FINISHED
-		elif queue_elem[0] == THREADSIG.INFO_INFORMATION_CONTAINERS:
-			self.result.data["containers"] = queue_elem[1]
-		elif queue_elem[0] == THREADSIG.INFO_CONSOLE:
-			self._log(queue_elem[1])
+		elif sig is THREADSIG.INFO_INFORMATION_CONTAINERS:
+			self.result.data["containers"] = args[0]
+			return THREADGROUPSIG.CONTINUE
+		elif sig is THREADSIG.INFO_CONSOLE:
+			self._log(args[0])
 			return THREADGROUPSIG.CONTINUE
 
 	def _rem_bookmark(self):

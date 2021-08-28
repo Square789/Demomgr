@@ -144,9 +144,9 @@ class Settings(BaseDialog):
 		)
 		datagrab_labelframe.grid_columnconfigure(0, weight = 1)
 		for i, j in (
-			(".json files",   CNST.DATAGRABMODE.JSON),
-			(CNST.EVENT_FILE, CNST.DATAGRABMODE.EVENTS),
-			("None",          CNST.DATAGRABMODE.NONE),
+			(".json files",   CNST.DATAGRABMODE.JSON.value),
+			(CNST.EVENT_FILE, CNST.DATAGRABMODE.EVENTS.value),
+			("None",          CNST.DATAGRABMODE.NONE.value),
 		):
 			b = ttk.Radiobutton(
 				datagrab_labelframe, value = j, variable = self.datagrabmode_var, text = i,
@@ -160,7 +160,7 @@ class Settings(BaseDialog):
 		)
 		eventread_labelframe.grid_columnconfigure(0, weight = 1)
 		self.blockszselector = ttk.Combobox(
-			eventread_labelframe, state = "readonly", values = [k for k in self.blockszvals]
+			eventread_labelframe, state = "readonly", values = [*self.blockszvals.keys()]
 		)
 		self.blockszselector.grid(sticky = "ew")
 

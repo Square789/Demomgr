@@ -120,11 +120,7 @@ class Play(BaseDialog):
 		if self.cfg.rcon_pwd is not None:
 			self.rcon_password_var.set(self.cfg.rcon_pwd)
 
-		u_r = self.validate_and_update_remember(remember)
-		self.usehlae_var.set(u_r[0])
-		self.remember_1_hackish = u_r[1] # Used at the end of body()
-
-		self.shortdemopath = ""
+		self.remember = self.validate_and_update_remember(remember)
 
 	def body(self, master):
 		"""UI"""
@@ -169,11 +165,12 @@ class Play(BaseDialog):
 		)
 
 		arg_region = ttk.Frame(play_frame, style = "Contained.TFrame")
-		self.launch_options = ttk.Entry(
+		launch_options_entry = ttk.Entry(
 			arg_region, style = "Contained.TEntry", textvariable = self.launch_options_var
 		)
-		self.launch_commands = ttk.Entry(
-			arg_region, style = "Contained.TEntry", textvariable = self.launch_commands_var
+		launch_commands_entry = ttk.Entry(
+			arg_region, style = "Contained.TEntry", textvariable = self.launch_commands_var,
+			state = "readonly"
 		)
 		self.rcon_send_commands_button = ttk.Button(
 			arg_region, style = "Contained.TButton", text = "[RCON] Send Commands",
@@ -230,8 +227,8 @@ class Play(BaseDialog):
 
 		# Launch arg region
 		arg_region.grid_columnconfigure(0, weight = 1)
-		self.launch_options.grid(row = 1, column = 0, sticky = "ew")
-		self.launch_commands.grid(row = 2, column = 0, sticky = "ew")
+		launch_options_entry.grid(row = 1, column = 0, sticky = "ew")
+		launch_commands_entry.grid(row = 2, column = 0, sticky = "ew")
 		self.rcon_send_commands_button.grid(row = 2, column = 1, sticky = "e")
 		arg_region.grid(row = 1, column = 0, sticky = "nesw")
 
@@ -393,21 +390,22 @@ class Play(BaseDialog):
 
 		self._load_users_ui()
 		self.user_select_var.trace("w", self.on_user_select)
-		for i, (usr, str_usr) in enumerate(zip(self.users, self.users_str)):
-			if self.remember_1_hackish == str_usr[0]:
+
+		self.usehlae_var.set(self.remember[0])
+		self.gototick_launchcmd_var.set(self.remember[1])
+		for i, (usr, _, _) in enumerate(self.users):
+			if self.remember[2] == usr:
 				self.user_select_combobox.current(i)
-				del self.remember_1_hackish
 				break
 		else:
 			if self.users:
 				self.user_select_combobox.current(0)
 
-		# self._toggle_hlae_cb()
+		del self.remember
 
 	def _showerrs(self):
 		"""
-		Go through all error conditions and update their respective error
-		labels.
+		Shows/Hides error labels based on `self.errstates`.
 		"""
 		return
 		for i, label in enumerate((
@@ -432,9 +430,6 @@ class Play(BaseDialog):
 		two values may be None.
 		If an error listing the directory occurs, the returned list
 		will be empty.
-
-		Executed once by body(), by _sel_dir(), and used to insert value
-		into self.user_select_var.
 		"""
 		toget = os.path.join(self.cfg.steam_path, CNST.STEAM_CFG_PATH0)
 		try:
@@ -518,8 +513,8 @@ class Play(BaseDialog):
 			self.errstates[ERR_IDX.DEMO_OUTSIDE_GAME] = True
 		self.launch_commands = ["+playdemo", shortdemopath]
 		tick = 0
-		if self.tick_mfl.selection is not None:
-			tick = self.tick_mfl.get_cell("col_tick", self.tick_mfl.selection)
+		if self.tick_mfl.selection:
+			tick = self.tick_mfl.get_cell("col_tick", next(iter(self.tick_mfl.selection)))
 		if self.gototick_launchcmd_var.get():
 			self.launch_commands += ["+demo_gototick", str(tick)]
 		self.tick_entry_var.set(tick)
@@ -547,26 +542,26 @@ class Play(BaseDialog):
 		self.animate_spinner = True
 		self.rcon_threadgroup.join_thread()
 
-	def _rcon_after_callback(self, queue_elem):
-		if queue_elem[0] < 0x100: # Finish
+	def _rcon_after_callback(self, sig, *args):
+		if sig.is_finish_signal():
 			self.animate_spinner = False
 			self.rcon_connect_button.configure(text = "Connect", command = self._rcon)
 			with self.rcon_text:
 				self.rcon_text.replace("status0", "status1", "Disconnected")
 				self.rcon_text.replace("spinner", "spinner + 1 chars", ".")
-				if queue_elem[0] == THREADSIG.ABORTED:
+				if sig is THREADSIG.ABORTED:
 					for i in range(3):
 						self._rcon_txt_set_line(i, "")
 			return THREADGROUPSIG.FINISHED
-		elif queue_elem[0] == THREADSIG.CONNECTED:
+		elif sig is THREADSIG.CONNECTED:
 			self.animate_spinner = False
 			self.rcon_connect_button.configure(text = "Disconnect", command = self._cancel_rcon)
 			with self.rcon_text:
 				self.rcon_text.replace("status0", "status1", "Connected")
 				self.rcon_text.replace("spinner", "spinner + 1 chars", ".")
-		elif queue_elem[0] == THREADSIG.INFO_IDX_PARAM:
+		elif sig is THREADSIG.INFO_IDX_PARAM:
 			with self.rcon_text:
-				self._rcon_txt_set_line(queue_elem[1], queue_elem[2])
+				self._rcon_txt_set_line(args[0], args[1])
 		return THREADGROUPSIG.CONTINUE
 
 	def _rcon_after_run_always(self):

@@ -23,43 +23,28 @@ class Deleter(BaseDialog):
 		thread's termination signal.
 	"""
 
+	REMEMBER_DEFAULT = [True, True, True]
+
 	def __init__(
-		self, parent, demodir, files, selected, evtblocksz, deluselessjson,
-		styleobj, eventfileupdate = "passive"
+		self, parent, demodir, to_delete, cfg, styleobj
 	):
 		"""
 		parent: Parent widget, should be a `Tk` or `Toplevel` instance.
-		demodir: Absolute path to the directory containing the demos. (str)
-		files: List of files that shall be included in the deletion
-			evaluation.
-		selected: List of boolean values so that
-			files[n] will be deleted if selected[n] == True
-		evtblocksz: Size of blocks (in bytes) to read _events.txt in.
-		deluselessjson: Boolean value that instructs the deletion evaluation
-			to include json files with no demos.
+		demodir: Absolute path to the directory containing the demos.
+		to_delete: List of file names of the Demos to be deleted.
+			This list will likely be modified by the dialog.
+		cfg: Program config.
 		styleobj: Instance of tkinter.ttk.Style.
-		eventfileupdate: Has two valid forms: "selectivemove" and "passive"
-			(default).
-			"selectivemove" only writes Logchunks from the old eventfile to
-				the new one if it can be assigned to a file in a previously
-				declared list of acceptable files.
-				!!!This mode requires every demo of demodir to be present in
-				files!!!
-			"passive" moves all Logchunks from the old eventfile to the
-				new one unless their demo was explicitly deleted.
 		"""
 		super().__init__(parent, "Delete...")
 
 		self.master = parent
 		self.demodir = demodir
-		self.files = files
-		self.selected = selected
-		self.evtblocksz = evtblocksz
-		self.deluselessjson = deluselessjson
+		self.to_delete = to_delete
+		self.cfg = cfg
 		self.styleobj = styleobj
-		self.eventfileupdate = eventfileupdate
 
-		self.filestodel = [j for i, j in enumerate(self.files) if self.selected[i]]
+		self.files = []
 
 		self.threadgroup = ThreadGroup(ThreadDelete, self.master)
 		self.threadgroup.decorate_and_patch(self, self._after_callback)
@@ -67,26 +52,29 @@ class Deleter(BaseDialog):
 	def body(self, master):
 		self.protocol("WM_DELETE_WINDOW", self.destroy)
 
-		try: # Try block should only catch from the os.listdir call directly below.
-			jsonfiles = [i for i in os.listdir(self.demodir) if os.path.splitext(i)[1] == ".json"]
-			# Add json files to self.todel if their demo files are in todel
-			choppedfilestodel = [os.path.splitext(i)[0] for i in self.filestodel]
-			choppedfiles = None
+		startmsg = ""
+		try:
+			self.files = os.listdir(self.demodir)
+		except (OSError, PermissionError, FileNotFoundError) as e:
+			self.to_delete = []
+			startmsg += f"Failed to get files: {e.__class__.__name__}: {e}!"
 
-			for i, j in enumerate(jsonfiles):
-				if os.path.splitext(j)[0] in choppedfilestodel:
-					self.filestodel.append(jsonfiles[i])
-			if self.deluselessjson: # also delete orphaned files
-				choppedfilestodel = None
-				choppedfiles = {os.path.splitext(i)[0] for i in self.files}
-				for i, j in enumerate(jsonfiles):
-					if not os.path.splitext(j)[0] in choppedfiles:
-						self.filestodel.append(jsonfiles[i])
-			self.startmsg = "This operation will delete the following file(s):\n\n" + \
-				"\n".join(self.filestodel)
-		except (OSError, PermissionError, FileNotFoundError) as error:
-			self.startmsg = f"Error getting JSON files: !\n{type(error).__name__}: {error}\n\n" \
-				f"This operation will delete the following file(s):\n\n" + "\n".join(self.filestodel)
+		# delete json files if: no corresponding demo file exists or a corresponding demo
+		# file exists but is scheduled for deletion
+		_to_delete = set(self.to_delete)
+		untouched_demos = set(
+			file for file in self.files
+			if os.path.splitext(file)[1] == ".dem" and file not in _to_delete
+		)
+		for file in self.files:
+			name, ext = os.path.splitext(file)
+			if ext != ".json":
+				continue
+			if name + ".dem" not in untouched_demos:
+				self.to_delete.append(file)
+
+		startmsg += \
+			"This operation will delete the following file(s):\n\n" + "\n".join(self.to_delete)
 
 		self.okbutton = ttk.Button(master, text = "Delete!", command = lambda: self.confirm(1))
 		self.cancelbutton = ttk.Button(master, text = "Cancel", command = self.destroy )
@@ -105,7 +93,7 @@ class Deleter(BaseDialog):
 		self.textbox.grid(column = 0, row = 0, sticky = "news", padx = (0, 3), pady = (0, 3))
 
 		self.textbox.delete("0.0", tk.END)
-		self.textbox.insert(tk.END, self.startmsg)
+		self.textbox.insert(tk.END, startmsg)
 		self.textbox.config(state = tk.DISABLED)
 
 		textframe.pack(fill = tk.BOTH, expand = 1)
@@ -125,26 +113,24 @@ class Deleter(BaseDialog):
 
 	def _startthread(self):
 		self.threadgroup.start_thread(
-			demodir =         self.demodir,
-			files =           self.files,
-			selected =        self.selected,
-			filestodel =      self.filestodel,
-			evtblocksz =      self.evtblocksz,
-			eventfileupdate = self.eventfileupdate,
+			demodir =   self.demodir,
+			files =     self.files,
+			to_delete = self.to_delete,
+			cfg =       self.cfg,
 		)
 
-	def _after_callback(self, queue_elem):
+	def _after_callback(self, sig, *args):
 		"""
 		Gets stuff from self.queue_out that the thread writes to, then
 		modifies UI based on queue elements.
 		(Additional decoration in __init__)
 		"""
-		if queue_elem[0] == THREADSIG.INFO_CONSOLE:
-			self.appendtextbox(queue_elem[1])
+		if sig is THREADSIG.INFO_CONSOLE:
+			self.appendtextbox(args[0])
 			return THREADGROUPSIG.CONTINUE
-		elif queue_elem[0] < 0x100: # Finish
+		elif sig.is_finish_signal(): # Finish
 			self.result.state = DIAGSIG.SUCCESS
-			self.result.data = queue_elem[0]
+			self.result.data = sig
 			self.canceloperationbutton.pack_forget()
 			self.closebutton.pack(side = tk.LEFT, fill = tk.X, expand = 1)
 			return THREADGROUPSIG.FINISHED
