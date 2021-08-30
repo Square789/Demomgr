@@ -45,7 +45,7 @@ def parse_json(handle, demo_name):
 	handle: Handle to read json from.
 	demo_name: Name of associated demo file; i.e. "foo.dem". (str)
 
-	May raise: IOError, json.decoder.JSONDecodeError, KeyError, ValueError
+	May raise: OSError, json.decoder.JSONDecodeError, KeyError, ValueError
 	"""
 	cur_bm = []
 	cur_ks = []
@@ -98,7 +98,7 @@ def parse_events(handle, blocksz):
 
 	handle : Open file handle to the events file. Must be readable.
 	blocksz : Block size the handle file should be read in. (int)
-	May raise IOError, PermissionError, ValueError.
+	May raise OSError, PermissionError, ValueError.
 	"""
 	with handle_ev.EventReader(handle, blocksz=blocksz) as reader:
 		return [parse_logchunk(chk) for chk in reader]

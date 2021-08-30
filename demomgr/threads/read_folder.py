@@ -14,6 +14,19 @@ class ThreadReadFolder(_StoppableBaseThread):
 	"""
 	Thread to read a directory containing demos and return a list of names,
 	creation dates, demo information and filesizes.
+
+	Sent to the output queue:
+		RESULT_DEMODATA(1) for a set of demo data, the thread's main
+				reason for existence.
+			- Demo data as a dict that can directly be fed into the
+				main window's MultiframeList. May be empty on
+				failure.
+
+		INFO_STATUSBAR(2) for displaying info on a statusbar
+				# TODO: REMOVE (issue #31)
+			- Message to be displayed.
+			- Timeout to remove the message after (May be `None`)
+				to specify permanent duration.
 	"""
 
 	def __init__(self, queue_out, targetdir, cfg):
@@ -27,15 +40,14 @@ class ThreadReadFolder(_StoppableBaseThread):
 
 		super().__init__(None, queue_out)
 
-	def __stop(self, statmesg, result, exitcode, demo_amount = 0):
+	def __stop(self, status_msg, status_timeout, result, exitcode):
 		"""
 		Outputs end signals to self.queue_out.
 		If the first arg is None, the Statusbar tuple will not be output.
 		"""
-		if statmesg is not None:
-			self.queue_out_put(THREADSIG.INFO_STATUSBAR, statmesg)
+		if status_msg is not None:
+			self.queue_out_put(THREADSIG.INFO_STATUSBAR, status_msg, status_timeout)
 
-		self.queue_out_put(THREADSIG.RESULT_DEMO_AMOUNT, demo_amount)
 		self.queue_out_put(THREADSIG.RESULT_DEMODATA, result)
 		self.queue_out_put(exitcode)
 
@@ -45,11 +57,13 @@ class ThreadReadFolder(_StoppableBaseThread):
 		return it in a format that can be directly fed into listbox.
 		"""
 		if self.targetdir is None:
-			self.__stop(None, None, THREADSIG.FAILURE, 0)
+			self.__stop(None, None, None, THREADSIG.FAILURE)
 			return
+
 		self.queue_out_put(
 			THREADSIG.INFO_STATUSBAR,
-			(f"Reading demo information from {self.targetdir} ...", None),
+			f"Reading demo information from {self.targetdir} ...",
+			None,
 		)
 		starttime = time.time()
 
@@ -69,20 +83,22 @@ class ThreadReadFolder(_StoppableBaseThread):
 				return
 		except FileNotFoundError:
 			self.__stop(
-				(f"ERROR: Current directory {self.targetdir!r} does not exist.", None),
+				f"ERROR: Current directory {self.targetdir!r} does not exist.",
+				None,
 				{},
 				THREADSIG.FAILURE,
 			)
 			return
 		except (OSError, PermissionError) as error:
-			self.__stop((f"ERROR reading directory: {error}.", None), {}, THREADSIG.FAILURE)
+			self.__stop(f"ERROR reading directory: {error}.", None, {}, THREADSIG.FAILURE)
 			return
 
 		# Grab demo information (returned through col_demo_info)
 		datamode = self.cfg.data_grab_mode
 		if datamode == 0: #Disabled
 			self.__stop(
-				("Demo information disabled.", 3000),
+				"Demo information disabled.",
+				3000,
 				{
 					"col_filename": files, "col_ks": [None] * len(files),
 					"col_bm": [None] * len(files), "col_ctime": datescreated,
@@ -98,11 +114,9 @@ class ThreadReadFolder(_StoppableBaseThread):
 					logchunk_list = parse_events(h, self.cfg.events_blocksize)
 			except Exception as exc:
 				self.__stop(
-					(
-						f"{CNST.EVENT_FILE!r} has not been found, can not be opened or "
-							f"is malformed.",
-						5000,
-					),
+					f"{CNST.EVENT_FILE!r} has not been found, can not be opened or "
+						f"is malformed.",
+					5000,
 					{
 						"col_filename": files, "col_ks": [None] * len(files),
 						"col_bm": [None] * len(files), "col_ctime": datescreated,
@@ -121,7 +135,8 @@ class ThreadReadFolder(_StoppableBaseThread):
 				]
 			except (OSError, FileNotFoundError, PermissionError) as error:
 				self.__stop(
-					(f"Error getting .json files: {error}", 5000),
+					f"Error getting .json files: {error}",
+					5000,
 					{
 						"col_filename": files, "col_ks": [None] * len(files),
 						"col_bm": [None] * len(files), "col_ctime": datescreated,
@@ -161,16 +176,13 @@ class ThreadReadFolder(_StoppableBaseThread):
 			bookmarks[i] = chunk.bookmarks
 
 		self.__stop(
-			(
-				f"Processed data from {len(files)} files in "
+			f"Processed data from {len(files)} files in "
 				f"{round(time.time() - starttime, 4)} seconds.",
-				3000
-			),
+			3000,
 			{
 				"col_filename": files, "col_ks": killstreaks, "col_bm": bookmarks,
 				"col_ctime": datescreated, "col_filesize": sizes
 			},
 			THREADSIG.SUCCESS,
-			len(files),
 		)
 		return

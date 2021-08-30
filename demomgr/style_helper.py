@@ -1,11 +1,14 @@
-"""T
-his module supplies the StyleHelper class which is a class to read
+"""
+This module supplies the StyleHelper class which is a class to read
 image directories and save them in a tcl variable as well as convert dicts
 to tk commands to make creation of image-reliant interfaces easier.
 (Although you should probably just use the plain tcl script for a UI and not
 recreate it every program start which is what load_theme is for.)
 ! DO NOT USE THESE CLASSES IF YOUR VARIABLE/STYLE NAMES CONTAIN CHARACTERS
-LIKE [, ], {, } ! (but why would they, really.);
+LIKE [, ], {, } ! (but why would they, really.)
+
+2021 update: This file is a mess and I don't think I will be touching it
+	anytime soon.
 """
 
 import os

@@ -83,7 +83,7 @@ class MainApp():
 					os.path.dirname(self.cfgpath), # self.cfgpath ends in a file, should be ok
 					exist_ok = True
 				)
-			except (OSError, IOError, PermissionError) as exc:
+			except (OSError, PermissionError) as exc:
 				tk_msg.showerror(
 					"Demomgr - Error", f"The following error occurred during startup: {exc}"
 				)
@@ -132,8 +132,8 @@ class MainApp():
 					class_tag, f"<KeyPress-{ctxmen_name}>", context_menus.entry_cb
 				)
 
-		last_path = ""
-		if self.cfg.last_path is not None:
+		last_path = self.cfg.demo_paths[0] if self.cfg.demo_paths else ""
+		if self.cfg.last_path is not None and 0 <= self.cfg.last_path < len(self.cfg.demo_paths):
 			last_path = self.cfg.demo_paths[self.cfg.last_path]
 		self.curdir = last_path
 		self.spinboxvar.set(last_path)
@@ -309,8 +309,8 @@ class MainApp():
 			g.join_thread(finalize = False)
 		if save_cfg:
 			if self.curdir in self.cfg.demo_paths:
-				self.cfg.lastpath = self.cfg.demo_paths.index(self.curdir)
-				self.writecfg()
+				self.cfg.last_path = self.cfg.demo_paths.index(self.curdir)
+			self.writecfg()
 		# Without the stuff below, the root.destroy method will produce
 		# strange errors on closing, due to some dark magic regarding after
 		# commands.
@@ -384,14 +384,18 @@ class MainApp():
 		if not self.listbox.selection:
 			return
 
-		selected = [
+		selected_files = [
 			x for i, x in enumerate(self.listbox.get_column("col_filename"))
 			if i in self.listbox.selection
 		]
+		file_idx_map = {
+			self.listbox.get_cell("col_filename", i): i
+			for i in self.listbox.selection
+		}
 		dialog = Deleter(
 			self.root,
 			demodir = self.curdir,
-			to_delete = selected,
+			to_delete = selected_files,
 			cfg = self.cfg,
 			styleobj = self.ttkstyle,
 		)
@@ -400,34 +404,39 @@ class MainApp():
 			return
 		if dialog.result.state == DIAGSIG.SUCCESS:
 			if self.cfg.lazy_reload:
+				indices_to_remove = [
+					file_idx_map[file]
+					for file, deleted in dialog.result.data.items() if deleted
+				]
 				self.directory_inf_kvd.set_value(
 					"l_amount",
-					self.directory_inf_kvd.get_value("l_amount") - 1
+					self.directory_inf_kvd.get_value("l_amount") - len(indices_to_remove)
 				)
 				self.directory_inf_kvd.set_value(
 					"l_totalsize",
-					self.directory_inf_kvd.get_value("l_totalsize") - \
+					self.directory_inf_kvd.get_value("l_totalsize") - sum(
 						self.listbox.get_cell("col_filesize", index)
+						for index in indices_to_remove
+					)
 				)
-				self.listbox.remove_rows(index)
+				self.listbox.remove_rows(indices_to_remove)
 				self._updatedemowindow(clear = True)
 			else:
 				self.reloadgui()
 
 	def _managebookmarks(self):
 		"""Offers dialog to manage a demo's bookmarks."""
-		index = self.listbox.selection
-		if index == None:
-			self.setstatusbar("Please select a demo file.", 1500)
+		# Safeguard, shouldnt be triggered
+		if not self.listbox.selection:
 			return
-		filename = self.listbox.get_cell("col_filename", index)
-		path = os.path.join(self.curdir, filename)
+		index = next(iter(self.listbox.selection))
+		path = os.path.join(self.curdir, self.listbox.get_cell("col_filename", index))
 		dialog = BookmarkSetter(
 			self.root,
 			targetdemo = path,
 			bm_dat = self.listbox.get_cell("col_bm", index),
 			styleobj = self.ttkstyle,
-			evtblocksz = self.cfg.events_blocksize,
+			cfg = self.cfg,
 			remember = self.cfg.ui_remember["bookmark_setter"],
 		)
 		dialog.show()
@@ -531,13 +540,13 @@ class MainApp():
 			g.cancel_after()
 		self.listbox.clear()
 		self.directory_inf_kvd.clear()
+		self._updatedemowindow(clear = True)
 		for g in self.threadgroups.values():
 			g.join_thread(finalize = False)
 		self.threadgroups["fetchdata"].start_thread(
-			targetdir = self.curdir,
+			targetdir = self.curdir or None,
 			cfg = self.cfg,
 		)
-		self._updatedemowindow(clear = True)
 
 	def _after_callback_fetchdata(self, sig, *args):
 		"""
@@ -549,10 +558,12 @@ class MainApp():
 		if sig.is_finish_signal():
 			return THREADGROUPSIG.FINISHED
 		elif sig is THREADSIG.INFO_STATUSBAR:
-			self.setstatusbar(*args[0])
-		elif sig is THREADSIG.RESULT_DEMO_AMOUNT:
-			self.directory_inf_kvd.set_value("l_amount", args[0])
+			self.setstatusbar(*args)
 		elif sig is THREADSIG.RESULT_DEMODATA:
+			self.directory_inf_kvd.set_value(
+				"l_amount",
+				len(args[0]["col_filesize"]) if "col_filesize" in args[0] else 0,
+			)
 			self.listbox.set_data(args[0])
 			self.listbox.format()
 		return THREADGROUPSIG.CONTINUE
@@ -692,10 +703,8 @@ class MainApp():
 		if dirpath in self.cfg.demo_paths:
 			return
 		self.cfg.demo_paths.append(dirpath)
-		# NOTE: doesnt this call reloadgui twice? check it
-		self.spinboxvar.set(dirpath)
 		self.pathsel_spinbox.config(values = tuple(self.cfg.demo_paths))
-		self.reloadgui()
+		self.spinboxvar.set(dirpath)
 
 	def _rempath(self):
 		"""

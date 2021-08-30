@@ -1,5 +1,9 @@
 from enum import IntEnum
 
+# Important for them to have these values since some indexing stuff for the
+# events and json is being done by subtracting 1 from them.
+# Not that there ever will be a reason to change these or add new containers
+# realistically.
 class DATAGRABMODE(IntEnum):
 	NONE = 0
 	EVENTS = 1
@@ -41,7 +45,8 @@ STEAM_CFG_LAUNCH_OPTIONS = (
 	"UserLocalConfigStore", "Software", "Valve", "Steam", "Apps", "440", "LaunchOptions",
 )
 STEAM_CFG_USER_NAME = ("UserLocalConfigStore", "friends", "PersonaName")
-GUI_UPDATE_WAIT = 30 # Setting this to lower values might lock the UI, use with care.
+# Setting this to lower values might lock the UI, use with care.
+GUI_UPDATE_WAIT = 40
 THEME_SUBDIR = "ui_themes"
 # 0: tcl file, 1: theme name, 2: resource dir name
 THEME_PACKAGES = {

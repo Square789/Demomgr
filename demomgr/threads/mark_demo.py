@@ -1,16 +1,14 @@
 """Contains the ThreadMarkDemo class."""
 
 import os
-import queue
 import json
-import time
 import re
 from datetime import datetime
 
 from demomgr.threads._threadsig import THREADSIG
 from demomgr.threads._base import _StoppableBaseThread
 from demomgr import constants as CNST
-from demomgr import handle_events as handle_ev
+from demomgr.handle_events import EventReader, EventWriter
 
 RE_DEM_NAME = re.compile(
 	r'\[\d{4}/\d\d/\d\d \d\d:\d\d\] (?:Killstreak|Bookmark) .* \("([^"]*)" at \d*\)$'
@@ -23,13 +21,32 @@ RE_LOGLINE_IS_BOOKMARK = re.compile(r"\[\d\d\d\d/\d\d/\d\d \d\d:\d\d\] Bookmark 
 class ThreadMarkDemo(_StoppableBaseThread):
 	"""
 	Thread for modifying the bookmarks of a demo.
+
+	Sent to the output queue:
+		BOOKMARK_CONTAINER_UPDATE_START(1) at the start of a bookmark
+				container update process.
+			- Container type as an int.
+
+		BOOKMARK_CONTAINER_UPDATE_SUCCESS(2) when a bookmark container
+				is updated.
+			- Container type as an int.
+			- Boolean indicating whether the container now exists or not.
+
+		BOOKMARK_CONTAINER_UPDATE_FAILURE(1) when a bookmark container
+				update fails. Its existence state should be
+				unchanged.
+			- Container type as an int.
+
+		INFO_CONSOLE(1) for thread information # TODO: remove (issue #31)
+			- Text to be drawn whereever.
 	"""
 	def __init__(self, queue_out, mark_json, mark_events, bookmarks, targetdemo, evtblocksz):
 		"""
 		Thread takes an output queue and as the following args:
 			mark_json <Bool>: Whether the .json file should be modified
 			mark_events <Bool>: Whether the _events.txt file should be modified
-			bookmarks <Tuple>: Bookmarks in the standard bookmark format.
+			bookmarks <Seq[Tuple[Str, Int]]>: Bookmarks as a sequence of
+				(name, tick) tuples.
 			targetdemo <Str>: Absolute path to the demo to be marked.
 			evtblocksz <Int>: Block size to read _events.txt in.
 		"""
@@ -42,63 +59,53 @@ class ThreadMarkDemo(_StoppableBaseThread):
 		super().__init__(None, queue_out)
 
 	def run(self):
-		container_exists = [None, None]
-		exception = None
-		if self.mark_json:
+		for container_type, should_mark, mark_func, exceptions in (
+			(
+				CNST.DATAGRABMODE.JSON,
+				self.mark_json,
+				self._mark_json,
+				(OSError, json.decoder.JSONDecodeError, KeyError, TypeError, ValueError),
+			),
+			(
+				CNST.DATAGRABMODE.EVENTS,
+				self.mark_events,
+				self._mark_events,
+				(OSError, TypeError, ValueError),
+			),
+		):
+			if not should_mark:
+				continue
+
 			try:
-				container_exists[1] = self._mark_json()
-				self.queue_out_put(THREADSIG.INFO_CONSOLE, "Successfully modified json file.")
-			except (OSError, PermissionError) as err: # File problems
-				exception = err
-			except json.decoder.JSONDecodeError as err: # Json malformed
-				exception = err
-			except (KeyError, IndexError, TypeError) as err: # Json garbage
-				exception = err
-			if exception is not None:
+				res = mark_func()
+				if res is not None: # if res is None, stop request has been set.
+					self.queue_out_put(
+						THREADSIG.BOOKMARK_CONTAINER_UPDATE_SUCCESS, container_type.value, res
+					)
+			except exceptions as error:
 				self.queue_out_put(
-					THREADSIG.INFO_CONSOLE,
-					f"Failed modifying JSON file: {type(exception).__name__}: {exception}"
+					THREADSIG.BOOKMARK_CONTAINER_UPDATE_FAILURE, container_type.value, error
 				)
-				exception = None
 
-		if self.stoprequest.is_set():
-			self.queue_out_put(THREADSIG.ABORTED)
-			return
+			if self.stoprequest.is_set():
+				self.queue_out_put(THREADSIG.ABORTED)
+				return
 
-		if self.mark_events:
-			try:
-				container_exists[0] = self._mark_events()
-				if self.stoprequest.is_set(): # Method may return due to user abort
-					self.queue_out_put(THREADSIG.ABORTED)
-					return
-				self.queue_out_put(THREADSIG.INFO_CONSOLE, f"Successfully modified {CNST.EVENT_FILE}.")
-			except (PermissionError, OSError) as err:
-				exception = err
-			except (TypeError, ValueError) as err:
-				exception = err # Something is wrong with _events.txt
-			if exception is not None:
-				self.queue_out_put(
-					THREADSIG.INFO_CONSOLE,
-					f"Failed modifying {CNST.EVENT_FILE}: {type(exception).__name__}: {exception}"
-				)
-				exception = None
-
-		self.queue_out_put(THREADSIG.INFO_INFORMATION_CONTAINERS, container_exists)
 		self.queue_out_put(THREADSIG.SUCCESS)
 
 	def _mark_json(self):
 		formatted_bookmarks = []
-		for i in self.bookmarks:
+		for v, t in self.bookmarks:
 			formatted_bookmarks.append({
 				"name": CNST.EVENTFILE_BOOKMARK,
-				"value": i[0],
-				"tick": int(i[1]),
+				"value": v,
+				"tick": t,
 			})
 
 		full_json = os.path.splitext(self.targetdemo)[0] + ".json"
-		json_data = {"events":[]}
-		if os.path.exists(full_json): # If json exists:
-			with open(full_json, "r") as handle: # Load it
+		json_data = {"events": []}
+		if os.path.exists(full_json):
+			with open(full_json, "r") as handle:
 				json_data = json.load(handle)
 		else:
 			self.queue_out_put(THREADSIG.INFO_CONSOLE, "JSON file not found; Creating new.")
@@ -130,21 +137,27 @@ class ThreadMarkDemo(_StoppableBaseThread):
 			)
 			open(evtpath, "w").close()
 
+		if self.stoprequest.is_set():
+			return None
+
 		tmpevtpath = os.path.join(demo_dir, f".{CNST.EVENT_FILE}")
+		interrupted = False
 		with \
-			handle_ev.EventReader(evtpath, blocksz = self.evtblocksz) as event_reader, \
-			handle_ev.EventWriter(tmpevtpath, clearfile = True, empty_ok = True) as event_writer \
+			EventReader(evtpath, blocksz = self.evtblocksz) as event_reader, \
+			EventWriter(tmpevtpath, clearfile = True, empty_ok = True) as event_writer \
 		:
-			chunkfound = False
+			chunk_found = False
 			chunk_exists = True
+			# Run through chunks and modify the found one if it exists
 			for chk in event_reader:
 				if self.stoprequest.is_set():
-					self.queue_out_put(THREADSIG.ABORTED)
-					return None
+					interrupted = True
+					break
 				regres = RE_DEM_NAME.search(chk.content)
 				towrite = chk.content
-				if regres is not None and regres[1] == demo_name: # T'is the chk you're looking for
-					chunkfound = True
+				# Found chunk
+				if regres is not None and regres[1] == demo_name:
+					chunk_found = True
 					towrite = [
 						i for i in towrite.split("\n")
 						if not RE_LOGLINE_IS_BOOKMARK.search(i)
@@ -158,16 +171,21 @@ class ThreadMarkDemo(_StoppableBaseThread):
 						continue
 					self.queue_out_put(THREADSIG.INFO_CONSOLE, "Logchunk found and modified.")
 				event_writer.writechunk(towrite)
-			if not chunkfound:
+
+			# Append fabricated chunk if it was not found
+			if not chunk_found:
 				if formatted_bookmarks:
 					event_writer.writechunk("\n".join(sorted(
 						formatted_bookmarks, key = lambda elem: int(RE_TICK.search(elem)[1])
 					)))
 				else:
 					chunk_exists = False
-		os.remove(evtpath)
-		os.rename(tmpevtpath, evtpath)
 
-		if not chunk_exists:
-			self.queue_out_put(THREADSIG.INFO_CONSOLE, "Logchunk not found/was removed.")
+		if not interrupted:
+			os.remove(evtpath)
+			os.rename(tmpevtpath, evtpath)
+		else:
+			os.remove(tmpevtpath)
+			return None
+
 		return chunk_exists

@@ -72,7 +72,7 @@ class ThreadGroup():
 
 		method: The finalization method.
 
-		Note that this  method must be registered before a call to
+		Note that this method must be registered before a call to
 		decorate_and_patch.
 		"""
 		self.run_always_method = method
