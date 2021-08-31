@@ -34,10 +34,10 @@ class DemoOp():
 		self.handles_multiple = handles_multiple
 
 	def __iter__(self):
-		# NOTE: i think this method is technically mega-crappy since it
-		# won't reflect changes done to the class between iterator obtain
-		# time and iteration time, but that's never done so ¯\_(ツ)_/¯
-		return iter((self.name, self.cmd, self.button, self.handles_multiple))
+		yield self.name
+		yield self.cmd
+		yield self.button
+		yield self.handles_multiple
 
 class MainApp():
 	def __init__(self):

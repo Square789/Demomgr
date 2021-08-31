@@ -59,6 +59,26 @@ class User():
 	def get_display_str(self):
 		return self.dir_name + (f" - {self.name}" if self.name is not None else '')
 
+class ErrorLabel():
+	__slots__ = ("label", "grid_options", "is_set")
+
+	def __init__(self):
+		self.label = None
+		self.grid_options = {}
+		self.is_set = False
+
+	def set(self, val):
+		if val == self.is_set or self.label is None:
+			return
+		self.is_set = val
+		if val:
+			self.label.grid(**self.grid_options)
+		else:
+			self.label.grid_forget()
+
+	def set_grid_options(self, **kw):
+		self.grid_options = kw
+
 class ERR_IDX:
 	STEAMDIR = 0
 	STEAMDIR_DRIVE = 1
@@ -119,14 +139,14 @@ class Play(BaseDialog):
 			*(repeat(sign, 100 // CNST.GUI_UPDATE_WAIT) for sign in ("|", "/", "-", "\\")),
 		)))
 		self.rcon_threadgroup = ThreadGroup(RCONThread, self)
-		self.rcon_threadgroup.register_run_always_method(self._rcon_after_run_always)
+		self.rcon_threadgroup.register_run_always_method_pre(self._rcon_run_always)
 		self.rcon_threadgroup.decorate_and_patch(self, self._rcon_after_callback)
 		self.animate_spinner = False
 		self.rcon_in_queue = queue.Queue()
 
-		self.errstates = [False for _ in range(4)]
-		# 0: Bad config/steamdir, 1: Steamdir on bad drive, 2: Demo outside /tf/,
-		# 3: No launchoptions,
+		self.error_steamdir_invalid = ErrorLabel()
+		self.warning_not_in_tf_dir = ErrorLabel()
+		self.info_launch_options_not_found = ErrorLabel()
 
 		if self.cfg.rcon_pwd is not None:
 			self.rcon_password_var.set(self.cfg.rcon_pwd)
@@ -166,6 +186,10 @@ class Play(BaseDialog):
 		user_select_label = ttk.Label(
 			launch_config_frame, text = "User profile to get launch options from:",
 			style = "Contained.TLabel"
+		)
+		self.error_steamdir_invalid.label = ttk.Label(launch_config_frame, text = "bad steamdir")
+		self.info_launch_options_not_found.label = ttk.Label(
+			launch_config_frame, text = "launch options not found"
 		)
 		self.user_select_combobox = ttk.Combobox(
 			launch_config_frame, textvariable = self.user_select_var, state = "readonly"
@@ -211,6 +235,7 @@ class Play(BaseDialog):
 			state = tk.DISABLED
 		)
 
+		self.warning_not_in_tf_dir.label = ttk.Label(play_frame, text = "Demo not in tf dir")
 		launch_button = ttk.Button(play_frame, text = "Launch TF2", style = "Contained.TButton")
 
 		master.grid_rowconfigure((0, 1), weight = 1)
@@ -223,9 +248,9 @@ class Play(BaseDialog):
 
 		self.rcon_text.grid(row = 0, column = 0, sticky = "nesw")
 		rcon_text_scrollbar.grid(row = 1, column = 0, sticky = "ew")
-		rcon_text_frame.grid(row = 0, column = 1, rowspan = 2)
+		rcon_text_frame.grid(row = 0, column = 1, rowspan = 2, padx = (5, 0))
 
-		rcon_labelframe.grid(row = 0, column = 0, sticky = "nesw")
+		rcon_labelframe.grid(row = 0, column = 0, pady = (0, 5), sticky = "nesw")
 
 		# = Play frame
 		play_frame.grid_columnconfigure(0, weight = 1)
@@ -233,7 +258,13 @@ class Play(BaseDialog):
 		launch_config_frame.grid_columnconfigure(1, weight = 1)
 		user_select_label.grid(row = 0, column = 0, sticky = "e")
 		self.user_select_combobox.grid(row = 0, column = 1, sticky = "ew")
-		self.use_hlae_checkbox.grid(row = 1, column = 0, sticky = "w")
+		self.error_steamdir_invalid.set_grid_options(
+			row = 1, column = 0, columnspan = 2, sticky = "ew"
+		)
+		self.info_launch_options_not_found.set_grid_options(
+			row = 2, column = 0, columnspan = 2, sticky = "ew"
+		)
+		self.use_hlae_checkbox.grid(row = 3, column = 0, sticky = "w")
 		launch_config_frame.grid(row = 0, column = 0, sticky = "nesw")
 
 		# Launch arg region
@@ -251,9 +282,10 @@ class Play(BaseDialog):
 		self.rcon_send_gototick_button.grid(row = 2, column = 1)
 		bookmark_region.grid(row = 2, column = 0, sticky = "nesw")
 
-		launch_button.grid(row = 3, column = 0)
+		self.warning_not_in_tf_dir.set_grid_options(row = 3, column = 0, sticky = "ew")
+		launch_button.grid(row = 4, column = 0)
 
-		play_frame.grid(row = 1, column = 0, sticky = "nesw")
+		play_frame.grid(row = 1, column = 0, pady = (0, 5), sticky = "nesw")
 
 		self.tick_mfl.bind("<<MultiframeSelect>>", lambda _: self._update_launch_commands_var())
 
@@ -266,13 +298,17 @@ class Play(BaseDialog):
 		self.rcon_text.mark_gravity("spinner", tk.LEFT)
 		self.rcon_text.configure(xscrollcommand = rcon_text_scrollbar.set, state = tk.DISABLED)
 
-		events = sorted(
-			[("Killstreak", t, v) for v, t in self.info.killstreaks] +
-				[("Bookmark", t, v) for v, t in self.info.bookmarks], 
-			key = lambda x: x[1]
-		)
-		data = {}
-		data["col_type"], data["col_tick"], data["col_val"] = (list(x) for x in zip(*events))
+		events = []
+		if self.info.killstreaks is not None:
+			events += [("Killstreak", t, v) for v, t in self.info.killstreaks]
+		if self.info.bookmarks is not None:
+			events += [("Bookmark", t, v) for v, t in self.info.bookmarks]
+		events.sort(key = lambda x: x[1])
+		data = {"col_type": [], "col_tick": [], "col_val": []}
+		for type, tick, val in events:
+			data["col_type"].append(type)
+			data["col_tick"].append(tick)
+			data["col_val"].append(val)
 		self.tick_mfl.set_data(data)
 		self.tick_mfl.format()
 
@@ -407,21 +443,7 @@ class Play(BaseDialog):
 
 		del self.remember
 
-	def _showerrs(self):
-		"""
-		Shows/Hides error labels based on `self.errstates`.
-		"""
-		return
-		for i, label in enumerate((
-			self.error_steamdir_invalid,
-			self.warning_steamdir_mislocated,
-			self.warning_not_in_tf_dir,
-			self.info_launchoptions_not_found,
-		)):
-			if self.errstates[i]:
-				label.grid()
-			else:
-				label.grid_forget()
+		self._update_launch_commands_var()
 
 	def get_user_data(self, user_dir):
 		"""
@@ -459,9 +481,9 @@ class Play(BaseDialog):
 		try:
 			raw_list = os.listdir(os.path.join(self.cfg.steam_path, CNST.STEAM_CFG_PATH0))
 		except (OSError, PermissionError, FileNotFoundError):
-			self.errstates[ERR_IDX.STEAMDIR] = True
+			self.error_steamdir_invalid.set(True)
 		else:
-			self.errstates[ERR_IDX.STEAMDIR] = False
+			self.error_steamdir_invalid.set(False)
 			self.users = [User(x, *self.get_user_data(x)) for x in raw_list]
 
 		self.users_str = [user.get_display_str() for user in self.users]
@@ -473,32 +495,40 @@ class Play(BaseDialog):
 				if set_if_present == user.dir_name:
 					tgt = display_str
 					break
+
 		self.user_select_var.set(tgt)
-		self._showerrs()
 
 	def on_user_select(self, *_):
 		"""
 		Callback to retrieve launch options and update error labels.
 		"""
-		user_idx = self.user_select_combobox.current()
-		if user_idx != -1:
-			user = self.users[user_idx]
-			self.launch_options_var.set(user.launch_opt or "")
-			self.errstates[ERR_IDX.LAUNCHOPT] = user.launch_opt is None
-		self._showerrs()
+		try:
+			# For some reason, self.user_select_combobox.current()
+			# returns -1 if called right at the start here despite
+			# all values being present. Hacky alternative through
+			# python
+			user_idx = self.users_str.index(self.user_select_var.get())
+		except ValueError:
+			# Should only happen when the directory is empty/bad or
+			# someone messed with the config.
+			return
+
+		user = self.users[user_idx]
+		self.launch_options_var.set(user.launch_opt or "")
+		self.info_launch_options_not_found.set(user.launch_opt is None)
 
 	def _update_launch_commands_var(self):
 		try:
 			shortdemopath = os.path.relpath(
 				self.demopath, os.path.join(self.cfg.steam_path, CNST.TF2_HEAD_PATH)
 			)
-			self.errstates[ERR_IDX.STEAMDIR_DRIVE] = False
-			self.errstates[ERR_IDX.DEMO_OUTSIDE_GAME] = ".." in shortdemopath
+			if ".." in os.path.normpath(shortdemopath).split(os.sep):
+				raise ValueError("Can't exit game directory")
+			self.launch_commands = ["+playdemo", shortdemopath]
 		except ValueError:
-			shortdemopath = ""
-			self.errstates[ERR_IDX.STEAMDIR_DRIVE] = True
-			self.errstates[ERR_IDX.DEMO_OUTSIDE_GAME] = True
-		self.launch_commands = ["+playdemo", shortdemopath]
+			self.warning_not_in_tf_dir.set(True)
+			self.launch_commands = []
+
 		tick = 0
 		if self.tick_mfl.selection:
 			tick = self.tick_mfl.get_cell("col_tick", next(iter(self.tick_mfl.selection)))
@@ -506,7 +536,6 @@ class Play(BaseDialog):
 			self.launch_commands += ["+demo_gototick", str(tick)]
 		self.tick_entry_var.set(tick)
 		self.launch_commands_var.set(" ".join(self.launch_commands))
-		self._showerrs()
 
 	def _rcon_txt_set_line(self, n, content):
 		"""
@@ -516,7 +545,7 @@ class Play(BaseDialog):
 
 	def _rcon(self):
 		self.animate_spinner = True
-		self.rcon_connect_button.configure(text = "Cancel", command = self._cancel_rcon)
+		self.rcon_connect_button.configure(text = "Cancel", command = self._rcon_cancel)
 		with self.rcon_text:
 			for i in range(3):
 				self._rcon_txt_set_line(i, "")
@@ -526,7 +555,7 @@ class Play(BaseDialog):
 			port = self.cfg.rcon_port,
 		)
 
-	def _cancel_rcon(self):
+	def _rcon_cancel(self):
 		self.animate_spinner = True
 		self.rcon_threadgroup.join_thread()
 
@@ -543,7 +572,7 @@ class Play(BaseDialog):
 			return THREADGROUPSIG.FINISHED
 		elif sig is THREADSIG.CONNECTED:
 			self.animate_spinner = False
-			self.rcon_connect_button.configure(text = "Disconnect", command = self._cancel_rcon)
+			self.rcon_connect_button.configure(text = "Disconnect", command = self._rcon_cancel)
 			with self.rcon_text:
 				self.rcon_text.replace("status0", "status1", "Connected")
 				self.rcon_text.replace("spinner", "spinner + 1 chars", ".")
@@ -552,14 +581,17 @@ class Play(BaseDialog):
 				self._rcon_txt_set_line(args[0], args[1])
 		return THREADGROUPSIG.CONTINUE
 
-	def _rcon_after_run_always(self):
+	def _rcon_run_always(self):
 		if self.animate_spinner:
 			with self.rcon_text:
 				self.rcon_text.delete("spinner", "spinner + 1 chars")
 				self.rcon_text.insert("spinner", next(self.spinner))
 
+	def _rcon_on_finish(self):
+		pass
+
 	def done(self, launch = False):
-		self._cancel_rcon()
+		self._rcon_cancel()
 		self.result.state = DIAGSIG.SUCCESS if launch else DIAGSIG.FAILURE
 		if launch:
 			user_args = self.launch_options_var.get().split()

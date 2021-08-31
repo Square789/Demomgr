@@ -40,7 +40,8 @@ class ThreadGroup():
 		self.caller_self = None
 		self.heldback_queue_elem = None
 		self.finalization_method = None
-		self.run_always_method = None
+		self.run_always_method_pre = None
+		self.run_always_method_post = None
 		self._decorated_cb = None
 		self._orig_cb_method = None
 
@@ -49,10 +50,11 @@ class ThreadGroup():
 		Registers a finalization method with the threadgroup, which is called
 		once when the thread has ended and the queue has been emptied by the
 		callback method. It must fulfill the following criteria:
-			It should take two input arguments, self and queue_elem.
-				queue_elem will be the last queue element that caused the
+			It should take three input arguments, self, sig and *args.
+				sig and args will be the last queue element that caused the
 				callback method to return `THREADGROUPSIG.HOLDBACK`,
-				if this signal was not received, it will instead be None.
+				if this signal was not received, the method will instead
+				be called with sig = None and no args.
 			The method should perform a heavy task that is best suited for
 			the very end of thread activity, or may perform cleanup
 			(Though this can easily be handled in the callback method as well.)
@@ -64,18 +66,30 @@ class ThreadGroup():
 		"""
 		self.finalization_method = method
 
-	def register_run_always_method(self, method):
+	def register_run_always_method_pre(self, method):
 		"""
 		Registers a method with the threadgroup which will be called
-		ever time the after callback runs. Useful for progress
+		ever time before the after callback runs. Useful for progress
 		indicators.
 
-		method: The finalization method.
+		method: The method to be registered.
 
 		Note that this method must be registered before a call to
 		decorate_and_patch.
 		"""
-		self.run_always_method = method
+		self.run_always_method_pre = method
+
+	def register_run_always_method_post(self, method):
+		"""
+		Registers a method with the threadgroup which will be called
+		ever time after the after callback runs.
+
+		method: The method to be registered.
+
+		Note that this method must be registered before a call to
+		decorate_and_patch.
+		"""
+		self.run_always_method_post = method
 
 	def decorate_and_patch(self, targetobj, cb_method):
 		"""
@@ -133,13 +147,26 @@ class ThreadGroup():
 						self.finalization_method(sig, *args)
 					self.heldback_queue_elem = None
 
-		if self.run_always_method is not None:
-			def decorated1(self_, reschedule = True):
-				self.run_always_method()
-				decorated0(self_, reschedule)
+		# idk what's worse, nesting 2 decorated funcs or my if else branch
+		# probably the if else branch
+		if self.run_always_method_pre is None:
+			if self.run_always_method_post is None:
+				def decorated1(self_, reschedule = True):
+					decorated0(self_, reschedule)
+			else:
+				def decorated1(self_, reschedule = True):
+					decorated0(self_, reschedule)
+					self.run_always_method_post()
 		else:
-			def decorated1(self_, reschedule = True):
-				decorated0(self_, reschedule)
+			if self.run_always_method_post is None:
+				def decorated1(self_, reschedule = True):
+					self.run_always_method_pre()
+					decorated0(self_, reschedule)
+			else:
+				def decorated1(self_, reschedule = True):
+					self.run_always_method_pre()
+					decorated0(self_, reschedule)
+					self.run_always_method_post()
 
 		self._orig_cb_method = cb_method
 		self.caller_self = targetobj
