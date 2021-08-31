@@ -96,7 +96,6 @@ class BookmarkSetter(BaseDialog):
 		parent.columnconfigure((0, 1), weight = 1)
 
 		widgetcontainer = ttk.Frame(parent)#, style = "Contained.TFrame")
-		self.bind("<<MultiframeSelect>>", self._callback_bookmark_selected)
 		widgetcontainer.columnconfigure(0, weight = 4)
 		widgetcontainer.columnconfigure(1, weight = 1)
 		widgetcontainer.columnconfigure(2, weight = 1)
@@ -177,6 +176,8 @@ class BookmarkSetter(BaseDialog):
 
 		self.savebtn.grid(row = 2, column = 0, padx = (0, 3), sticky = "ew")
 		cancelbtn.grid(row = 2, column = 1, padx = (3, 0), sticky = "ew")
+
+		self.listbox.bind("<<MultiframeSelect>>", self._callback_bookmark_selected)
 
 		self._fill_gui()
 		self._log(f"Marking {os.path.split(self.targetdemo)[1]}\n")

@@ -4,7 +4,6 @@ import queue
 import subprocess
 import tkinter as tk
 import tkinter.ttk as ttk
-import tkinter.filedialog as tk_fid
 import tkinter.messagebox as tk_msg
 
 from multiframe_list import MultiframeList
@@ -48,6 +47,17 @@ def follow_vdf_keys(vdf_data, keys, key_case_sensitive = True):
 		else:
 			return None
 	return vdf_data
+
+class User():
+	__slots__ = ("dir_name", "name", "launch_opt")
+
+	def __init__(self, dir_name, name = None, launch_opt = None):
+		self.dir_name = dir_name
+		self.name = name
+		self.launch_opt = launch_opt
+
+	def get_display_str(self):
+		return self.dir_name + (f" - {self.name}" if self.name is not None else '')
 
 class ERR_IDX:
 	STEAMDIR = 0
@@ -103,6 +113,7 @@ class Play(BaseDialog):
 		self.tick_entry_var = tk.IntVar()
 
 		self.launch_commands = []
+		self.users = []
 
 		self.spinner = cycle((chain(
 			*(repeat(sign, 100 // CNST.GUI_UPDATE_WAIT) for sign in ("|", "/", "-", "\\")),
@@ -244,7 +255,7 @@ class Play(BaseDialog):
 
 		play_frame.grid(row = 1, column = 0, sticky = "nesw")
 
-		self.bind("<<MultiframeSelect>>", self._on_mfl_select)
+		self.tick_mfl.bind("<<MultiframeSelect>>", lambda _: self._update_launch_commands_var())
 
 		self.rcon_text.insert(tk.END, "Status: Disconnected [.]\n\n\n")
 		self.rcon_text.mark_set("status0", "1.8")
@@ -255,12 +266,12 @@ class Play(BaseDialog):
 		self.rcon_text.mark_gravity("spinner", tk.LEFT)
 		self.rcon_text.configure(xscrollcommand = rcon_text_scrollbar.set, state = tk.DISABLED)
 
-		data = {}
 		events = sorted(
 			[("Killstreak", t, v) for v, t in self.info.killstreaks] +
 				[("Bookmark", t, v) for v, t in self.info.bookmarks], 
 			key = lambda x: x[1]
 		)
+		data = {}
 		data["col_type"], data["col_tick"], data["col_val"] = (list(x) for x in zip(*events))
 		self.tick_mfl.set_data(data)
 		self.tick_mfl.format()
@@ -388,18 +399,11 @@ class Play(BaseDialog):
 		# self.btconfirm.grid(row = 4, padx = (0, 3), sticky = "news")
 		# self.btcancel.grid(row = 4, column = 1, padx = (3, 0), sticky = "news")
 
-		self._load_users_ui()
 		self.user_select_var.trace("w", self.on_user_select)
+		self._ini_load_users(self.remember[2])
 
 		self.usehlae_var.set(self.remember[0])
 		self.gototick_launchcmd_var.set(self.remember[1])
-		for i, (usr, _, _) in enumerate(self.users):
-			if self.remember[2] == usr:
-				self.user_select_combobox.current(i)
-				break
-		else:
-			if self.users:
-				self.user_select_combobox.current(0)
 
 		del self.remember
 
@@ -419,85 +423,68 @@ class Play(BaseDialog):
 			else:
 				label.grid_forget()
 
-	def get_user_data(self):
+	def get_user_data(self, user_dir):
 		"""
-		Retrieves users from the current steam directory.
-		Returns a list of three-element tuples where [0] is the user's
-		ID as the folders are named, [1] is the user's name, safe for
-		display in tkinter and [2] is the user's TF2 launch configuration.
+		Retrieves a user's information.
+		Returns a two-element tuple where [0] is the user's name, safe for
+		display in tkinter and [1] is the user's TF2 launch configuration.
 
 		If an error getting the respective user data occurs, the last
-		two values may be None.
-		If an error listing the directory occurs, the returned list
-		will be empty.
+		two values may be None. Does not set any error states.
 		"""
-		toget = os.path.join(self.cfg.steam_path, CNST.STEAM_CFG_PATH0)
+		cnf_file_path = os.path.join(
+			self.cfg.steam_path, CNST.STEAM_CFG_PATH0, user_dir, CNST.STEAM_CFG_PATH1
+		)
 		try:
-			users = os.listdir(toget)
+			with open(cnf_file_path, encoding = "utf-8") as h:
+				vdf_data = vdf.load(h)
+			launch_options = follow_vdf_keys(vdf_data, CNST.STEAM_CFG_LAUNCH_OPTIONS, False)
+			username = follow_vdf_keys(vdf_data, CNST.STEAM_CFG_USER_NAME)
+			return (
+				None if username is None else tk_secure_str(username),
+				launch_options,
+			)
+		except (OSError, PermissionError, FileNotFoundError, KeyError, SyntaxError):
+			return (None, None)
+
+	def _ini_load_users(self, set_if_present = None):
+		"""
+		Lists the users based on the passed config's steam directory,
+		saves them in `self.users` and configures the `user_select_var`
+		with either the user associated with the passed in
+		`set_if_present` directory or, if it is `None`, the first user
+		present in `self.users`, or `""` if `self.users` is empty.
+		Sets errstates.
+		"""
+		try:
+			raw_list = os.listdir(os.path.join(self.cfg.steam_path, CNST.STEAM_CFG_PATH0))
 		except (OSError, PermissionError, FileNotFoundError):
 			self.errstates[ERR_IDX.STEAMDIR] = True
-			return []
-
-		for index, user in enumerate(users):
-			try:
-				cnf_file = os.path.join(toget, user, CNST.STEAM_CFG_PATH1)
-				with open(cnf_file, encoding = "utf-8") as h:
-					vdf_data = vdf.load(h)
-				launch_options = follow_vdf_keys(vdf_data, CNST.STEAM_CFG_LAUNCH_OPTIONS, False)
-				username = follow_vdf_keys(vdf_data, CNST.STEAM_CFG_USER_NAME)
-				users[index] = (
-					users[index],
-					None if username is None else tk_secure_str(username),
-					launch_options
-				)
-			except (OSError, PermissionError, FileNotFoundError, KeyError, SyntaxError):
-				users[index] = (users[index], None, None)
-		self.errstates[ERR_IDX.STEAMDIR] = False
-		return users
-
-	# def _sel_dir(self, variable): # Triggered by user clicking on the Dir choosing btn
-	# 	"""
-	# 	Opens up a file selection dialog. If the changed variable was the
-	# 	steam dir one, updates related widgets.
-	# 	"""
-	# 	sel = tk_fid.askdirectory()
-	# 	if sel == "":
-	# 		return
-	# 	variable.set(sel)
-	# 	if variable != self.steamdir_var:
-	# 		return
-	# 	self._load_users_ui()
-
-	def _load_users_ui(self):
-		"""
-		Get users, store them in `self.users`, update related widgets.
-		Also creates a list of strings as inserted into the combobox,
-		stored in `self.users_str`
-		"""
-		self.users = self.get_user_data()
-		self.users_str = [
-			id + (f" - {name}" if name is not None else '') for id, name, _ in self.users
-		]
-		self.user_select_combobox.config(values = self.users_str)
-		if self.users:
-			self.user_select_combobox.current(0)
 		else:
-			self.user_select_var.set("")
-		self._update_launch_commands_var()
+			self.errstates[ERR_IDX.STEAMDIR] = False
+			self.users = [User(x, *self.get_user_data(x)) for x in raw_list]
+
+		self.users_str = [user.get_display_str() for user in self.users]
+		self.user_select_combobox.config(values = self.users_str)
+
+		tgt = self.users[0].dir_name if self.users else ""
+		if set_if_present is not None:
+			for display_str, user in zip(self.users_str, self.users):
+				if set_if_present == user.dir_name:
+					tgt = display_str
+					break
+		self.user_select_var.set(tgt)
 		self._showerrs()
 
-	def _on_mfl_select(self, evt):
-		if evt.widget._w == self.tick_mfl._w:
-			self._update_launch_commands_var()
-
-	def on_user_select(self, *_): # Triggered by observer on combobox variable.
-		"""Callback to retrieve launch options and update error labels."""
+	def on_user_select(self, *_):
+		"""
+		Callback to retrieve launch options and update error labels.
+		"""
 		user_idx = self.user_select_combobox.current()
-		if user_idx != -1 and self.users[user_idx][2] is not None:
-			self.launch_options_var.set(self.users[user_idx][2])
-			self.errstates[ERR_IDX.LAUNCHOPT] = False
-		else:
-			self.errstates[ERR_IDX.LAUNCHOPT] = True
+		if user_idx != -1:
+			user = self.users[user_idx]
+			self.launch_options_var.set(user.launch_opt or "")
+			self.errstates[ERR_IDX.LAUNCHOPT] = user.launch_opt is None
 		self._showerrs()
 
 	def _update_launch_commands_var(self):
@@ -519,6 +506,7 @@ class Play(BaseDialog):
 			self.launch_commands += ["+demo_gototick", str(tick)]
 		self.tick_entry_var.set(tick)
 		self.launch_commands_var.set(" ".join(self.launch_commands))
+		self._showerrs()
 
 	def _rcon_txt_set_line(self, n, content):
 		"""
@@ -609,7 +597,7 @@ class Play(BaseDialog):
 		self.result.remember = [
 			self.usehlae_var.get(),
 			self.gototick_launchcmd_var.get(),
-			self.users[user_idx][0] if user_idx != -1 else ""
+			self.users[user_idx].dir_name if user_idx != -1 else None
 		]
 
 		self.destroy()

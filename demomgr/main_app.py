@@ -24,6 +24,21 @@ from demomgr.threads import THREADSIG, ThreadFilter, ThreadReadFolder, ThreadDem
 __version__ = "1.9.0"
 __author__ = "Square789"
 
+class DemoOp():
+	__slots__ = ("name", "cmd", "button", "handles_multiple")
+
+	def __init__(self, name, cmd, button, handles_multiple):
+		self.name = name
+		self.cmd = cmd
+		self.button = button
+		self.handles_multiple = handles_multiple
+
+	def __iter__(self):
+		# NOTE: i think this method is technically mega-crappy since it
+		# won't reflect changes done to the class between iterator obtain
+		# time and iteration time, but that's never done so ¯\_(ツ)_/¯
+		return iter((self.name, self.cmd, self.button, self.handles_multiple))
+
 class MainApp():
 	def __init__(self):
 		"""
@@ -38,13 +53,10 @@ class MainApp():
 		self.root.protocol("WM_DELETE_WINDOW", self.quit_app)
 		self.root.wm_title(f"Demomgr v{__version__} by {__author__}")
 
-		# Magic indices, maybe i should stop doing that. Anyways,
-		# 0: Name of operation, 1: Command, 2: Button widget, 3: Whether the command
-		# handles multiple selected demos.
 		self.demooperations = (
-			["Play...", self._playdem, None, False],
-			["Delete...", self._deldem, None, True],
-			["Manage bookmarks...", self._managebookmarks, None, False]
+			DemoOp("Play...", self._playdem, None, False),
+			DemoOp("Delete...", self._deldem, None, True),
+			DemoOp("Manage bookmarks...", self._managebookmarks, None, False),
 		)
 
 		self.cfgpath = platforming.get_cfg_storage_path()
@@ -107,12 +119,7 @@ class MainApp():
 				return
 			self.cfg.first_run = False
 
-		#set up UI; create widgets
 		self._setupgui()
-
-
-		self.root.bind("<<MultiframeSelect>>", self._mfl_select_callback)
-		self.root.bind("<<MultiframeRightclick>>", self._mfl_rc_callback)
 
 		ctxmen_name = platforming.get_contextmenu_btn()
 		for class_tag in ("TEntry", "TCombobox"):
@@ -237,7 +244,7 @@ class MainApp():
 
 		for i, (s, cmd, _, _) in enumerate(self.demooperations):
 			btn = ttk.Button(widgetframe2, text = s, command = cmd, state = tk.DISABLED)
-			self.demooperations[i][2] = btn
+			self.demooperations[i].button = btn
 
 		self.statusbarlabel = ttk.Label(self.statusbar, text = "Ready.", style = "Statusbar.TLabel")
 
@@ -258,8 +265,8 @@ class MainApp():
 		widgetframe1.grid(column = 0, row = 1, columnspan = 2, sticky = "ew", pady = 5)
 
 		#widgetframe2
-		for _, _, btn, _ in self.demooperations:
-			btn.pack(side = tk.LEFT, fill = tk.X, expand = 0, padx = (0, 6))
+		for op in self.demooperations:
+			op.button.pack(side = tk.LEFT, fill = tk.X, expand = 0, padx = (0, 6))
 		widgetframe2.grid(column = 0, row = 2, columnspan = 2, sticky = "ew", pady = 5)
 
 		#listbox
@@ -284,13 +291,13 @@ class MainApp():
 		#Main frame
 		self.mainframe.pack(expand = 1, fill = tk.BOTH, side = tk.TOP, anchor = tk.NW)
 
+		self.listbox.bind("<<MultiframeSelect>>", self._mfl_select_callback)
+		self.listbox.bind("<<MultiframeRightclick>>", self._mfl_rc_callback)
+
 	def _mfl_rc_callback(self, event):
-		if event.widget._w == self.listbox._w:
-			context_menus.multiframelist_cb(event, self.listbox, self.demooperations)
+		context_menus.multiframelist_cb(event, self.listbox, self.demooperations)
 
 	def _mfl_select_callback(self, event):
-		if event.widget._w != self.listbox._w:
-			return
 		for _, _, btn, multiple in self.demooperations:
 			# worst formatting of the year award 2007
 			btn.configure(

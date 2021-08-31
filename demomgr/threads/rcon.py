@@ -39,6 +39,15 @@ class RCONThread(_StoppableBaseThread):
 	a command.
 	The thread is designed to run continuously and receive commands
 	as encoded strings through an input queue.
+	If it fails at any point, it will disconnect
+
+	Sent to the output queue:
+		CONNECTED(0) when the thread successfully connects to the game.
+
+		INFO_IDX_PARAM(2) for text to display (#NOTE issue #31)
+			- Slot index to display the text on.
+			- Text to display.
+
 	"""
 	def __init__(self, queue_in, queue_out, password, port):
 		"""
@@ -48,6 +57,8 @@ class RCONThread(_StoppableBaseThread):
 		"""
 		self.password = password
 		self.port = port
+
+		self._socket = None
 
 		super().__init__(queue_in, queue_out)
 
@@ -69,7 +80,8 @@ class RCONThread(_StoppableBaseThread):
 			af, type_, proto, _, addr = value
 			self._socket = error = None
 			self.queue_out_put(
-				THREADSIG.INFO_IDX_PARAM, 0,
+				THREADSIG.INFO_IDX_PARAM,
+				0,
 				f"Connecting to candidate {idx}/{len(potential_targets) - 1}"
 			)
 
@@ -156,6 +168,9 @@ class RCONThread(_StoppableBaseThread):
 					return
 				continue
 
+			if command is None:
+				break
+
 			self.queue_out_put(THREADSIG.INFO_IDX_PARAM, 2, "Sending command...")
 			try:
 				self.send_packet(RCONPacket(1337, EXECCOMMAND, command))
@@ -164,12 +179,14 @@ class RCONThread(_StoppableBaseThread):
 				if resp.id != 1337:
 					self.queue_out_put(THREADSIG.INFO_IDX_PARAM, 2, "Bad command response id.")
 					self.__stopsock(THREADSIG.FAILURE)
-					continue
+					return
 				self.queue_out_put(THREADSIG.INFO_IDX_PARAM, 2, "Command sent!")
 			except Exception as e:
 				self.queue_out_put(THREADSIG.INFO_IDX_PARAM, 2, f"Error while sending command: {e}")
 				self.__stopsock(THREADSIG.FAILURE)
 				return
+
+		self.__stopsock(THREADSIG.SUCCESS)
 
 	def read_packet(self):
 		"""
@@ -189,5 +206,8 @@ class RCONThread(_StoppableBaseThread):
 		self._socket.sendall(packet.as_bytes())
 
 	def __stopsock(self, signal):
-		self._socket.close()
+		if self._socket is not None:
+			self._socket.close()
+			self._socket = None
+
 		self.queue_out_put(signal)
