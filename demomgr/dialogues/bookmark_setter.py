@@ -107,7 +107,7 @@ class BookmarkSetter(BaseDialog):
 				{"name": "Name", "col_id": "col_name"},
 				{"name": "Tick", "col_id": "col_tick"},
 			),
-			selection_type = mfl.SELECTION_TYPE,
+			selection_type = mfl.SELECTION_TYPE.SINGLE,
 		)
 		self.listbox.grid(row = 0, column = 0, rowspan = 4, sticky = "news")
 		insert_opt_lblfrm = ttk.Labelframe(

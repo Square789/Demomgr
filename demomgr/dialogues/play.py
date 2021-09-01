@@ -13,8 +13,8 @@ import vdf
 from demomgr.dialogues._base import BaseDialog
 from demomgr.dialogues._diagresult import DIAGSIG
 from demomgr import constants as CNST
-from demomgr.tk_widgets import TtkText
-from demomgr.helpers import frmd_label, tk_secure_str
+from demomgr.tk_widgets import PasswordButton, TtkText
+from demomgr.helpers import frmd_label, tk_secure_str, int_validator
 from demomgr.threadgroup import ThreadGroup, THREADGROUPSIG
 from demomgr.threads import THREADSIG, RCONThread
 
@@ -87,19 +87,14 @@ class ERR_IDX:
 
 class Play(BaseDialog):
 	"""
-	Dialog that reads and displays TF2 launch arguments and steam profile
-	information, offers ability to change those and launch TF2 with an
-	additional command that plays the demo on the game's startup, or
-	directly hook HLAE into the game.
+	Dialog that reads and displays TF2 launch arguments and steam
+	profile information, offers ability to change those and launch TF2
+	with an additional command that plays the demo on the game's
+	startup, or directly hook HLAE into the game.
 
 	After the dialog is closed:
-	`self.result.state` will be SUCCESS if user hit launch, else FAILURE.
-	`self.result.data` will be a dict where:
-		"game_launched": Whether tf2 was launched (bool)
-		"steampath": The text in the steampath entry, may have been
-			changed by the user. (str)
-		"hlaepath": The text in the hlaepath entry, may have been changed
-			by the user. (str)
+		`self.result.state` will be SUCCESS if user hit launch, else
+			FAILURE.
 
 	Widget state remembering:
 		0: HLAE launch checkbox state (bool)
@@ -130,7 +125,6 @@ class Play(BaseDialog):
 		self.usehlae_var = tk.BooleanVar()
 		self.launch_options_var = tk.StringVar()
 		self.launch_commands_var = tk.StringVar()
-		self.tick_entry_var = tk.IntVar()
 
 		self.launch_commands = []
 		self.users = []
@@ -143,6 +137,7 @@ class Play(BaseDialog):
 		self.rcon_threadgroup.decorate_and_patch(self, self._rcon_after_callback)
 		self.animate_spinner = False
 		self.rcon_in_queue = queue.Queue()
+		self.rcon_thread_connected = False
 
 		self.error_steamdir_invalid = ErrorLabel()
 		self.warning_not_in_tf_dir = ErrorLabel()
@@ -160,18 +155,20 @@ class Play(BaseDialog):
 		master.grid_columnconfigure((0, 1), weight = 1)
 
 		rcon_labelframe = ttk.LabelFrame(
-			master, padding = (10, 8, 10, 8), labelwidget = frmd_label(master, "RCON")
+			master, padding = (10, 0, 10, 10), labelwidget = frmd_label(master, "RCON")
 		)
-		rcon_password_frame = ttk.Frame(rcon_labelframe, style = "Contained.TFrame")
+		rcon_connect_frame = ttk.Frame(rcon_labelframe, style = "Contained.TFrame")
 		rcon_password_label = ttk.Label(
-			rcon_password_frame, text = "Password", style = "Contained.TLabel"
+			rcon_connect_frame, text = "Password", style = "Contained.TLabel"
 		)
 		rcon_password_entry = ttk.Entry(
-			rcon_password_frame, style = "Contained.TEntry", textvariable = self.rcon_password_var,
+			rcon_connect_frame, style = "Contained.TEntry", textvariable = self.rcon_password_var,
 			show = "\u25A0"
 		)
+		pwd_entry_show_toggle = PasswordButton(rcon_connect_frame, text = "Show")
 		self.rcon_connect_button = ttk.Button(
-			rcon_labelframe, style = "Contained.TButton",  text = "Connect", command = self._rcon
+			rcon_connect_frame, style = "Contained.TButton",  text = "Connect",
+			command = self._rcon_start
 		)
 		rcon_text_frame = ttk.Frame(rcon_labelframe, style = "Contained.TFrame")
 		self.rcon_text = TtkText(rcon_text_frame, self._style, height = 4, width = 48)
@@ -180,21 +177,28 @@ class Play(BaseDialog):
 		)
 
 		play_frame = ttk.LabelFrame(
-			master, padding = (10, 8, 10, 8), labelwidget = frmd_label(master, "Play")
+			master, padding = (10, 0, 10, 10), labelwidget = frmd_label(master, "Play")
 		)
 		launch_config_frame = ttk.Frame(play_frame, style = "Contained.TFrame")
 		user_select_label = ttk.Label(
 			launch_config_frame, text = "User profile to get launch options from:",
 			style = "Contained.TLabel"
 		)
-		self.error_steamdir_invalid.label = ttk.Label(launch_config_frame, text = "bad steamdir")
+		self.error_steamdir_invalid.label = ttk.Label(
+			launch_config_frame, style = "Error.Contained.TLabel",
+			text = (
+				"Failed listing users, Steam directory is malformed. \n"
+				"Make sure you selected the root directory ending in \"Steam\" in the Settings > Paths section."
+			)
+		)
 		self.info_launch_options_not_found.label = ttk.Label(
-			launch_config_frame, text = "launch options not found"
+			launch_config_frame, style = "Info.Contained.TLabel",
+			text = "(No launch options found for this user)"
 		)
 		self.user_select_combobox = ttk.Combobox(
 			launch_config_frame, textvariable = self.user_select_var, state = "readonly"
 		)
-		self.use_hlae_checkbox = ttk.Checkbutton(
+		use_hlae_checkbox = ttk.Checkbutton(
 			launch_config_frame, variable = self.usehlae_var, text = "Use HLAE",
 			style = "Contained.TCheckbutton"
 		)
@@ -208,8 +212,8 @@ class Play(BaseDialog):
 			state = "readonly"
 		)
 		self.rcon_send_commands_button = ttk.Button(
-			arg_region, style = "Contained.TButton", text = "[RCON] Send Commands",
-			state = tk.DISABLED
+			arg_region, style = "Contained.TButton", text = "[RCON] Send launch commands",
+			state = tk.DISABLED, command = self._rcon_send_commands
 		)
 
 		bookmark_region = ttk.Frame(play_frame, style = "Contained.TFrame")
@@ -222,29 +226,42 @@ class Play(BaseDialog):
 			],
 			selection_type = SELECTION_TYPE.SINGLE,
 		)
+		tick_options_frame = ttk.Frame(bookmark_region, style = "Contained.TFrame")
 		self.gototick_launchcmd_checkbox = ttk.Checkbutton(
-			bookmark_region, style = "Contained.TCheckbutton",
-			text = "Go to tick in launch options?", command = self._update_launch_commands_var,
+			tick_options_frame, style = "Contained.TCheckbutton",
+			text = "Go to tick in launch commands?", command = self._update_launch_commands_var,
 			variable = self.gototick_launchcmd_var
 		)
+		int_val_id = master.register(int_validator)
 		self.tick_entry = ttk.Entry(
-			bookmark_region, style = "Contained.TEntry", textvariable = self.tick_entry_var
+			tick_options_frame, style = "Contained.TEntry",
+			validate = "key", validatecommand = (int_val_id, "%S", "%P")
 		)
 		self.rcon_send_gototick_button = ttk.Button(
-			bookmark_region, style = "Contained.TButton", text = "[RCON] Go to tick",
-			state = tk.DISABLED
+			tick_options_frame, style = "Contained.TButton", text = "[RCON] Go to tick",
+			state = tk.DISABLED, command = self._rcon_send_gototick
 		)
 
-		self.warning_not_in_tf_dir.label = ttk.Label(play_frame, text = "Demo not in tf dir")
-		launch_button = ttk.Button(play_frame, text = "Launch TF2", style = "Contained.TButton")
+		self.warning_not_in_tf_dir.label = ttk.Label(
+			play_frame, style = "Warning.Contained.TLabel",
+			text = "Demo can not be played as it is not in TF2's filesystem."
+		)
+		launch_button = ttk.Button(
+			play_frame, style = "Contained.TButton", text = "Launch TF2", command = self._launch)
 
+		# the griddening
 		master.grid_rowconfigure((0, 1), weight = 1)
-		master.grid_columnconfigure((0, 1), weight = 1)
+		master.grid_columnconfigure(0, weight = 1)
+
 		# = RCON frame
-		rcon_password_label.grid(row = 0, column = 0, sticky = "w")
-		rcon_password_entry.grid(row = 0, column = 1, sticky = "e")
-		self.rcon_connect_button.grid(row = 1, column = 0)
-		rcon_password_frame.grid(row = 0, column = 0, sticky = "nesw")
+		rcon_labelframe.grid_columnconfigure(0, weight = 1)
+		rcon_connect_frame.grid_columnconfigure(1, weight = 1)
+		rcon_password_label.grid(row = 0, column = 0, pady = (0, 0), padx = (0, 5), sticky = "w")
+		rcon_password_entry.grid(row = 0, column = 1, padx = (0, 5), pady = (0, 5), sticky = "ew")
+		pwd_entry_show_toggle.grid(row = 0, column = 2, pady = (0, 5), sticky = "e")
+
+		self.rcon_connect_button.grid(row = 1, column = 0, columnspan = 3, ipadx = 20)
+		rcon_connect_frame.grid(row = 0, column = 0, sticky = "ew")
 
 		self.rcon_text.grid(row = 0, column = 0, sticky = "nesw")
 		rcon_text_scrollbar.grid(row = 1, column = 0, sticky = "ew")
@@ -256,37 +273,41 @@ class Play(BaseDialog):
 		play_frame.grid_columnconfigure(0, weight = 1)
 		# Launch config region
 		launch_config_frame.grid_columnconfigure(1, weight = 1)
-		user_select_label.grid(row = 0, column = 0, sticky = "e")
-		self.user_select_combobox.grid(row = 0, column = 1, sticky = "ew")
+		user_select_label.grid(row = 0, column = 0, pady = (0, 5), sticky = "e")
+		self.user_select_combobox.grid(row = 0, column = 1, pady = (0, 5), sticky = "ew")
 		self.error_steamdir_invalid.set_grid_options(
-			row = 1, column = 0, columnspan = 2, sticky = "ew"
+			row = 1, column = 0, columnspan = 2, pady = (0, 5), sticky = "ew"
 		)
 		self.info_launch_options_not_found.set_grid_options(
-			row = 2, column = 0, columnspan = 2, sticky = "ew"
+			row = 2, column = 0, columnspan = 2, pady = (0, 5), sticky = "ew"
 		)
-		self.use_hlae_checkbox.grid(row = 3, column = 0, sticky = "w")
-		launch_config_frame.grid(row = 0, column = 0, sticky = "nesw")
+		use_hlae_checkbox.grid(row = 3, column = 0, ipadx = 2, sticky = "w")
+		launch_config_frame.grid(row = 0, column = 0, pady = (0, 5), sticky = "nesw")
 
 		# Launch arg region
 		arg_region.grid_columnconfigure(0, weight = 1)
-		launch_options_entry.grid(row = 1, column = 0, sticky = "ew")
-		launch_commands_entry.grid(row = 2, column = 0, sticky = "ew")
-		self.rcon_send_commands_button.grid(row = 2, column = 1, sticky = "e")
+		launch_options_entry.grid(row = 1, column = 0, pady = (0, 5), sticky = "ew")
+		launch_commands_entry.grid(row = 2, column = 0, pady = (0, 5), sticky = "ew")
+		self.rcon_send_commands_button.grid(row = 2, column = 1, padx = (5, 0), pady = (0, 5), sticky = "e")
 		arg_region.grid(row = 1, column = 0, sticky = "nesw")
 
 		# Event tick region
+		tick_options_frame.grid_columnconfigure(0, weight = 1)
+		self.gototick_launchcmd_checkbox.grid(row = 0, column = 0, columnspan = 2, pady = (0, 5), sticky = "w")
+		self.tick_entry.grid(row = 1, column = 0, padx = (0, 5))
+		self.rcon_send_gototick_button.grid(row = 1, column = 1)
+		tick_options_frame.grid(row = 0, column = 1)
+
 		bookmark_region.grid_columnconfigure(0, weight = 1)
-		self.tick_mfl.grid(row = 0, column = 0, rowspan = 3, sticky = "ew")
-		self.gototick_launchcmd_checkbox.grid(row = 0, column = 1)
-		self.tick_entry.grid(row = 1, column = 1)
-		self.rcon_send_gototick_button.grid(row = 2, column = 1)
-		bookmark_region.grid(row = 2, column = 0, sticky = "nesw")
+		self.tick_mfl.grid(row = 0, column = 0, padx = (0, 5), sticky = "ew")
+		bookmark_region.grid(row = 2, column = 0, pady = (0, 5), sticky = "nesw")
 
 		self.warning_not_in_tf_dir.set_grid_options(row = 3, column = 0, sticky = "ew")
-		launch_button.grid(row = 4, column = 0)
+		launch_button.grid(row = 4, column = 0, ipadx = 40)
 
 		play_frame.grid(row = 1, column = 0, pady = (0, 5), sticky = "nesw")
 
+		pwd_entry_show_toggle.bind_to_entry(rcon_password_entry)
 		self.tick_mfl.bind("<<MultiframeSelect>>", lambda _: self._update_launch_commands_var())
 
 		self.rcon_text.insert(tk.END, "Status: Disconnected [.]\n\n\n")
@@ -311,129 +332,6 @@ class Play(BaseDialog):
 			data["col_val"].append(val)
 		self.tick_mfl.set_data(data)
 		self.tick_mfl.format()
-
-		# dir_sel_lblfrm = ttk.LabelFrame(
-		# 	master, padding = (10, 8, 10, 8), labelwidget = frmd_label(master, "Paths")
-		# )
-		# dir_sel_lblfrm.grid_columnconfigure(0, weight = 1)
-		# ds_widgetframe = ttk.Frame(dir_sel_lblfrm, style = "Contained.TFrame")
-		# ds_widgetframe.grid_columnconfigure(1, weight = 1)
-		# for i, j in enumerate((
-		# 	("Steam:", self.steamdir_var), ("HLAE:", self.hlaedir_var),
-		# )):
-		# 	dir_label = ttk.Label(ds_widgetframe, style = "Contained.TLabel", text = j[0])
-		# 	dir_entry = ttk.Entry(ds_widgetframe, state = "readonly", textvariable = j[1])
-		# 	def tmp_handler(self = self, var = j[1]):
-		# 		return self._sel_dir(var)
-		# 	dir_btn = ttk.Button(
-		# 		ds_widgetframe, style = "Contained.TButton", command = tmp_handler,
-		# 		text = "Change path..."
-		# 	)
-		# 	dir_label.grid(row = i, column = 0)
-		# 	dir_entry.grid(row = i, column = 1, sticky = "ew")
-		# 	dir_btn.grid(row = i, column = 2, padx = (3, 0))
-		# self.error_steamdir_invalid = ttk.Label(
-		# 	dir_sel_lblfrm, anchor = tk.N, justify = tk.CENTER, style = "Error.Contained.TLabel",
-		# 	text = "Getting steam users failed! Please select the root folder called " \
-		# 		"\"Steam\".\nEventually check for permission conflicts."
-		# )
-		# self.warning_steamdir_mislocated = ttk.Label(
-		# 	dir_sel_lblfrm, anchor = tk.N, style = "Warning.Contained.TLabel",
-		# 	text = "The queried demo and the Steam directory are on seperate drives."
-		# )
-
-		# userselectframe = ttk.LabelFrame(
-		# 	master, padding = (10, 8, 10, 8),
-		# 	labelwidget = frmd_label(master, "Select user profile if needed")
-		# )
-		# userselectframe.grid_columnconfigure(0, weight = 1)
-		# self.info_launchoptions_not_found = ttk.Label(
-		# 	userselectframe, anchor = tk.N, style = "Info.Contained.TLabel",
-		# 	text = "Launch configuration not found, it likely does not exist."
-		# )
-		# self.user_select_combobox = ttk.Combobox(
-		# 	userselectframe, textvariable = self.user_select_var, state = "readonly"
-		# )
-		# # Once changed, observer callback triggered by self.user_select_var
-
-		# launchoptionsframe = ttk.LabelFrame(
-		# 	master, padding = (10, 8, 10, 8), labelwidget = frmd_label(master, "Launch options")
-		# )
-		# launchoptionsframe.grid_columnconfigure(0, weight = 1)
-		# launchoptwidgetframe = ttk.Frame(
-		# 	launchoptionsframe, borderwidth = 4, relief = tk.RAISED, padding = (5, 4, 5, 4)
-		# )
-		# launchoptwidgetframe.grid_columnconfigure((1, ), weight = 10)
-		# self.head_args_lbl = ttk.Label(launchoptwidgetframe, text = "[...]/hl2.exe -steam -game tf")
-		# self.launchoptionsentry = ttk.Entry(launchoptwidgetframe, textvariable = self.launch_options_var)
-		# pluslabel = ttk.Label(launchoptwidgetframe, text = "+")
-		# self.demo_play_arg_entry = ttk.Entry(
-		# 	launchoptwidgetframe, state = "readonly", textvariable = self.playdemoarg
-		# )
-		# self.end_q_mark_label = ttk.Label(launchoptwidgetframe, text = "")
-		# #launchoptwidgetframe.grid_propagate(False)
-
-		# self.use_hlae_checkbox = ttk.Checkbutton(
-		# 	launchoptionsframe, variable = self.usehlae_var, text = "Launch using HLAE",
-		# 	style = "Contained.TCheckbutton", command = self._toggle_hlae_cb
-		# )
-
-		# self.warning_not_in_tf_dir = ttk.Label(
-		# 	launchoptionsframe, anchor = tk.N, style = "Warning.Contained.TLabel",
-		# 	text = "The demo can not be played as it is not in Team Fortress' file system (/tf)"
-		# )
-		# # self.demo_play_arg_entry.config(width = len(self.playdemoarg.get()) + 2)
-
-		# rconlabelframe = ttk.LabelFrame(
-		# 	master, padding = (10, 8, 10, 8), labelwidget = frmd_label(master, "RCON")
-		# )
-		# rconlabelframe.grid_columnconfigure(1, weight = 1)
-		# self.rcon_btn = ttk.Button(
-		# 	rconlabelframe, text = "Send command", command = self._rcon,
-		# 	width = 15, style = "Centered.TButton"
-		# )
-		# self.rcon_btn.grid(row = 0, column = 0)
-		# self.rcon_txt = TtkText(
-		# 	rconlabelframe, self._style, height = 4, width = 48, wrap = tk.CHAR
-		# )
-		# rcon_text_scrollbar = ttk.Scrollbar(
-		# 	rconlabelframe, orient = tk.HORIZONTAL, command = self.rcon_txt.xview
-		# )
-		# self.rcon_txt.insert(tk.END, "Status: [.]\n\n\n")
-		# self.rcon_txt.mark_set("spinner", "1.9")
-		# self.rcon_txt.mark_gravity("spinner", tk.LEFT)
-		# self.rcon_txt.configure(xscrollcommand = rcon_text_scrollbar.set, state = tk.DISABLED)
-		# self.rcon_txt.grid(row = 0, column = 1, sticky = "news", padx = (5, 0))
-		# rcon_text_scrollbar.grid(row = 1, column = 1, sticky = "ew", padx = (5, 0))
-
-		# # grid start
-		# # dir selection widgets are already gridded
-		# ds_widgetframe.grid(sticky = "news")
-		# self.error_steamdir_invalid.grid()
-		# self.warning_steamdir_mislocated.grid()
-		# dir_sel_lblfrm.grid(columnspan = 2, pady = 5, sticky = "news")
-
-		# self.user_select_combobox.grid(sticky = "we")
-		# self.info_launchoptions_not_found.grid()
-		# userselectframe.grid(columnspan = 2, pady = 5, sticky = "news")
-
-		# self.head_args_lbl.grid(row = 0, column = 0, columnspan = 3, sticky = "news")
-		# self.launchoptionsentry.grid(row = 1, column = 0, columnspan = 3, sticky = "news")
-		# pluslabel.grid(row = 2, column = 0)
-		# self.demo_play_arg_entry.grid(row = 2, column = 1, sticky = "news")
-		# self.end_q_mark_label.grid(row = 2, column = 2)
-		# launchoptwidgetframe.grid(sticky = "news")
-		# self.use_hlae_checkbox.grid(sticky = "w", pady = (5, 0), ipadx = 4)
-		# self.warning_not_in_tf_dir.grid()
-		# launchoptionsframe.grid(columnspan = 2, pady = (5, 10), sticky = "news")
-
-		# rconlabelframe.grid(columnspan = 2, pady = (5, 10), sticky = "news")
-
-		# self.btconfirm = ttk.Button(master, text = "Launch!", command = lambda: self.done(True))
-		# self.btcancel = ttk.Button(master, text = "Cancel", command = self.done)
-
-		# self.btconfirm.grid(row = 4, padx = (0, 3), sticky = "news")
-		# self.btcancel.grid(row = 4, column = 1, padx = (3, 0), sticky = "news")
 
 		self.user_select_var.trace("w", self.on_user_select)
 		self._ini_load_users(self.remember[2])
@@ -518,24 +416,25 @@ class Play(BaseDialog):
 		self.info_launch_options_not_found.set(user.launch_opt is None)
 
 	def _update_launch_commands_var(self):
+		self.launch_commands.clear()
 		try:
 			shortdemopath = os.path.relpath(
 				self.demopath, os.path.join(self.cfg.steam_path, CNST.TF2_HEAD_PATH)
 			)
 			if ".." in os.path.normpath(shortdemopath).split(os.sep):
 				raise ValueError("Can't exit game directory")
-			self.launch_commands = ["+playdemo", shortdemopath]
+			self.launch_commands.append(f"playdemo {shortdemopath}")
 		except ValueError:
 			self.warning_not_in_tf_dir.set(True)
-			self.launch_commands = []
 
 		tick = 0
 		if self.tick_mfl.selection:
 			tick = self.tick_mfl.get_cell("col_tick", next(iter(self.tick_mfl.selection)))
 		if self.gototick_launchcmd_var.get():
-			self.launch_commands += ["+demo_gototick", str(tick)]
-		self.tick_entry_var.set(tick)
-		self.launch_commands_var.set(" ".join(self.launch_commands))
+			self.launch_commands.append(f"demo_gototick {str(tick)}")
+		self.tick_entry.delete(0, tk.END)
+		self.tick_entry.insert(0, str(tick))
+		self.launch_commands_var.set(" ".join("+" + cmd for cmd in self.launch_commands))
 
 	def _rcon_txt_set_line(self, n, content):
 		"""
@@ -543,7 +442,7 @@ class Play(BaseDialog):
 		"""
 		self.rcon_text.replace(f"{n + 2}.0", f"{n + 2}.{tk.END}", content)
 
-	def _rcon(self):
+	def _rcon_start(self):
 		self.animate_spinner = True
 		self.rcon_connect_button.configure(text = "Cancel", command = self._rcon_cancel)
 		with self.rcon_text:
@@ -557,73 +456,90 @@ class Play(BaseDialog):
 
 	def _rcon_cancel(self):
 		self.animate_spinner = True
+		self.rcon_send_commands_button.config(state = tk.DISABLED)
+		self.rcon_send_gototick_button.config(state = tk.DISABLED)
 		self.rcon_threadgroup.join_thread()
 
 	def _rcon_after_callback(self, sig, *args):
 		if sig.is_finish_signal():
 			self.animate_spinner = False
-			self.rcon_connect_button.configure(text = "Connect", command = self._rcon)
+			self.rcon_connect_button.configure(text = "Connect", command = self._rcon_start)
+			self.rcon_send_commands_button.config(state = tk.DISABLED)
+			self.rcon_send_gototick_button.config(state = tk.DISABLED)
 			with self.rcon_text:
 				self.rcon_text.replace("status0", "status1", "Disconnected")
 				self.rcon_text.replace("spinner", "spinner + 1 chars", ".")
-				if sig is THREADSIG.ABORTED:
-					for i in range(3):
-						self._rcon_txt_set_line(i, "")
+				for i in range(3):
+					self._rcon_txt_set_line(i, "")
 			return THREADGROUPSIG.FINISHED
 		elif sig is THREADSIG.CONNECTED:
-			self.animate_spinner = False
-			self.rcon_connect_button.configure(text = "Disconnect", command = self._rcon_cancel)
-			with self.rcon_text:
-				self.rcon_text.replace("status0", "status1", "Connected")
-				self.rcon_text.replace("spinner", "spinner + 1 chars", ".")
+			self._rcon_on_connect()
 		elif sig is THREADSIG.INFO_IDX_PARAM:
 			with self.rcon_text:
 				self._rcon_txt_set_line(args[0], args[1])
 		return THREADGROUPSIG.CONTINUE
 
 	def _rcon_run_always(self):
-		if self.animate_spinner:
-			with self.rcon_text:
-				self.rcon_text.delete("spinner", "spinner + 1 chars")
-				self.rcon_text.insert("spinner", next(self.spinner))
+		if not self.animate_spinner:
+			return
+		with self.rcon_text:
+			self.rcon_text.delete("spinner", "spinner + 1 chars")
+			self.rcon_text.insert("spinner", next(self.spinner))
 
-	def _rcon_on_finish(self):
-		pass
+	def _rcon_on_connect(self):
+		self.animate_spinner = False
+		self.rcon_thread_connected = True
+		self.rcon_connect_button.configure(text = "Disconnect")
+		self.rcon_send_commands_button.config(state = tk.NORMAL)
+		self.rcon_send_gototick_button.config(state = tk.NORMAL)
+		with self.rcon_text:
+			self.rcon_text.replace("status0", "status1", "Connected")
+			self.rcon_text.replace("spinner", "spinner + 1 chars", ".")
 
-	def done(self, launch = False):
+	def _rcon_send_commands(self):
+		for cmd in self.launch_commands:
+			self.rcon_in_queue.put(cmd.encode("utf-8"))
+
+	def _rcon_send_gototick(self):
+		if self.tick_entry.get() == "":
+			return
+		cmd = f"demo_gototick {self.tick_entry.get()}".encode("utf-8")
+		self.rcon_in_queue.put(cmd)
+
+	def _launch(self):
+		user_args = self.launch_options_var.get().split()
+		tf2_launch_args = CNST.TF2_LAUNCHARGS + user_args + self.launch_commands
+		if self.usehlae_var.get():
+			tf2_launch_args.extend(CNST.HLAE_ADD_TF2_ARGS)
+			executable = os.path.join(self.cfg.hlae_path, CNST.HLAE_EXE)
+			launch_args = CNST.HLAE_LAUNCHARGS0.copy() # hookdll required
+			launch_args.append(os.path.join(self.cfg.hlae_path, CNST.HLAE_HOOK_DLL))
+			# hl2 exe path required
+			launch_args.extend(CNST.HLAE_LAUNCHARGS1)
+			launch_args.append(os.path.join(self.cfg.steam_path, CNST.TF2_EXE_PATH))
+			launch_args.extend(CNST.HLAE_LAUNCHARGS2)
+			# has to be supplied as string
+			launch_args.append(" ".join(tf2_launch_args))
+		else:
+			executable = os.path.join(self.cfg.steam_path, CNST.TF2_EXE_PATH)
+			launch_args = tf2_launch_args
+		final_launchoptions = [executable] + launch_args
+
+		try:
+			subprocess.Popen(final_launchoptions)
+			# -steam param may cause conflicts when steam is not open but what do I know?
+		except FileNotFoundError:
+			tk_msg.showerror("Demomgr - Error", "Executable not found.", parent = self)
+		except (OSError, PermissionError) as error:
+			tk_msg.showerror(
+				"Demomgr - Error",
+				f"Could not access executable :\n{error}",
+				parent = self
+			)
+
+	def done(self):
 		self._rcon_cancel()
-		self.result.state = DIAGSIG.SUCCESS if launch else DIAGSIG.FAILURE
-		if launch:
-			user_args = self.launch_options_var.get().split()
-			tf2_launch_args = CNST.TF2_LAUNCHARGS + user_args + self.launch_commands
-			if self.usehlae_var.get():
-				tf2_launch_args.extend(CNST.HLAE_ADD_TF2_ARGS)
-				executable = os.path.join(self.hlaedir_var.get(), CNST.HLAE_EXE)
-				launch_args = CNST.HLAE_LAUNCHARGS0.copy() # hookdll required
-				launch_args.append(os.path.join(self.hlaedir_var.get(), CNST.HLAE_HOOK_DLL))
-				# hl2 exe path required
-				launch_args.extend(CNST.HLAE_LAUNCHARGS1)
-				launch_args.append(os.path.join(self.steamdir_var.get(), CNST.TF2_EXE_PATH))
-				launch_args.extend(CNST.HLAE_LAUNCHARGS2)
-				# has to be supplied as string
-				launch_args.append(" ".join(tf2_launch_args))
-			else:
-				executable = os.path.join(self.steamdir_var.get(), CNST.TF2_EXE_PATH)
-				launch_args = tf2_launch_args
-			final_launchoptions = [executable] + launch_args
-
-			try:
-				subprocess.Popen(final_launchoptions)
-				#-steam param may cause conflicts when steam is not open but what do I know?
-				self.result.data["game_launched"] = True
-			except FileNotFoundError:
-				self.result.data["game_launched"] = False
-				tk_msg.showerror("Demomgr - Error", "Executable not found.", parent = self)
-			except (OSError, PermissionError) as error:
-				self.result.data["game_launched"] = False
-				tk_msg.showerror(
-					"Demomgr - Error", f"Could not access executable :\n{error}", parent = self
-				)
+		self.result.state = DIAGSIG.SUCCESS
 
 		user_idx = self.user_select_combobox.current()
 		self.result.remember = [

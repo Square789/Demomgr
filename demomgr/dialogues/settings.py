@@ -7,6 +7,7 @@ from demomgr.dialogues._diagresult import DIAGSIG
 
 from demomgr import constants as CNST
 from demomgr.helpers import convertunit, frmd_label, int_validator
+from demomgr.tk_widgets import PasswordButton
 
 _TK_VARTYPES = {
 	"str": tk.StringVar,
@@ -160,7 +161,7 @@ class Settings(BaseDialog):
 		)
 		eventread_labelframe.grid_columnconfigure(0, weight = 1)
 		self.blockszselector = ttk.Combobox(
-			eventread_labelframe, state = "readonly", values = [*self.blockszvals.keys()]
+			eventread_labelframe, state = "readonly", values = tuple(self.blockszvals.keys())
 		)
 		self.blockszselector.grid(sticky = "ew")
 
@@ -170,9 +171,8 @@ class Settings(BaseDialog):
 		rcon_pwd_labelframe.grid_columnconfigure(0, weight = 1)
 		rcon_entry = ttk.Entry(rcon_pwd_labelframe, textvariable = self.rcon_pwd_var, show = "\u25A0")
 		rcon_entry.grid(column = 0, row = 0, sticky = "ew")
-		entry_visibility_toggle = ttk.Button(rcon_pwd_labelframe, text = "Show", takefocus = False)
-		entry_visibility_toggle.bind("<Button-1>", lambda _: rcon_entry.configure(show = ""))
-		entry_visibility_toggle.bind("<ButtonRelease-1>", lambda _: rcon_entry.configure(show = "\u25A0"))
+		entry_visibility_toggle = PasswordButton(rcon_pwd_labelframe, text = "Show")
+		entry_visibility_toggle.bind_to_entry(rcon_entry)
 		entry_visibility_toggle.grid(column = 1, row = 0)
 
 		int_val_id = master.register(int_validator)
@@ -180,8 +180,8 @@ class Settings(BaseDialog):
 			suboptions_pane, padding = 8, labelwidget = frmd_label(suboptions_pane, "RCON port")
 		)
 		rcon_port_labelframe.grid_columnconfigure(0, weight = 1)
-		self.rcon_port_entry = ttk.Entry(rcon_port_labelframe, validate = "key",
-			validatecommand = (int_val_id, "%S", "%P")
+		self.rcon_port_entry = ttk.Entry(
+			rcon_port_labelframe, validate = "key", validatecommand = (int_val_id, "%S", "%P")
 		)
 		self.rcon_port_entry.insert(0, str(self.cfg.rcon_port))
 		self.rcon_port_entry.grid(column = 0, row = 0, sticky = "ew")
@@ -267,7 +267,7 @@ class Settings(BaseDialog):
 				"ui_theme": self.ui_style_var.get(),
 				"lazy_reload": self.lazyreload_var.get(),
 				"rcon_pwd": self.rcon_pwd_var.get() or None,
-				"rcon_port": int(self.rcon_port_entry.get()),
+				"rcon_port": int(self.rcon_port_entry.get() or 0),
 			}
 		else:
 			self.result.state = DIAGSIG.FAILURE

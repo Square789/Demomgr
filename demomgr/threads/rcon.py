@@ -39,15 +39,22 @@ class RCONThread(_StoppableBaseThread):
 	a command.
 	The thread is designed to run continuously and receive commands
 	as encoded strings through an input queue.
-	If it fails at any point, it will disconnect
+	If it fails at any point, it will disconnect.
 
 	Sent to the output queue:
+		SUCCESS(0) when the stoprequest is set after the thread has
+				connected to the game.
+
+		FAILURE(0) on any socket operation failure.
+
+		ABORTED(0) when the stoprequest is set before the thread has
+				connected to the game.
+
 		CONNECTED(0) when the thread successfully connects to the game.
 
 		INFO_IDX_PARAM(2) for text to display (#NOTE issue #31)
 			- Slot index to display the text on.
 			- Text to display.
-
 	"""
 	def __init__(self, queue_in, queue_out, password, port):
 		"""
@@ -168,9 +175,6 @@ class RCONThread(_StoppableBaseThread):
 					return
 				continue
 
-			if command is None:
-				break
-
 			self.queue_out_put(THREADSIG.INFO_IDX_PARAM, 2, "Sending command...")
 			try:
 				self.send_packet(RCONPacket(1337, EXECCOMMAND, command))
@@ -185,8 +189,6 @@ class RCONThread(_StoppableBaseThread):
 				self.queue_out_put(THREADSIG.INFO_IDX_PARAM, 2, f"Error while sending command: {e}")
 				self.__stopsock(THREADSIG.FAILURE)
 				return
-
-		self.__stopsock(THREADSIG.SUCCESS)
 
 	def read_packet(self):
 		"""

@@ -185,7 +185,6 @@ def int_validator(inp, ifallowed):
 		return int(inp) >= 0
 	except ValueError:
 		return False
-	return True
 
 def name_validator(ifallowed):
 	"""
