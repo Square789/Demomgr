@@ -60,7 +60,7 @@ class MainApp():
 		)
 
 		self.cfgpath = platforming.get_cfg_storage_path()
-		self.curdir = "" # Should NEVER be in self.cfg.demo_paths!
+		self.curdir = None
 		self.spinboxvar = tk.StringVar()
 
 		self.after_handle_statusbar = self.root.after(0, lambda: True)
@@ -139,11 +139,11 @@ class MainApp():
 					class_tag, f"<KeyPress-{ctxmen_name}>", context_menus.entry_cb
 				)
 
-		last_path = self.cfg.demo_paths[0] if self.cfg.demo_paths else ""
+		last_path = self.cfg.demo_paths[0] if self.cfg.demo_paths else None
 		if self.cfg.last_path is not None and 0 <= self.cfg.last_path < len(self.cfg.demo_paths):
 			last_path = self.cfg.demo_paths[self.cfg.last_path]
 		self.curdir = last_path
-		self.spinboxvar.set(last_path)
+		self.spinboxvar.set("" if self.curdir is None else self.curdir)
 		self.reloadgui()
 		# All subsequent changes to the spinbox will call
 		# self._spinboxsel -> self.reloadgui, and update main view.
@@ -226,8 +226,8 @@ class MainApp():
 
 		self.directory_inf_kvd = KeyValueDisplay(
 			dirinfframe.internal_frame, self.ttkstyle, inipairs = (
-				{"id_": "l_totalsize", "name": "Size", "formatter": convertunit},
-				{"id_": "l_amount", "name": "Amount of demos"}
+				{"id_": "l_amount", "name": "Amount of demos"},
+				{"id_": "l_totalsize", "name": "Size of demos", "formatter": convertunit},
 			), width = 240, height = 60,
 		)
 
@@ -433,7 +433,7 @@ class MainApp():
 
 	def _managebookmarks(self):
 		"""Offers dialog to manage a demo's bookmarks."""
-		# Safeguard, shouldnt be triggered
+		# Safeguard, shouldn't be triggered
 		if not self.listbox.selection:
 			return
 		index = next(iter(self.listbox.selection))
@@ -520,7 +520,9 @@ class MainApp():
 		# In case of a super slow drive, this will hang in order to
 		# prevent multiple referenceless threads going wild in the demo directory
 		self.threadgroups["demoinfo"].join_thread()
-		self.threadgroups["demoinfo"].start_thread(target_demo_path = os.path.join(self.curdir, demname))
+		self.threadgroups["demoinfo"].start_thread(
+			target_demo_path = os.path.join(self.curdir, demname)
+		)
 
 	def _after_callback_demoinfo(self, sig, *args):
 		"""
@@ -540,8 +542,11 @@ class MainApp():
 
 	def reloadgui(self):
 		"""
-		Re-fetches a directory's contents.
-		This function starts the fetchdata thread.
+		Re-fetches the current directory's contents, cancelling all
+		running threads, clearing all information displays and then
+		starting the fetchdata thread.
+		If the current directory is `None`, will display a message on
+		the status bar instead of starting the fetchdata thread.
 		"""
 		for g in self.threadgroups.values():
 			g.cancel_after()
@@ -550,10 +555,15 @@ class MainApp():
 		self._updatedemowindow(clear = True)
 		for g in self.threadgroups.values():
 			g.join_thread(finalize = False)
-		self.threadgroups["fetchdata"].start_thread(
-			targetdir = self.curdir or None,
-			cfg = self.cfg,
-		)
+		if self.curdir is None:
+			self.setstatusbar(
+				"No directories registered. Click \"Add demo path...\" to get started!"
+			)
+		else:
+			self.threadgroups["fetchdata"].start_thread(
+				targetdir = self.curdir,
+				cfg = self.cfg,
+			)
 
 	def _after_callback_fetchdata(self, sig, *args):
 		"""
@@ -632,7 +642,7 @@ class MainApp():
 
 	def _filter(self, *_):
 		"""Starts a filtering thread and configures the filtering button."""
-		if not self.filterentry_var.get() or self.curdir == "":
+		if not self.filterentry_var.get() or self.curdir is None:
 			return
 		self.filterbtn.config(
 			text = "Stop Filtering", command = lambda: self._stopfilter(True)
@@ -684,7 +694,7 @@ class MainApp():
 		Also triggered by self._rempath.
 		Kicks off the process of reading the current directory.
 		"""
-		selpath = self.spinboxvar.get()
+		selpath = self.spinboxvar.get() or None
 		if selpath != self.curdir:
 			self.curdir = selpath
 			self.reloadgui()
@@ -717,7 +727,7 @@ class MainApp():
 		"""
 		Removes the current directory from the registered directories,
 		automatically moves to another one or sets the current directory
-		to "" if none are available anymore.
+		to `None` if none are available anymore.
 		"""
 		if not self.cfg.demo_paths:
 			return

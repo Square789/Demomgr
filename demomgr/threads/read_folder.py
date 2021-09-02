@@ -57,7 +57,7 @@ class ThreadReadFolder(_StoppableBaseThread):
 		return it in a format that can be directly fed into listbox.
 		"""
 		if self.targetdir is None:
-			self.__stop(None, None, None, THREADSIG.FAILURE)
+			self.__stop(None, None, {}, THREADSIG.FAILURE)
 			return
 
 		self.queue_out_put(

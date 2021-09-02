@@ -46,7 +46,7 @@ STEAM_CFG_LAUNCH_OPTIONS = (
 )
 STEAM_CFG_USER_NAME = ("UserLocalConfigStore", "friends", "PersonaName")
 # Setting this to lower values might lock the UI, use with care.
-GUI_UPDATE_WAIT = 40
+GUI_UPDATE_WAIT = 30
 THEME_SUBDIR = "ui_themes"
 # 0: tcl file, 1: theme name, 2: resource dir name
 THEME_PACKAGES = {

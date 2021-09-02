@@ -1,7 +1,6 @@
 
 import queue
 import socket
-socket.setdefaulttimeout(10)
 import struct
 
 from demomgr.threads._threadsig import THREADSIG
@@ -52,7 +51,7 @@ class RCONThread(_StoppableBaseThread):
 
 		CONNECTED(0) when the thread successfully connects to the game.
 
-		INFO_IDX_PARAM(2) for text to display (#NOTE issue #31)
+		INFO_IDX_PARAM(2) for text to display (#TODO issue #31)
 			- Slot index to display the text on.
 			- Text to display.
 	"""

@@ -129,15 +129,17 @@ class Play(BaseDialog):
 		self.launch_commands = []
 		self.users = []
 
-		self.spinner = cycle((chain(
-			*(repeat(sign, 100 // CNST.GUI_UPDATE_WAIT) for sign in ("|", "/", "-", "\\")),
-		)))
+		self.spinner = cycle(
+			chain(*(
+				repeat(sign, max(100 // CNST.GUI_UPDATE_WAIT, 1))
+				for sign in ("|", "/", "-", "\\")
+			))
+		)
 		self.rcon_threadgroup = ThreadGroup(RCONThread, self)
 		self.rcon_threadgroup.register_run_always_method_pre(self._rcon_run_always)
 		self.rcon_threadgroup.decorate_and_patch(self, self._rcon_after_callback)
 		self.animate_spinner = False
 		self.rcon_in_queue = queue.Queue()
-		self.rcon_thread_connected = False
 
 		self.error_steamdir_invalid = ErrorLabel()
 		self.warning_not_in_tf_dir = ErrorLabel()
@@ -176,10 +178,10 @@ class Play(BaseDialog):
 			rcon_text_frame, orient = tk.HORIZONTAL, command = self.rcon_text.xview
 		)
 
-		play_frame = ttk.LabelFrame(
+		play_labelframe = ttk.LabelFrame(
 			master, padding = (10, 0, 10, 10), labelwidget = frmd_label(master, "Play")
 		)
-		launch_config_frame = ttk.Frame(play_frame, style = "Contained.TFrame")
+		launch_config_frame = ttk.Frame(play_labelframe, style = "Contained.TFrame")
 		user_select_label = ttk.Label(
 			launch_config_frame, text = "User profile to get launch options from:",
 			style = "Contained.TLabel"
@@ -188,7 +190,8 @@ class Play(BaseDialog):
 			launch_config_frame, style = "Error.Contained.TLabel",
 			text = (
 				"Failed listing users, Steam directory is malformed. \n"
-				"Make sure you selected the root directory ending in \"Steam\" in the Settings > Paths section."
+				"Make sure you selected the root directory ending in \"Steam\" "
+				"in the Settings > Paths section."
 			)
 		)
 		self.info_launch_options_not_found.label = ttk.Label(
@@ -203,7 +206,7 @@ class Play(BaseDialog):
 			style = "Contained.TCheckbutton"
 		)
 
-		arg_region = ttk.Frame(play_frame, style = "Contained.TFrame")
+		arg_region = ttk.Frame(play_labelframe, style = "Contained.TFrame")
 		launch_options_entry = ttk.Entry(
 			arg_region, style = "Contained.TEntry", textvariable = self.launch_options_var
 		)
@@ -216,7 +219,7 @@ class Play(BaseDialog):
 			state = tk.DISABLED, command = self._rcon_send_commands
 		)
 
-		bookmark_region = ttk.Frame(play_frame, style = "Contained.TFrame")
+		bookmark_region = ttk.Frame(play_labelframe, style = "Contained.TFrame")
 		self.tick_mfl = MultiframeList(
 			bookmark_region,
 			[
@@ -243,11 +246,13 @@ class Play(BaseDialog):
 		)
 
 		self.warning_not_in_tf_dir.label = ttk.Label(
-			play_frame, style = "Warning.Contained.TLabel",
+			play_labelframe, style = "Warning.Contained.TLabel",
 			text = "Demo can not be played as it is not in TF2's filesystem."
 		)
 		launch_button = ttk.Button(
-			play_frame, style = "Contained.TButton", text = "Launch TF2", command = self._launch)
+			play_labelframe, style = "Contained.TButton", text = "Launch TF2",
+			command = self._launch
+		)
 
 		# the griddening
 		master.grid_rowconfigure((0, 1), weight = 1)
@@ -270,7 +275,7 @@ class Play(BaseDialog):
 		rcon_labelframe.grid(row = 0, column = 0, pady = (0, 5), sticky = "nesw")
 
 		# = Play frame
-		play_frame.grid_columnconfigure(0, weight = 1)
+		play_labelframe.grid_columnconfigure(0, weight = 1)
 		# Launch config region
 		launch_config_frame.grid_columnconfigure(1, weight = 1)
 		user_select_label.grid(row = 0, column = 0, pady = (0, 5), sticky = "e")
@@ -288,12 +293,16 @@ class Play(BaseDialog):
 		arg_region.grid_columnconfigure(0, weight = 1)
 		launch_options_entry.grid(row = 1, column = 0, pady = (0, 5), sticky = "ew")
 		launch_commands_entry.grid(row = 2, column = 0, pady = (0, 5), sticky = "ew")
-		self.rcon_send_commands_button.grid(row = 2, column = 1, padx = (5, 0), pady = (0, 5), sticky = "e")
+		self.rcon_send_commands_button.grid(
+			row = 2, column = 1, padx = (5, 0), pady = (0, 5), sticky = "e"
+		)
 		arg_region.grid(row = 1, column = 0, sticky = "nesw")
 
 		# Event tick region
 		tick_options_frame.grid_columnconfigure(0, weight = 1)
-		self.gototick_launchcmd_checkbox.grid(row = 0, column = 0, columnspan = 2, pady = (0, 5), sticky = "w")
+		self.gototick_launchcmd_checkbox.grid(
+			row = 0, column = 0, columnspan = 2, pady = (0, 5), sticky = "w"
+		)
 		self.tick_entry.grid(row = 1, column = 0, padx = (0, 5))
 		self.rcon_send_gototick_button.grid(row = 1, column = 1)
 		tick_options_frame.grid(row = 0, column = 1)
@@ -305,7 +314,7 @@ class Play(BaseDialog):
 		self.warning_not_in_tf_dir.set_grid_options(row = 3, column = 0, sticky = "ew")
 		launch_button.grid(row = 4, column = 0, ipadx = 40)
 
-		play_frame.grid(row = 1, column = 0, pady = (0, 5), sticky = "nesw")
+		play_labelframe.grid(row = 1, column = 0, sticky = "nesw")
 
 		pwd_entry_show_toggle.bind_to_entry(rcon_password_entry)
 		self.tick_mfl.bind("<<MultiframeSelect>>", lambda _: self._update_launch_commands_var())
@@ -450,7 +459,7 @@ class Play(BaseDialog):
 				self._rcon_txt_set_line(i, "")
 		self.rcon_threadgroup.start_thread(
 			queue_in = self.rcon_in_queue,
-			password = self.cfg.rcon_pwd,
+			password = self.rcon_password_var.get(),
 			port = self.cfg.rcon_port,
 		)
 
@@ -462,15 +471,7 @@ class Play(BaseDialog):
 
 	def _rcon_after_callback(self, sig, *args):
 		if sig.is_finish_signal():
-			self.animate_spinner = False
-			self.rcon_connect_button.configure(text = "Connect", command = self._rcon_start)
-			self.rcon_send_commands_button.config(state = tk.DISABLED)
-			self.rcon_send_gototick_button.config(state = tk.DISABLED)
-			with self.rcon_text:
-				self.rcon_text.replace("status0", "status1", "Disconnected")
-				self.rcon_text.replace("spinner", "spinner + 1 chars", ".")
-				for i in range(3):
-					self._rcon_txt_set_line(i, "")
+			self._rcon_on_finish(sig)
 			return THREADGROUPSIG.FINISHED
 		elif sig is THREADSIG.CONNECTED:
 			self._rcon_on_connect()
@@ -486,9 +487,20 @@ class Play(BaseDialog):
 			self.rcon_text.delete("spinner", "spinner + 1 chars")
 			self.rcon_text.insert("spinner", next(self.spinner))
 
+	def _rcon_on_finish(self, sig):
+		self.animate_spinner = False
+		self.rcon_connect_button.configure(text = "Connect", command = self._rcon_start)
+		self.rcon_send_commands_button.config(state = tk.DISABLED)
+		self.rcon_send_gototick_button.config(state = tk.DISABLED)
+		with self.rcon_text:
+			self.rcon_text.replace("status0", "status1", "Disconnected")
+			self.rcon_text.replace("spinner", "spinner + 1 chars", ".")
+			if sig is not THREADSIG.FAILURE:
+				for i in range(3):
+					self._rcon_txt_set_line(i, "")
+
 	def _rcon_on_connect(self):
 		self.animate_spinner = False
-		self.rcon_thread_connected = True
 		self.rcon_connect_button.configure(text = "Disconnect")
 		self.rcon_send_commands_button.config(state = tk.NORMAL)
 		self.rcon_send_gototick_button.config(state = tk.NORMAL)
