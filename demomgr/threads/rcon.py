@@ -75,11 +75,16 @@ class RCONThread(_StoppableBaseThread):
 			self.queue_out_put(THREADSIG.FAILURE)
 			return
 
-		self.queue_out_put(THREADSIG.INFO_IDX_PARAM, 0, "Connecting to TF2...")
+		self.queue_out_put(THREADSIG.INFO_IDX_PARAM, 0, f"Connecting to TF2 (port {self.port})...")
 		try:
 			potential_targets = socket.getaddrinfo(socket.getfqdn(), self.port, socket.AF_INET)
-		except OSError:
-			self.queue_out_put(THREADSIG.INFO_IDX_PARAM, 0, "Obscure error getting machine addr")
+		except OSError as error:
+			self.queue_out_put(
+				THREADSIG.INFO_IDX_PARAM,
+				0,
+				f"Obscure error getting machine address: {error}"
+			)
+			self.queue_out_put(THREADSIG.FAILURE)
 			return
 
 		for idx, value in enumerate(potential_targets):
@@ -88,7 +93,7 @@ class RCONThread(_StoppableBaseThread):
 			self.queue_out_put(
 				THREADSIG.INFO_IDX_PARAM,
 				0,
-				f"Connecting to candidate {idx}/{len(potential_targets) - 1}"
+				f"Connecting to candidate {idx}/{len(potential_targets) - 1} (port {self.port})"
 			)
 
 			try:

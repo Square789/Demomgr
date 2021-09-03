@@ -3,6 +3,7 @@ import json
 
 from schema import And, Or, Schema
 
+import demomgr.constants as CNST
 from demomgr.helpers import deepupdate_dict
 
 # Field renames since 2019 me made some really poor, ugly to read
@@ -21,7 +22,7 @@ _RENAMES = {
 }
 
 DEFAULT = {
-	"data_grab_mode": 0,
+	"data_grab_mode": 2,
 	"date_format": "%d.%m.%Y %H:%M:%S",
 	"demo_paths": [],
 	"events_blocksize": 65536,
@@ -45,10 +46,13 @@ DEFAULT = {
 
 _SCHEMA = Schema(
 	{
-		"data_grab_mode": int,
+		"data_grab_mode": And(
+			int,
+			lambda x: any(x == e.value for e in CNST.DATAGRABMODE.__members__.values()),
+		),
 		"date_format": str,
 		"demo_paths": [And(str, lambda x: x != "")],
-		"events_blocksize": int,
+		"events_blocksize": And(int, lambda x: x > 0),
 		"_comment": str,
 		"first_run": bool,
 		"hlae_path": Or(None, str),
@@ -104,6 +108,8 @@ class Config():
 				cfg["last_path"] = cfg["demo_paths"].index(cfg["last_path"])
 			except ValueError:
 				cfg["last_path"] = None
+
+		cfg["_comment"] = DEFAULT["_comment"]
 
 		self._cfg = cfg
 

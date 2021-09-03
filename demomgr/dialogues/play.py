@@ -145,8 +145,7 @@ class Play(BaseDialog):
 		self.warning_not_in_tf_dir = ErrorLabel()
 		self.info_launch_options_not_found = ErrorLabel()
 
-		if self.cfg.rcon_pwd is not None:
-			self.rcon_password_var.set(self.cfg.rcon_pwd)
+		self.rcon_password_var.set(self.cfg.rcon_pwd or "")
 
 		self.remember = self.validate_and_update_remember(remember)
 
@@ -387,7 +386,8 @@ class Play(BaseDialog):
 		"""
 		try:
 			raw_list = os.listdir(os.path.join(self.cfg.steam_path, CNST.STEAM_CFG_PATH0))
-		except (OSError, PermissionError, FileNotFoundError):
+		except (TypeError, OSError, PermissionError, FileNotFoundError):
+			# TypeError for when steam_path is None.
 			self.error_steamdir_invalid.set(True)
 		else:
 			self.error_steamdir_invalid.set(False)
@@ -433,7 +433,8 @@ class Play(BaseDialog):
 			if ".." in os.path.normpath(shortdemopath).split(os.sep):
 				raise ValueError("Can't exit game directory")
 			self.launch_commands.append(f"playdemo {shortdemopath}")
-		except ValueError:
+		except (TypeError, ValueError):
+			# TypeError for when steam_path is None.
 			self.warning_not_in_tf_dir.set(True)
 
 		tick = 0
@@ -519,8 +520,24 @@ class Play(BaseDialog):
 		self.rcon_in_queue.put(cmd)
 
 	def _launch(self):
+		for cond, name in (
+			(self.cfg.steam_path is None, "Steam"),
+			(self.usehlae_var.get() and self.cfg.hlae_path is None, "HLAE")
+		):
+			if cond:
+				tk_msg.showerror(
+					"Demomgr - Error",
+					f"{name} path not specified. Please do so in Settings > Paths.",
+					parent = self,
+				)
+				return
+
 		user_args = self.launch_options_var.get().split()
-		tf2_launch_args = CNST.TF2_LAUNCHARGS + user_args + self.launch_commands
+		tf2_launch_args = (
+			CNST.TF2_LAUNCHARGS +
+			user_args +
+			["+" + cmd for cmd in self.launch_commands]
+		)
 		if self.usehlae_var.get():
 			tf2_launch_args.extend(CNST.HLAE_ADD_TF2_ARGS)
 			executable = os.path.join(self.cfg.hlae_path, CNST.HLAE_EXE)

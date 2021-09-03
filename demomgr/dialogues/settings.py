@@ -54,11 +54,11 @@ class Settings(BaseDialog):
 		self._create_tk_var("int", "datagrabmode_var", cfg.data_grab_mode)
 		self._create_tk_var("bool", "preview_var", cfg.preview_demos)
 		self._create_tk_var("str", "date_fmt_var", cfg.date_format)
-		self._create_tk_var("str", "steampath_var", cfg.steam_path)
-		self._create_tk_var("str", "hlaepath_var", cfg.hlae_path)
+		self._create_tk_var("str", "steampath_var", cfg.steam_path or "")
+		self._create_tk_var("str", "hlaepath_var", cfg.hlae_path or "")
 		self._create_tk_var("str", "ui_style_var", cfg.ui_theme)
 		self._create_tk_var("bool", "lazyreload_var", cfg.lazy_reload)
-		self._create_tk_var("str", "rcon_pwd_var", cfg.rcon_pwd)
+		self._create_tk_var("str", "rcon_pwd_var", cfg.rcon_pwd or "")
 		self._create_tk_var("int", "rcon_port_var", cfg.rcon_port)
 
 		self._selected_pane = None
@@ -82,7 +82,7 @@ class Settings(BaseDialog):
 		)
 		display_labelframe.grid_columnconfigure(0, weight = 1)
 		ttk.Checkbutton(
-			display_labelframe, variable = self.preview_var, text = "Preview demos?",
+			display_labelframe, variable = self.preview_var, text = "Show demo header information",
 			style = "Contained.TCheckbutton"
 		).grid(sticky = "w", ipadx = 4) # Preview
 		lazyreload_btn = ttk.Checkbutton(
@@ -136,8 +136,8 @@ class Settings(BaseDialog):
 			change_btn = ttk.Button(
 				path_labelframe, text = "Change...", command = _tmp_handler, style = "Contained.TButton"
 			)
-			desc_label.grid(row = i, column = 0, sticky = "w")
-			path_entry.grid(row = i, column = 1, sticky = "ew")
+			desc_label.grid(row = i, column = 0, sticky = "e")
+			path_entry.grid(row = i, column = 1, padx = (3, 0), sticky = "ew")
 			change_btn.grid(row = i, column = 2, padx = (3, 0))
 
 		datagrab_labelframe = ttk.LabelFrame(
@@ -277,11 +277,8 @@ class Settings(BaseDialog):
 		"""
 		Prompt the user to select a directory, then modify the tkinter
 		variable `variable` with the selected value.
-		Modification will not be made if nothing was selected.
 		"""
 		sel = tk_fid.askdirectory()
-		if sel == "":
-			return
 		variable.set(sel)
 
 	def _reload_options_pane(self, key):

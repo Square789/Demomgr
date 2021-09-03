@@ -629,16 +629,15 @@ class MainApp():
 		del_diag = Deleter(
 			self.root,
 			demodir = self.curdir,
-			files = args[0]["col_filename"],
-			selected = [True for _ in args[0]["col_filename"]],
-			deluselessjson = False,
-			evtblocksz = self.cfg.events_blocksize,
+			to_delete = args[0]["col_filename"],
+			cfg = self.cfg,
 			styleobj = self.ttkstyle,
-			eventfileupdate = "passive",
 		)
 		del_diag.show()
 		if del_diag.result.state == DIAGSIG.SUCCESS:
-			self.reloadgui() # Can not honor lazyreload here.
+			# NOTE: I could use lazyreload but it's honestly not worth
+			# the work
+			self.reloadgui()
 
 	def _filter(self, *_):
 		"""Starts a filtering thread and configures the filtering button."""

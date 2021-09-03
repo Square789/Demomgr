@@ -64,7 +64,7 @@ class ThreadDelete(_StoppableBaseThread):
 				print(f": deleting {os.path.join(self.demodir, file)}")
 				deleted[file] = True
 				self.queue_out_put(THREADSIG.DELETION_SUCCESS, file)
-			except Exception as error:
+			except OSError as error:
 				self.queue_out_put(THREADSIG.DELETION_FAILURE, file, error)
 
 		# --- Update _events.txt

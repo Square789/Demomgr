@@ -136,7 +136,7 @@ class ThreadGroup():
 					if res == THREADGROUPSIG.FINISHED:
 						finished = True
 					elif res == THREADGROUPSIG.HOLDBACK:
-						self.heldback_queue_elem = (sig, ) + args
+						self.heldback_queue_elem = [sig] + args
 				if not finished and reschedule:
 					self.after_handle = self.tk_wdg.after(CNST.GUI_UPDATE_WAIT, decorated)
 				else:
