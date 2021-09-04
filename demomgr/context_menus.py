@@ -54,8 +54,8 @@ def multiframelist_cb(event, mfl, demo_ops):
 	"""
 	add_elems = [
 		("command", {"label": s, "command": cmd})
-		for s, cmd, _, multiple in demo_ops
-		if mfl.selection and (len(mfl.selection) == 1 or multiple)
+		for s, cmd, _, fit_for_sel in demo_ops
+		if fit_for_sel(len(mfl.selection))
 	]
 	men = PopupMenu(mfl, add_elems)
 	men.post(*mfl.get_last_click())

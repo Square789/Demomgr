@@ -66,13 +66,13 @@ class ThreadFilter(_StoppableBaseThread):
 		while True:
 			try:
 				queueobj = self.datafetcherqueue.get_nowait()
-				if queueobj[0] == THREADSIG.RESULT_DEMODATA:
+				if queueobj[0] is THREADSIG.RESULT_DEMODATA:
 					demo_data = queueobj[1]
-				elif queueobj[0] < 0x100: # Finish signal
-					if queueobj[0] == THREADSIG.FAILURE:
+				elif queueobj[0].is_finish_signal():
+					if queueobj[0] is THREADSIG.FAILURE:
 						self.queue_out_put(
 							THREADSIG.INFO_STATUSBAR,
-							("Demo fetching thread failed unexpectedly during filtering.", 4000)
+							("Demo fetching thread failed during filtering.", 4000)
 						)
 						self.queue_out_put(THREADSIG.FAILURE)
 						return

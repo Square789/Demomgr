@@ -4,13 +4,14 @@ a callback and a queue interoperating with eachother at an attempt
 to simplify threading and tkinter.
 """
 
+from enum import IntEnum
 import queue
 import types
 
 import demomgr.constants as CNST
 from demomgr.threads._base import _StoppableBaseThread
 
-class THREADGROUPSIG:
+class THREADGROUPSIG(IntEnum):
 	FINISHED = 0
 	CONTINUE = 1
 	HOLDBACK = 2
@@ -119,7 +120,7 @@ class ThreadGroup():
 						break
 					# Should be a bound method, so self (targetobj) is passed in automatically
 					res = cb_method(sig, *args)
-					if res == THREADGROUPSIG.FINISHED:
+					if res is THREADGROUPSIG.FINISHED:
 						finished = True
 				if not finished and reschedule:
 					# decorated is made a bound class method below, which this will access.
@@ -133,9 +134,9 @@ class ThreadGroup():
 					except queue.Empty:
 						break
 					res = cb_method(sig, *args)
-					if res == THREADGROUPSIG.FINISHED:
+					if res is THREADGROUPSIG.FINISHED:
 						finished = True
-					elif res == THREADGROUPSIG.HOLDBACK:
+					elif res is THREADGROUPSIG.HOLDBACK:
 						self.heldback_queue_elem = [sig] + args
 				if not finished and reschedule:
 					self.after_handle = self.tk_wdg.after(CNST.GUI_UPDATE_WAIT, decorated)

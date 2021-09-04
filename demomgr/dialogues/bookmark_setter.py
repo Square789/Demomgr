@@ -199,7 +199,7 @@ class BookmarkSetter(BaseDialog):
 		if not self.listbox.selection:
 			self._log("No bookmark selected to change.")
 			return
-		index = next(iter(self.listbox.selection))
+		index = self.listbox.get_selection()
 		new_name, new_tick = self.name_entry.get(), self.tick_entry.get()
 		new_tick = int(new_tick) if new_tick else 0
 		self.listbox.remove_rows(index)
@@ -212,7 +212,7 @@ class BookmarkSetter(BaseDialog):
 		self.tick_entry.delete(0, tk.END)
 		if not self.listbox.selection:
 			return
-		idx = next(iter(self.listbox.selection))
+		idx = self.listbox.get_selection()
 		data, col_idx = self.listbox.get_rows(idx)
 		new_name, new_tick = data[0][col_idx["col_name"]], data[0][col_idx["col_tick"]]
 		self.name_entry.insert(0, new_name)

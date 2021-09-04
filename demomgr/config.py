@@ -5,6 +5,7 @@ from schema import And, Or, Schema
 
 import demomgr.constants as CNST
 from demomgr.helpers import deepupdate_dict
+from demomgr.platforming import should_use_windows_explorer
 
 # Field renames since 2019 me made some really poor, ugly to read
 # naming choices. (Converts <=1.8.4 to >=1.9.0 cfg)
@@ -22,10 +23,12 @@ _RENAMES = {
 }
 
 DEFAULT = {
-	"data_grab_mode": 2,
+	"data_grab_mode": CNST.DATA_GRAB_MODE.JSON.value,
 	"date_format": "%d.%m.%Y %H:%M:%S",
 	"demo_paths": [],
 	"events_blocksize": 65536,
+	"file_manager_mode": None,
+	"file_manager_path": None,
 	"_comment": "By messing with the firstrun parameter you acknowledge "
 		"the disclaimer :P",
 	"first_run": True,
@@ -44,15 +47,20 @@ DEFAULT = {
 	"ui_theme": "Dark",
 }
 
+def _in_enum(v, enum):
+	return any(v == e.value for e in enum.__members__.values())
+
 _SCHEMA = Schema(
 	{
-		"data_grab_mode": And(
-			int,
-			lambda x: any(x == e.value for e in CNST.DATAGRABMODE.__members__.values()),
-		),
+		"data_grab_mode": And(int, lambda x: _in_enum(x, CNST.DATA_GRAB_MODE)),
 		"date_format": str,
 		"demo_paths": [And(str, lambda x: x != "")],
 		"events_blocksize": And(int, lambda x: x > 0),
+		"file_manager_mode": Or(
+			None,
+			And(int, lambda x: _in_enum(x, CNST.FILE_MANAGER_MODE))
+		), # will be set depending on OS when None
+		"file_manager_path": Or(None, str),
 		"_comment": str,
 		"first_run": bool,
 		"hlae_path": Or(None, str),
@@ -79,22 +87,27 @@ class Config():
 
 	_cfg = None
 
-	def __init__(self, cfg):
+	def __init__(self, passed_cfg):
 		"""
 		Initializes a demomgr config.
 
-		Will run a Schema validation on the supplied dict, so a SchemaError
-		may be raised.
+		Will merge the supplied dict with a copy of the default
+		config and run a Schema validation on the supplied dict, so a
+		SchemaError may be raised.
 
 		Will perform some backwards-compatibility operations on the
 		supplied arguments, notably `hlae_path`, `last_path`, `rcon_pwd`
-		and `steam_path` will be set to `None` if they should be empty strings.
-		If `last_path` is a string, it will be set to the index the string can
-		be found at in `demo_paths`, or `None` if `demo_paths` does not contain
-		`last_path`.
+		and `steam_path` will be set to `None` if they should be empty
+		strings.
+		If `last_path` is a string, it will be set to the index the
+		string can be found at in `demo_paths`, or `None` if
+		`demo_paths` does not contain `last_path`.
+		If `file_manager_mode` is `None`, will be set to a value fitting
+		for the system.
 		"""
 
-		cfg = _rename_fields(cfg)
+		cfg = deepcopy(DEFAULT)
+		deepupdate_dict(cfg, _rename_fields(passed_cfg))
 		cfg = _SCHEMA.validate(cfg)
 
 		# Schema could also do these, but not the `last_path` conversion, so
@@ -108,6 +121,15 @@ class Config():
 				cfg["last_path"] = cfg["demo_paths"].index(cfg["last_path"])
 			except ValueError:
 				cfg["last_path"] = None
+
+		if cfg["file_manager_mode"] is None:
+			cfg["file_manager_mode"] = (
+				CNST.FILE_MANAGER_MODE.WINDOWS_EXPLORER if should_use_windows_explorer()
+				else CNST.FILE_MANAGER_MODE.USER_DEFINED
+			).value
+
+		cfg["data_grab_mode"] = CNST.DATA_GRAB_MODE(cfg["data_grab_mode"])
+		cfg["file_manager_mode"] = CNST.FILE_MANAGER_MODE(cfg["file_manager_mode"])
 
 		cfg["_comment"] = DEFAULT["_comment"]
 

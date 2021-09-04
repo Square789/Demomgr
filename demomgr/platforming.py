@@ -11,8 +11,10 @@ import demomgr.constants as CNST
 def get_cfg_storage_path():
 	if os.name == "nt": # Windows
 		appdata_path = Path(os.environ["APPDATA"])
-		if (str(appdata_path.parent.name).lower() == "appdata" and
-				appdata_path.name.lower() == "roaming"):
+		if (
+			str(appdata_path.parent.name).lower() == "appdata" and
+			appdata_path.name.lower() == "roaming"
+		):
 			appdata_path = appdata_path.parent
 		return str(Path(appdata_path, "Local", CNST.CFG_FOLDER, CNST.CFG_NAME))
 	else:
@@ -30,21 +32,13 @@ def get_contextmenu_btn():
 		return "Menu"
 	return None
 
-# def get_filesys_explorer():
-# 	"""
-# 	Returns command front for opening a directory in what's likely the
-# 	default file explorer for the system, or None if an unknown system is
-# 	encountered.
-# 	No idea if anything beside Windows works because I'm a filthy winpleb.
-# 	"""
-# 	system = platform.system().lower()
-# 	if system == "linux":
-# 		return ["xdg-open"]
-# 	elif system == "darwin":
-# 		return ["open"]
-# 	elif system == "windows":
-# 		return ["explorer.exe"]
-# 	return None
+def should_use_windows_explorer():
+	"""
+	Returns whether the windows explorer should be used aka the system
+	is windows.
+	"""
+	system = platform.system().lower()
+	return system == "windows"
 
 def get_rightclick_btn():
 	"""

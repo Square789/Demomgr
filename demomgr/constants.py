@@ -4,10 +4,14 @@ from enum import IntEnum
 # events and json is being done by subtracting 1 from them.
 # Not that there ever will be a reason to change these or add new containers
 # realistically.
-class DATAGRABMODE(IntEnum):
+class DATA_GRAB_MODE(IntEnum):
 	NONE = 0
 	EVENTS = 1
 	JSON = 2
+
+class FILE_MANAGER_MODE(IntEnum):
+	WINDOWS_EXPLORER = 0
+	USER_DEFINED = 1
 
 CFG_FOLDER = ".demomgr"
 CFG_NAME = "config.cfg"

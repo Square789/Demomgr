@@ -51,15 +51,16 @@ class Settings(BaseDialog):
 
 		self.cfg = cfg
 
-		self._create_tk_var("int", "datagrabmode_var", cfg.data_grab_mode)
+		self._create_tk_var("int", "datagrabmode_var", cfg.data_grab_mode.value)
+		self._create_tk_var("int", "file_manager_mode_var", cfg.file_manager_mode.value)
 		self._create_tk_var("bool", "preview_var", cfg.preview_demos)
 		self._create_tk_var("str", "date_fmt_var", cfg.date_format)
 		self._create_tk_var("str", "steampath_var", cfg.steam_path or "")
 		self._create_tk_var("str", "hlaepath_var", cfg.hlae_path or "")
+		self._create_tk_var("str", "file_manager_path_var", cfg.file_manager_path or "")
 		self._create_tk_var("str", "ui_style_var", cfg.ui_theme)
 		self._create_tk_var("bool", "lazyreload_var", cfg.lazy_reload)
 		self._create_tk_var("str", "rcon_pwd_var", cfg.rcon_pwd or "")
-		self._create_tk_var("int", "rcon_port_var", cfg.rcon_port)
 
 		self._selected_pane = None
 		self.ui_remember = self.validate_and_update_remember(remember)
@@ -125,13 +126,14 @@ class Settings(BaseDialog):
 			suboptions_pane, padding = 8, labelwidget = frmd_label(suboptions_pane, "Paths")
 		)
 		path_labelframe.grid_columnconfigure(1, weight = 1)
-		for i, j in enumerate((
+		for i, (name, tk_var) in enumerate((
 			("Steam:", self.steampath_var),
 			("HLAE:", self.hlaepath_var),
+			("File manager:", self.file_manager_path_var),
 		)):
-			desc_label = ttk.Label(path_labelframe, style = "Contained.TLabel", text = j[0])
-			path_entry = ttk.Entry(path_labelframe, state = "readonly", textvariable = j[1])
-			def _tmp_handler(self = self, var = j[1]): # that's a no from me dawg
+			desc_label = ttk.Label(path_labelframe, style = "Contained.TLabel", text = name)
+			path_entry = ttk.Entry(path_labelframe, state = "readonly", textvariable = tk_var)
+			def _tmp_handler(self = self, var = tk_var): # that's a no from me dawg
 				return self._sel_dir(var)
 			change_btn = ttk.Button(
 				path_labelframe, text = "Change...", command = _tmp_handler, style = "Contained.TButton"
@@ -144,14 +146,14 @@ class Settings(BaseDialog):
 			suboptions_pane, padding = 8, labelwidget = frmd_label(suboptions_pane, "Get demo information via...")
 		)
 		datagrab_labelframe.grid_columnconfigure(0, weight = 1)
-		for i, j in (
-			(".json files",   CNST.DATAGRABMODE.JSON.value),
-			(CNST.EVENT_FILE, CNST.DATAGRABMODE.EVENTS.value),
-			("None",          CNST.DATAGRABMODE.NONE.value),
+		for name, enum_attr in (
+			("None",          CNST.DATA_GRAB_MODE.NONE),
+			(CNST.EVENT_FILE, CNST.DATA_GRAB_MODE.EVENTS),
+			(".json files",   CNST.DATA_GRAB_MODE.JSON),
 		):
 			b = ttk.Radiobutton(
-				datagrab_labelframe, value = j, variable = self.datagrabmode_var, text = i,
-				style = "Contained.TRadiobutton"
+				datagrab_labelframe, value = enum_attr.value, variable = self.datagrabmode_var,
+				text = name, style = "Contained.TRadiobutton"
 			)
 			b.grid(sticky = "w", ipadx = 4)
 
@@ -186,7 +188,21 @@ class Settings(BaseDialog):
 		self.rcon_port_entry.insert(0, str(self.cfg.rcon_port))
 		self.rcon_port_entry.grid(column = 0, row = 0, sticky = "ew")
 
-		# Set from config, default to first-ish values when not available
+		file_manager_labelframe = ttk.LabelFrame(
+			suboptions_pane, padding = 8, labelwidget = frmd_label(suboptions_pane, "File manager")
+		)
+		for name, enum_attr in (
+			("Windows explorer", CNST.FILE_MANAGER_MODE.WINDOWS_EXPLORER),
+			("Custom (Paths > File manager)", CNST.FILE_MANAGER_MODE.USER_DEFINED),
+		):
+			b = ttk.Radiobutton(
+				file_manager_labelframe, value = enum_attr.value,
+				variable = self.file_manager_mode_var, text = name,
+				style = "Contained.TRadiobutton"
+			)
+			b.grid(sticky = "w", ipadx = 4)
+
+		# Set comboboxes
 		tmp = convertunit(self.cfg.events_blocksize, "B")
 		if tmp in self.blockszvals:
 			self.blockszselector.set(tmp)
@@ -199,11 +215,13 @@ class Settings(BaseDialog):
 		else:
 			self.date_fmt_combobox.set(CNST.DATE_FORMATS[0])
 
+		# Set up main interface
 		self._interface = {
 			"Interface": (display_labelframe, date_format_labelframe),
 			"Information reading": (datagrab_labelframe, eventread_labelframe),
 			"Paths": (path_labelframe, ),
 			"RCON": (rcon_pwd_labelframe, rcon_port_labelframe),
+			"File manager": (file_manager_labelframe, ),
 		}
 		self._create_tk_var("int", "_selectedpane_var", 0)
 		self._selected_pane = next(iter(self._interface)) # Yields first key
@@ -258,11 +276,13 @@ class Settings(BaseDialog):
 		if save:
 			self.result.state = DIAGSIG.SUCCESS
 			self.result.data = {
-				"data_grab_mode": self.datagrabmode_var.get(),
+				"data_grab_mode": CNST.DATA_GRAB_MODE(self.datagrabmode_var.get()),
+				"file_manager_mode": CNST.FILE_MANAGER_MODE(self.file_manager_mode_var.get()),
 				"preview_demos": self.preview_var.get(),
 				"date_format": self.date_fmt_combobox.get(),
 				"steam_path": self.steampath_var.get() or None,
 				"hlae_path": self.hlaepath_var.get() or None,
+				"file_manager_path": self.file_manager_path_var.get() or None,
 				"events_blocksize": self.blockszvals[self.blockszselector.get()],
 				"ui_theme": self.ui_style_var.get(),
 				"lazy_reload": self.lazyreload_var.get(),

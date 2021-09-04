@@ -61,13 +61,13 @@ class ThreadMarkDemo(_StoppableBaseThread):
 	def run(self):
 		for container_type, should_mark, mark_func, exceptions in (
 			(
-				CNST.DATAGRABMODE.JSON,
+				CNST.DATA_GRAB_MODE.JSON,
 				self.mark_json,
 				self._mark_json,
 				(OSError, json.decoder.JSONDecodeError, KeyError, TypeError, ValueError),
 			),
 			(
-				CNST.DATAGRABMODE.EVENTS,
+				CNST.DATA_GRAB_MODE.EVENTS,
 				self.mark_events,
 				self._mark_events,
 				(OSError, TypeError, ValueError),

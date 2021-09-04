@@ -95,7 +95,7 @@ class ThreadReadFolder(_StoppableBaseThread):
 
 		# Grab demo information (returned through col_demo_info)
 		datamode = self.cfg.data_grab_mode
-		if datamode == 0: #Disabled
+		if datamode is CNST.DATA_GRAB_MODE.NONE:
 			self.__stop(
 				"Demo information disabled.",
 				3000,
@@ -108,7 +108,7 @@ class ThreadReadFolder(_StoppableBaseThread):
 			)
 			return
 
-		elif datamode == 1: #_events.txt
+		elif datamode is CNST.DATA_GRAB_MODE.EVENTS:
 			try:
 				with open(os.path.join(self.targetdir, CNST.EVENT_FILE), "r") as h:
 					logchunk_list = parse_events(h, self.cfg.events_blocksize)
@@ -126,8 +126,8 @@ class ThreadReadFolder(_StoppableBaseThread):
 				)
 				return
 
-		elif datamode == 2: #.json
-			try: # Get json files
+		elif datamode is CNST.DATA_GRAB_MODE.JSON:
+			try:
 				jsonfiles = [
 					i for i in os.listdir(self.targetdir) if
 					os.path.splitext(i)[1] == ".json" and

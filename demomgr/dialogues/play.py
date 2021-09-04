@@ -227,6 +227,7 @@ class Play(BaseDialog):
 				{"name": "Value", "col_id": "col_val"},
 			],
 			selection_type = SELECTION_TYPE.SINGLE,
+			resizable = True,
 		)
 		tick_options_frame = ttk.Frame(bookmark_region, style = "Contained.TFrame")
 		self.gototick_launchcmd_checkbox = ttk.Checkbutton(
@@ -439,7 +440,7 @@ class Play(BaseDialog):
 
 		tick = 0
 		if self.tick_mfl.selection:
-			tick = self.tick_mfl.get_cell("col_tick", next(iter(self.tick_mfl.selection)))
+			tick = self.tick_mfl.get_cell("col_tick", self.tick_mfl.get_selection())
 		if self.gototick_launchcmd_var.get():
 			self.launch_commands.append(f"demo_gototick {str(tick)}")
 		self.tick_entry.delete(0, tk.END)

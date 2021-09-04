@@ -1,5 +1,6 @@
 import os
 import json
+import subprocess
 import tkinter as tk
 import tkinter.ttk as ttk
 import tkinter.filedialog as tk_fid
@@ -14,6 +15,7 @@ from demomgr import context_menus
 from demomgr.config import Config
 from demomgr.demo_info import DemoInfo
 from demomgr.dialogues import *
+from demomgr.explorer import open_explorer
 from demomgr.tk_widgets import KeyValueDisplay, HeadedFrame
 from demomgr.helpers import build_date_formatter, convertunit, none_len_formatter, none_len_sortkey
 from demomgr.style_helper import StyleHelper
@@ -25,19 +27,19 @@ __version__ = "1.9.0"
 __author__ = "Square789"
 
 class DemoOp():
-	__slots__ = ("name", "cmd", "button", "handles_multiple")
+	__slots__ = ("name", "cmd", "button", "fit_for_selection_size")
 
-	def __init__(self, name, cmd, button, handles_multiple):
+	def __init__(self, name, cmd, button, fit_for_selection_size):
 		self.name = name
 		self.cmd = cmd
 		self.button = button
-		self.handles_multiple = handles_multiple
+		self.fit_for_selection_size = fit_for_selection_size
 
 	def __iter__(self):
 		yield self.name
 		yield self.cmd
 		yield self.button
-		yield self.handles_multiple
+		yield self.fit_for_selection_size
 
 class MainApp():
 	def __init__(self):
@@ -54,9 +56,10 @@ class MainApp():
 		self.root.wm_title(f"Demomgr v{__version__} by {__author__}")
 
 		self.demooperations = (
-			DemoOp("Play...", self._playdem, None, False),
-			DemoOp("Delete...", self._deldem, None, True),
-			DemoOp("Manage bookmarks...", self._managebookmarks, None, False),
+			DemoOp("Play...", self._playdem, None, lambda s: s == 1),
+			DemoOp("Delete...", self._deldem, None, lambda s: s > 0),
+			DemoOp("Manage bookmarks...", self._managebookmarks, None, lambda s: s == 1),
+			DemoOp("Reveal in file manager...", self._open_file_manager, None, lambda _: True),
 		)
 
 		self.cfgpath = platforming.get_cfg_storage_path()
@@ -242,8 +245,12 @@ class MainApp():
 			widgetframe1, text = "Cleanup by Filter...", command = self._cleanup
 		)
 
-		for i, (s, cmd, _, _) in enumerate(self.demooperations):
-			btn = ttk.Button(widgetframe2, text = s, command = cmd, state = tk.DISABLED)
+		demo_op_label = ttk.Label(widgetframe2, text = "Selection:")
+		for i, (s, cmd, _, fit_for_sel) in enumerate(self.demooperations):
+			btn = ttk.Button(
+				widgetframe2, text = s, command = cmd,
+				state = tk.NORMAL if fit_for_sel(0) else tk.DISABLED
+			)
 			self.demooperations[i].button = btn
 
 		self.statusbarlabel = ttk.Label(self.statusbar, text = "Ready.", style = "Statusbar.TLabel")
@@ -257,7 +264,7 @@ class MainApp():
 		widgetframe0.grid(column = 0, row = 0, columnspan = 2, sticky = "ew", pady = 5)
 
 		#widgetframe1
-		filterlabel.pack(side = tk.LEFT, fill = tk.X, expand = 0, padx = (0, 3))
+		filterlabel.pack(side = tk.LEFT, fill = tk.X, expand = 0)
 		self.filterentry.pack(side = tk.LEFT, fill = tk.X, expand = 1, padx = 3)
 		self.filterbtn.pack(side = tk.LEFT, fill = tk.X, expand = 0, padx = 3)
 		self.resetfilterbtn.pack(side = tk.LEFT, fill = tk.X, expand = 0, padx = 3)
@@ -265,6 +272,7 @@ class MainApp():
 		widgetframe1.grid(column = 0, row = 1, columnspan = 2, sticky = "ew", pady = 5)
 
 		#widgetframe2
+		demo_op_label.pack(side = tk.LEFT, padx = (0, 5))
 		for op in self.demooperations:
 			op.button.pack(side = tk.LEFT, fill = tk.X, expand = 0, padx = (0, 6))
 		widgetframe2.grid(column = 0, row = 2, columnspan = 2, sticky = "ew", pady = 5)
@@ -298,12 +306,10 @@ class MainApp():
 		context_menus.multiframelist_cb(event, self.listbox, self.demooperations)
 
 	def _mfl_select_callback(self, event):
-		for _, _, btn, multiple in self.demooperations:
-			# worst formatting of the year award 2007
+		for _, _, btn, fit_for_sel in self.demooperations:
 			btn.configure(
 				state = (
-					tk.NORMAL if self.listbox.selection and \
-						(len(self.listbox.selection) == 1 or multiple)
+					tk.NORMAL if fit_for_sel(len(self.listbox.selection))
 					else tk.DISABLED
 				)
 			)
@@ -357,6 +363,44 @@ class MainApp():
 			self.cfg.update(**dialog.result.data)
 			self.reloadgui()
 			self._applytheme()
+
+	def _open_file_manager(self):
+		"""
+		Opens file manager in the current directory.
+		"""
+		if self.curdir is None:
+			return
+
+		if self.cfg.file_manager_mode is CNST.FILE_MANAGER_MODE.WINDOWS_EXPLORER:
+			try:
+				open_explorer(
+					self.curdir,
+					[self.listbox.get_cell("col_filename", i) for i in sorted(self.listbox.selection)]
+				)
+			except OSError as e:
+				tk_msg.showerror(
+					"Demomgr - Error", f"Error launching explorer: {e}", parent = self.root
+				)
+
+		elif self.cfg.file_manager_mode is CNST.FILE_MANAGER_MODE.USER_DEFINED:
+			if self.cfg.file_manager_path is None:
+				tk_msg.showinfo(
+					"Demomgr",
+					"No file manager specified, please do so in Settings > Paths.",
+					parent = self.root
+				)
+				return
+
+			try:
+				subprocess.Popen([self.cfg.file_manager_path, self.curdir])
+			except FileNotFoundError:
+				tk_msg.showinfo(
+					"Demomgr - Error", "File manager executable not found.", parent = self.root
+				)
+			except OSError as e:
+				tk_msg.showerror(
+					"Demomgr - Error", f"Error launching file manager: {e}", parent = self.root
+				)
 
 	def _playdem(self):
 		"""
