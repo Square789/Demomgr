@@ -70,16 +70,20 @@ class MainApp():
 
 		# Threading setup
 		self.threadgroups = {
-			"cleanup": ThreadGroup(ThreadFilter, self.root),
+			"filter_select": ThreadGroup(ThreadFilter, self.root),
 			"demoinfo": ThreadGroup(ThreadDemoInfo, self.root),
 			"fetchdata": ThreadGroup(ThreadReadFolder, self.root),
 			"filter": ThreadGroup(ThreadFilter, self.root),
 		}
 
-		self.threadgroups["cleanup"].register_finalize_method(self._finalization_cleanup)
+		self.threadgroups["filter_select"].register_finalize_method(
+			self._finalization_filter_select
+		)
 		self.threadgroups["fetchdata"].register_finalize_method(self._finalization_fetchdata)
 
-		self.threadgroups["cleanup"].decorate_and_patch(self, self._after_callback_cleanup)
+		self.threadgroups["filter_select"].decorate_and_patch(
+			self, self._after_callback_filter_select
+		)
 		self.threadgroups["demoinfo"].decorate_and_patch(self, self._after_callback_demoinfo)
 		self.threadgroups["fetchdata"].decorate_and_patch(self, self._after_callback_fetchdata)
 		self.threadgroups["filter"].decorate_and_patch(self, self._after_callback_filter)
@@ -237,12 +241,12 @@ class MainApp():
 		filterlabel = ttk.Label(widgetframe1, text = "Filter demos: ")
 		self.filterentry = ttk.Entry(widgetframe1, textvariable = self.filterentry_var)
 		self.filterentry.bind("<Return>", self._filter)
-		self.filterbtn = ttk.Button(widgetframe1, text = "Apply Filter", command = self._filter)
+		self.filterbtn = ttk.Button(widgetframe1, text = "Apply filter", command = self._filter)
 		self.resetfilterbtn = ttk.Button(
-			widgetframe1, text = "Clear Filter / Refresh", command = self.reloadgui
+			widgetframe1, text = "Clear filter / Refresh", command = self.reloadgui
 		)
-		self.cleanupbtn = ttk.Button(
-			widgetframe1, text = "Cleanup by Filter...", command = self._cleanup
+		self.filter_select_btn = ttk.Button(
+			widgetframe1, text = "Select by filter", command = self._filter_select
 		)
 
 		demo_op_label = ttk.Label(widgetframe2, text = "Selection:")
@@ -268,7 +272,7 @@ class MainApp():
 		self.filterentry.pack(side = tk.LEFT, fill = tk.X, expand = 1, padx = 3)
 		self.filterbtn.pack(side = tk.LEFT, fill = tk.X, expand = 0, padx = 3)
 		self.resetfilterbtn.pack(side = tk.LEFT, fill = tk.X, expand = 0, padx = 3)
-		self.cleanupbtn.pack(side = tk.LEFT, fill = tk.X, expand = 0, padx = (3, 0))
+		self.filter_select_btn.pack(side = tk.LEFT, fill = tk.X, expand = 0, padx = (3, 0))
 		widgetframe1.grid(column = 0, row = 1, columnspan = 2, sticky = "ew", pady = 5)
 
 		#widgetframe2
@@ -577,9 +581,13 @@ class MainApp():
 		if sig.value < 0x100: # Finish
 			return THREADGROUPSIG.FINISHED
 		elif sig is THREADSIG.RESULT_HEADER:
-			for k, v in args[0].items():
-				if k in CNST.HEADER_HUMAN_NAMES:
-					self.demo_header_kvd.set_value(CNST.HEADER_HUMAN_NAMES[k], str(v))
+			if args[0] is None:
+				for v in CNST.HEADER_HUMAN_NAMES.values():
+					self.demo_header_kvd.set_value(v, "?")
+			else:
+				for k, v in args[0].items():
+					if k in CNST.HEADER_HUMAN_NAMES:
+						self.demo_header_kvd.set_value(CNST.HEADER_HUMAN_NAMES[k], str(v))
 			return THREADGROUPSIG.CONTINUE
 		elif sig is THREADSIG.RESULT_FS_INFO:
 			return THREADGROUPSIG.CONTINUE
@@ -634,30 +642,29 @@ class MainApp():
 			"l_totalsize", sum(self.listbox.get_column("col_filesize"))
 		)
 
-	def _cleanup(self):
+	def _filter_select(self):
 		"""
-		Starts a filtering thread and calls the cleanup after callback
-		to open a Deleter dialog once the thread finishes.
+		Starts the filter-select thread after disabling the invoking button.
 		"""
 		if self.filterentry_var.get() == "":
 			return
-		self.threadgroups["cleanup"].start_thread(
+		self.filter_select_btn.config(text = "Select by filter", state = tk.DISABLED)
+		self.threadgroups["filter_select"].start_thread(
 			filterstring = self.filterentry_var.get(),
 			curdir = self.curdir,
 			silent = True,
 			cfg = self.cfg,
 		)
-		self.cleanupbtn.config(text = "Cleanup by filter...", state = tk.DISABLED)
 
-	def _after_callback_cleanup(self, sig, *args):
+	def _after_callback_filter_select(self, sig, *args):
 		"""
 		Loop worker for the after callback decorator stub.
-		Grabs thread signals from the cleanup queue and acts
-		accordingly, opening a Deletion dialog once the thread is done.
+		Grabs thread signals from the filter-select queue and acts
+		accordingly, making a selection once the thread is done.
 		(Incomplete, requires `self`-dependent decoration in __init__())
 		"""
 		if sig.is_finish_signal():
-			self.cleanupbtn.config(text = "Cleanup by filter...", state = tk.NORMAL)
+			self.filter_select_btn.config(text = "Select by filter", state = tk.NORMAL)
 			return THREADGROUPSIG.FINISHED
 		elif sig is THREADSIG.INFO_STATUSBAR:
 			self.setstatusbar(*args[0])
@@ -665,23 +672,17 @@ class MainApp():
 		elif sig is THREADSIG.RESULT_DEMODATA:
 			return THREADGROUPSIG.HOLDBACK
 
-	def _finalization_cleanup(self, sig, *args):
+	def _finalization_filter_select(self, sig, *args):
 		if sig is None:
 			return
 		if sig is not THREADSIG.RESULT_DEMODATA: # weird
 			return
-		del_diag = Deleter(
-			self.root,
-			demodir = self.curdir,
-			to_delete = args[0]["col_filename"],
-			cfg = self.cfg,
-			styleobj = self.ttkstyle,
-		)
-		del_diag.show()
-		if del_diag.result.state == DIAGSIG.SUCCESS:
-			# NOTE: I could use lazyreload but it's honestly not worth
-			# the work
-			self.reloadgui()
+
+		filtered_files = set(args[0]["col_filename"])
+		col_data = self.listbox.get_column("col_filename")
+		new_selection = [i for i, name in enumerate(col_data) if name in filtered_files]
+
+		self.listbox.set_selection(new_selection)
 
 	def _filter(self, *_):
 		"""Starts a filtering thread and configures the filtering button."""
