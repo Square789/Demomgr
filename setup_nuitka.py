@@ -48,7 +48,7 @@ def main():
 		shutil.rmtree(build_dir)
 
 	nuitka_process = subprocess.run((
-		"py", "-m", "nuitka",
+		"python", "-m", "nuitka",
 		"--mingw64", "--standalone", "--follow-imports",
 		"--plugin-enable=tk-inter",
 		f"--output-dir={build_dir}", run_py
