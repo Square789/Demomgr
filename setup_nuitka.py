@@ -7,6 +7,8 @@ import re
 import shutil
 import subprocess
 
+ASSUME_YES = os.getenv("NUITKA_ASSUME_YES") is not None
+
 
 # files that the program still runs without (according
 # to ProcessExplorer) and that are relatively large in size.
@@ -47,12 +49,21 @@ def main():
 	if build_dir.exists():
 		shutil.rmtree(build_dir)
 
-	nuitka_process = subprocess.run((
-		"python", "-m", "nuitka",
-		"--mingw64", "--standalone", "--follow-imports",
+	options = ["python", "-m", "nuitka"]
+	if ASSUME_YES:
+		options.append("--assume-yes-for-downloads")
+	options.extend((
+		"--mingw64",
+		"--standalone",
+		"--follow-imports",
 		"--plugin-enable=tk-inter",
-		f"--output-dir={build_dir}", run_py
+		f"--output-dir={build_dir}",
+		run_py,
 	))
+
+	nuitka_process = subprocess.run(options)
+	if nuitka_process.returncode != 0:
+		raise RuntimeError("Nuitka failed.")
 
 	# Copy over ui resources, can't figure out the nuitka switch
 	os.makedirs(str(dist_dir / "demomgr" / "ui_themes"))

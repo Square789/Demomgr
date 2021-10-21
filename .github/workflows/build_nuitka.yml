@@ -14,6 +14,8 @@ jobs:
       matrix:
         architecture: ['x86', 'x64']
 
+    env: [ NUITKA_ASSUME_YES ]
+
     runs-on: windows-latest
 
     steps:
