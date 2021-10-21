@@ -27,8 +27,11 @@ jobs:
           python-version: '3.8'
           architecture: ${{ matrix.architecture }}
 
-      - name: Install nutika
-        run: pip install nuitka
+      - name: Install wheel, nuitka and dependencies
+        run: |
+          pip install wheel
+          pip install nuitka
+          pip install -r $GITHUB_WORKSPACE/requirements.txt
 
       - name: Build
         run: python $GITHUB_WORKSPACE/setup_nuitka.py
