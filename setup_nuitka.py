@@ -2,11 +2,11 @@ from datetime import datetime
 from itertools import product
 import os
 from pathlib import Path
+import pkg_resources
 import re
 import shutil
 import subprocess
 
-import pkg_resources
 
 # files that the program still runs without (according
 # to ProcessExplorer) and that are relatively large in size.

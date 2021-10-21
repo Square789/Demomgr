@@ -31,7 +31,7 @@ jobs:
         run: |
           pip install wheel
           pip install nuitka
-          pip install -r $GITHUB_WORKSPACE/requirements.txt
+          pip install -r requirements.txt
 
       - name: Build
-        run: python $GITHUB_WORKSPACE/setup_nuitka.py
+        run: python setup_nuitka.py
