@@ -15,7 +15,8 @@ jobs:
         architecture: ['x86', 'x64']
 
     env:
-      NUITKA_ASSUME_YES: '1'
+      NUITKA_ASSUME_YES: 1
+      NUITKA_COMPILER_USE_DEFAULT: 1
 
     runs-on: windows-latest
 

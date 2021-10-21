@@ -8,6 +8,7 @@ import shutil
 import subprocess
 
 ASSUME_YES = os.getenv("NUITKA_ASSUME_YES") is not None
+COMPILER_USE_DEFAULT = os.getenv("NUITKA_COMPILER_USE_DEFAULT") is not None
 
 
 # files that the program still runs without (according
@@ -52,8 +53,9 @@ def main():
 	options = ["python", "-m", "nuitka"]
 	if ASSUME_YES:
 		options.append("--assume-yes-for-downloads")
+	if COMPILER_USE_DEFAULT is None:
+		options.extend("--mingw64")
 	options.extend((
-		"--mingw64",
 		"--standalone",
 		"--follow-imports",
 		"--plugin-enable=tk-inter",
