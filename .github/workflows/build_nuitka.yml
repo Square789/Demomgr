@@ -2,8 +2,10 @@ name: Build nuitka distribution
 
 on:
   push:
-    branches: [ master ]
-    tags: [ v* ]
+    branches:
+      - 'master'
+    tags:
+      - 'v*'
 
   # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
@@ -17,6 +19,9 @@ jobs:
     env:
       NUITKA_ASSUME_YES: 1
       NUITKA_COMPILER_USE_DEFAULT: 1
+      BUILD_NAME: demomgr-win${{ matrix.architecture }}
+      DEMOMGR_DIST_PATH: ./nuitka_build/demomgr.dist
+      DEMOMGR_DIST_ZIP_PATH: ./nuitka_build/${{ env.ZIP_NAME }}.zip
 
     runs-on: windows-latest
 
@@ -39,3 +44,12 @@ jobs:
 
       - name: Build
         run: python setup_nuitka.py
+
+      - name: Zip
+        run: '7z a -tzip $DEMOMGR_DIST_ZIP_PATH $DEMOMGR_DIST_PATH'
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: ${{ env.BUILD_NAME }}
+          path: $DEMOMGR_DIST_ZIP_PATH
