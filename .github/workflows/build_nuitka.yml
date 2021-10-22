@@ -49,11 +49,14 @@ jobs:
           arch = \\\"${{ matrix.architecture }}\\\"\\n\
           dist_path = \\\"./nuitka_build/demomgr.dist\\\"\\n\
           \\n\
-          print(\\\"!!!\\\", os.getenv(\\\"GITHUB_REF\\\", \\\"\\\"))\\n\
-          if (sv := RE_SEMVER.search(os.getenv(\\\"GITHUB_REF\\\", \\\"\\\"))) is None:\\n\
-          \   raise RuntimeError(\\\"Semver not found in GITHUB_REF!\\\")\\n\
+          raw_ref = os.getenv(\\\"GITHUB_REF\\\", \\\"unknown\\\")\\n\
+          if (ref := RE_SEMVER.search(raw_ref)) is None:\\n\
+          \   print(\\\"Semver not found in GITHUB_REF, using last segment!\\\")\\n\
+          \   ref = raw_ref.split(\\\"/\\\")[-1]\\n\
+          else:\\n\
+          \   ref = ref[0]\\n\
           \\n\
-          build_name = f\\\"demomgr_v{sv[0]}_win{arch}\\\"\\n\
+          build_name = f\\\"demomgr_v{ref}_win{arch}\\\"\\n\
           zip_path = f\\\"./nuitka_build/{build_name}.zip\\\"\\n\
           for n, v in (\\n\
           \   (\\\"BUILD_NAME\\\", \\\"DEMOMGR_DIST_ZIP_PATH\\\", \\\"DEMOMGR_DIST_PATH\\\"),\\n\
