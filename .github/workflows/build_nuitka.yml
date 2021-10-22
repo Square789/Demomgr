@@ -26,30 +26,31 @@ jobs:
       # So much for the human readability
       - name: Generate variables
         id: vars
-        run: >
+        run: "
           python -c '
-          import os
-
-          import re
-
-          RE_SEMVER = re.compile("(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-((?:0|[1-9][0-9]*|[0-9]*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9][0-9]*|[0-9]*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$")\n
-
-          arch = "${{ matrix.architecture }}"
-
-          dist_path = "./nuitka_build/demomgr.dist"
-
-          sv = RE_SEMVER.search("${{  }})"
-
-          if sv is None:
-           raise RuntimeError("Semver not found in github.ref!")
-
-          build_name = f"demomgr_v{sv[0]}_win{arch}"
-
-          zip_path = f"./nuitka_build/{build_name}.zip"
-
-          for n, v in (("BUILD_NAME", "DEMOMGR_DIST_ZIP_PATH", "DEMOMGR_DIST_PATH"), (build_name, zip_path, dist_path)):
-           print(f"::set-output name={n}::{v}")
-          '
+          import os\n
+          import re\n
+          \n
+          RE_SEMVER = re.compile(\n
+          \  \"(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\"\n
+          \  \"(?:-((?:0|[1-9][0-9]*|[0-9]*[a-zA-Z-][0-9a-zA-Z-]*)\"\n
+          \  \"(?:\\.(?:0|[1-9][0-9]*|[0-9]*[a-zA-Z-][0-9a-zA-Z-]*))*))\"\n
+          \  \"?(?:\\+([0-9a-zA-Z-]+(?:\\.[0-9a-zA-Z-]+)*))?$\"\n
+          )\n
+          arch = \"${{ matrix.architecture }}\"\n
+          dist_path = \"./nuitka_build/demomgr.dist\"\n
+          \n
+          if (sv := RE_SEMVER.search(\"${{ github.ref }}\")) is None:\n
+          \ raise RuntimeError(\"Semver not found in github.ref!\")\n
+          \n
+          build_name = f\"demomgr_v{sv[0]}_win{arch}\"\n
+          zip_path = f\"./nuitka_build/{build_name}.zip\"\n
+          for n, v in (\n
+          \ (\"BUILD_NAME\", \"DEMOMGR_DIST_ZIP_PATH\", \"DEMOMGR_DIST_PATH\"),\n
+          \ (build_name, zip_path, dist_path)\n
+          ):\n
+          \ print(f\"::set-output name={n}::{v}\")\n
+        "
 
       - name: Checkout
         uses: actions/checkout@v2
