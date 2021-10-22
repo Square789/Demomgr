@@ -50,7 +50,7 @@ jobs:
             (build_name, zip_path, dist_path)\\n
           ):\\n
             print(f\"::set-output name={n}::{v}\")\\n
-          \"\"\")''
+          \"\"\")'
         "
 
       - name: Checkout
