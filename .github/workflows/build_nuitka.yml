@@ -57,10 +57,9 @@ jobs:
           \   ref = ref[0]\\n\
           \\n\
           build_name = f\\\"demomgr_v{ref}_win{arch}\\\"\\n\
-          zip_path = f\\\"./nuitka_build/{build_name}.zip\\\"\\n\
           for n, v in zip(\\n\
-          \   (\\\"BUILD_NAME\\\", \\\"DEMOMGR_DIST_ZIP_PATH\\\", \\\"DEMOMGR_DIST_GLOB\\\"),\\n\
-          \   (build_name, zip_path, dist_glob)\\n\
+          \   (\\\"BUILD_NAME\\\", \\\"DEMOMGR_DIST_GLOB\\\"),\\n\
+          \   (build_name, dist_glob)\\n\
           ):\\n\
           \   print(f\\\"::set-output name={n}::{v}\\\")\\n\
           \\\"\\\"\\\")'
@@ -75,14 +74,8 @@ jobs:
       - name: Build
         run: python setup_nuitka.py
 
-      - name: Zip
-        run: >
-          7z a -tzip
-          ${{ steps.vars.outputs.DEMOMGR_DIST_ZIP_PATH }}
-          ${{ steps.vars.outputs.DEMOMGR_DIST_GLOB }}
-
-      - name: Upload artifact
+      - name: Create and upload artifact
         uses: actions/upload-artifact@v2
         with:
           name: ${{ steps.vars.outputs.BUILD_NAME }}
-          path: ${{ steps.vars.outputs.DEMOMGR_DIST_ZIP_PATH }}
+          path: ${{ steps.vars.outputs.DEMOMGR_DIST_GLOB }}
