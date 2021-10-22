@@ -26,7 +26,34 @@ jobs:
     runs-on: windows-latest
 
     steps:
-      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
+      # So much for the human readability
+      - name: Generate variables
+        id: vars
+        run: >
+          python -c '
+          import os
+
+          import re
+
+          RE_SEMVER = re.compile("(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-((?:0|[1-9][0-9]*|[0-9]*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9][0-9]*|[0-9]*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$")\n
+
+          arch = "${{ matrix.architecture }}"
+
+          dist_path = "./nuitka_build/demomgr.dist"
+
+          sv = RE_SEMVER.search("${{  }})"
+
+          if sv is None:
+           raise RuntimeError("Semver not found in github.ref!")
+
+          build_name = f"demomgr_v{sv[0]}_win{arch}"
+
+          zip_path = f"./nuitka_build/{build_name}.zip"
+
+          for n, v in (("BUILD_NAME", "DEMOMGR_DIST_ZIP_PATH", "DEMOMGR_DIST_PATH"), (build_name, zip_path, dist_path)):
+           print(f"::set-output name={n}::{v}")
+          '
+
       - name: Checkout
         uses: actions/checkout@v2
 
@@ -46,10 +73,13 @@ jobs:
         run: python setup_nuitka.py
 
       - name: Zip
-        run: '7z a -tzip $DEMOMGR_DIST_ZIP_PATH $DEMOMGR_DIST_PATH'
+        run: >
+          7z a -tzip
+          ${{ steps.vars.outputs.DEMOMGR_DIST_ZIP_PATH }}
+          ${{ steps.vars.outputs.DEMOMGR_DIST_PATH }}
 
       - name: Upload artifact
         uses: actions/upload-artifact@v2
         with:
-          name: ${{ env.BUILD_NAME }}
-          path: $DEMOMGR_DIST_ZIP_PATH
+          name: ${{ steps.vars.outputs.BUILD_NAME }}
+          path: ${{ steps.vars.outputs.DEMOMGR_DIST_ZIP_PATH }}
