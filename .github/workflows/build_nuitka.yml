@@ -49,6 +49,7 @@ jobs:
           arch = \\\"${{ matrix.architecture }}\\\"\\n\
           dist_path = \\\"./nuitka_build/demomgr.dist\\\"\\n\
           \\n\
+          print(\\\"!!!\\\", os.getenv(\\\"GITHUB_REF\\\", \\\"\\\"))\\n\
           if (sv := RE_SEMVER.search(os.getenv(\\\"GITHUB_REF\\\", \\\"\\\"))) is None:\\n\
           \   raise RuntimeError(\\\"Semver not found in GITHUB_REF!\\\")\\n\
           \\n\
