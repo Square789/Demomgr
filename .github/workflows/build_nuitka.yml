@@ -27,7 +27,7 @@ jobs:
       - name: Generate variables
         id: vars
         run: "
-          (\n
+          (
           echo 'import os' ;
           echo 'import re' ;
           echo '' ;
