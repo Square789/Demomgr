@@ -58,7 +58,7 @@ jobs:
           \\n\
           build_name = f\\\"demomgr_v{ref}_win{arch}\\\"\\n\
           zip_path = f\\\"./nuitka_build/{build_name}.zip\\\"\\n\
-          for n, v in (\\n\
+          for n, v in zip(\\n\
           \   (\\\"BUILD_NAME\\\", \\\"DEMOMGR_DIST_ZIP_PATH\\\", \\\"DEMOMGR_DIST_PATH\\\"),\\n\
           \   (build_name, zip_path, dist_path)\\n\
           ):\\n\
