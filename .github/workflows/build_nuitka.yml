@@ -27,29 +27,30 @@ jobs:
       - name: Generate variables
         id: vars
         run: "
-          python -c '
-          import os\n
-          import re\n
-          \n
-          RE_SEMVER = re.compile(\n
-          \  \"(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\"\n
-          \  \"(?:-((?:0|[1-9][0-9]*|[0-9]*[a-zA-Z-][0-9a-zA-Z-]*)\"\n
-          \  \"(?:\\.(?:0|[1-9][0-9]*|[0-9]*[a-zA-Z-][0-9a-zA-Z-]*))*))\"\n
-          \  \"?(?:\\+([0-9a-zA-Z-]+(?:\\.[0-9a-zA-Z-]+)*))?$\"\n
-          )\n
-          arch = \"${{ matrix.architecture }}\"\n
-          dist_path = \"./nuitka_build/demomgr.dist\"\n
-          \n
-          if (sv := RE_SEMVER.search(\"${{ github.ref }}\")) is None:\n
-          \ raise RuntimeError(\"Semver not found in github.ref!\")\n
-          \n
-          build_name = f\"demomgr_v{sv[0]}_win{arch}\"\n
-          zip_path = f\"./nuitka_build/{build_name}.zip\"\n
-          for n, v in (\n
-          \ (\"BUILD_NAME\", \"DEMOMGR_DIST_ZIP_PATH\", \"DEMOMGR_DIST_PATH\"),\n
-          \ (build_name, zip_path, dist_path)\n
-          ):\n
-          \ print(f\"::set-output name={n}::{v}\")\n
+          (\n
+          echo 'import os' ;
+          echo 'import re' ;
+          echo '' ;
+          echo 'RE_SEMVER = re.compile(' ;
+          echo '  \"(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\"' ;
+          echo '  \"(?:-((?:0|[1-9][0-9]*|[0-9]*[a-zA-Z-][0-9a-zA-Z-]*)\"' ;
+          echo '  \"(?:\\.(?:0|[1-9][0-9]*|[0-9]*[a-zA-Z-][0-9a-zA-Z-]*))*))\"' ;
+          echo '  \"?(?:\\+([0-9a-zA-Z-]+(?:\\.[0-9a-zA-Z-]+)*))?$\"' ;
+          echo ')' ;
+          echo 'arch = \"${{ matrix.architecture }}\"' ;
+          echo 'dist_path = \"./nuitka_build/demomgr.dist\"' ;
+          echo '' ;
+          echo 'if (sv := RE_SEMVER.search(\"${{ github.ref }}\")) is None:' ;
+          echo ' raise RuntimeError(\"Semver not found in github.ref!\")' ;
+          echo '' ;
+          echo 'build_name = f\"demomgr_v{sv[0]}_win{arch}\"' ;
+          echo 'zip_path = f\"./nuitka_build/{build_name}.zip\"' ;
+          echo 'for n, v in (' ;
+          echo '  (\"BUILD_NAME\", \"DEMOMGR_DIST_ZIP_PATH\", \"DEMOMGR_DIST_PATH\"),' ;
+          echo '  (build_name, zip_path, dist_path)' ;
+          echo '):' ;
+          echo '  print(f\"::set-output name={n}::{v}\")'
+          ) | python
         "
 
       - name: Checkout
