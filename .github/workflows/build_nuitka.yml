@@ -19,9 +19,6 @@ jobs:
     env:
       NUITKA_ASSUME_YES: 1
       NUITKA_COMPILER_USE_DEFAULT: 1
-      BUILD_NAME: demomgr-win${{ matrix.architecture }}
-      DEMOMGR_DIST_PATH: ./nuitka_build/demomgr.dist
-      DEMOMGR_DIST_ZIP_PATH: ./nuitka_build/${{ BUILD_NAME }}.zip
 
     runs-on: windows-latest
 
