@@ -47,7 +47,7 @@ jobs:
           \   r\\\"?(?:\\+([0-9a-zA-Z-]+(?:\\.[0-9a-zA-Z-]+)*))?$\\\"\\n\
           )\\n\
           arch = \\\"${{ matrix.architecture }}\\\"\\n\
-          dist_path = \\\"./nuitka_build/demomgr.dist\\\"\\n\
+          dist_glob = \\\"./nuitka_build/demomgr.dist/**\\\"\\n\
           \\n\
           raw_ref = os.getenv(\\\"GITHUB_REF\\\", \\\"unknown\\\")\\n\
           if (ref := RE_SEMVER.search(raw_ref)) is None:\\n\
@@ -59,8 +59,8 @@ jobs:
           build_name = f\\\"demomgr_v{ref}_win{arch}\\\"\\n\
           zip_path = f\\\"./nuitka_build/{build_name}.zip\\\"\\n\
           for n, v in zip(\\n\
-          \   (\\\"BUILD_NAME\\\", \\\"DEMOMGR_DIST_ZIP_PATH\\\", \\\"DEMOMGR_DIST_PATH\\\"),\\n\
-          \   (build_name, zip_path, dist_path)\\n\
+          \   (\\\"BUILD_NAME\\\", \\\"DEMOMGR_DIST_ZIP_PATH\\\", \\\"DEMOMGR_DIST_GLOB\\\"),\\n\
+          \   (build_name, zip_path, dist_glob)\\n\
           ):\\n\
           \   print(f\\\"::set-output name={n}::{v}\\\")\\n\
           \\\"\\\"\\\")'
@@ -79,7 +79,7 @@ jobs:
         run: >
           7z a -tzip
           ${{ steps.vars.outputs.DEMOMGR_DIST_ZIP_PATH }}
-          ${{ steps.vars.outputs.DEMOMGR_DIST_PATH }}
+          ${{ steps.vars.outputs.DEMOMGR_DIST_GLOB }}
 
       - name: Upload artifact
         uses: actions/upload-artifact@v2
