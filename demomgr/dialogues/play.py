@@ -301,7 +301,7 @@ class Play(BaseDialog):
 		# Event tick region
 		tick_options_frame.grid_columnconfigure(0, weight = 1)
 		self.gototick_launchcmd_checkbox.grid(
-			row = 0, column = 0, columnspan = 2, pady = (0, 5), sticky = "w"
+			row = 0, column = 0, columnspan = 2, pady = (0, 5), ipadx = 2, sticky = "w"
 		)
 		self.tick_entry.grid(row = 1, column = 0, padx = (0, 5))
 		self.rcon_send_gototick_button.grid(row = 1, column = 1)

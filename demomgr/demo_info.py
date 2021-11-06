@@ -3,14 +3,13 @@ Contains the DemoInfo class and offers ability to construct it
 from either a handle_events.RawLogchunk or a json file.
 """
 
-import json
 import re
 
 from demomgr.helpers import getstreakpeaks
 from demomgr import handle_events as handle_ev
 
 RE_LINE = re.compile(r'\[(\d{4}/\d\d/\d\d \d\d:\d\d)\] (Killstreak|Bookmark)'
-	r' (.*) \("([^"]*)" at (\d*)\)')
+	r' (.*) \("([^"]*)" at (\d+)\)')
 
 class GROUP:
 	DATE = 1
@@ -37,58 +36,60 @@ class DemoInfo():
 		self.killstreaks = killstreaks
 		self.bookmarks = bookmarks
 
-def parse_json(handle, demo_name):
-	"""
-	Parses the file handle which should contain a json file of a
-	standard format and turns the contained data into DemoInfo.
+	@classmethod
+	def from_json(cls, json_data, demo_name):
+		"""
+		Parses the given data which should be retrieved from a standard format
+		json file and turns it into a DemoInfo instance.
 
-	handle: Handle to read json from.
-	demo_name: Name of associated demo file; i.e. "foo.dem". (str)
+		json_data: Dict converted from a JSON file as the source engine writes it.
+		demo_name: Name of associated demo file; i.e. "foo.dem". (str)
 
-	May raise: OSError, json.decoder.JSONDecodeError, KeyError, ValueError
-	"""
-	cur_bm = []
-	cur_ks = []
+		May raise: KeyError, ValueError
+		"""
+		cur_bm = []
+		cur_ks = []
 
-	curjson = json.load(handle)
-	for k in curjson["events"]:
-		if k["name"] == "Killstreak":
-			cur_ks.append((int(k["value"]), int(k["tick"])))
-		elif k["name"] == "Bookmark":
-			cur_bm.append((k["value"], int(k["tick"])))
-	cur_ks = getstreakpeaks(cur_ks)
-	return DemoInfo(demo_name, cur_ks, cur_bm)
+		for k in json_data["events"]:
+			if k["name"] == "Killstreak":
+				cur_ks.append((int(k["value"]), int(k["tick"])))
+			elif k["name"] == "Bookmark":
+				cur_bm.append((k["value"], int(k["tick"])))
+		return cls(demo_name, cur_ks, cur_bm)
 
-def parse_logchunk(in_chk):
-	"""
-	Takes a handle_events.RawLogchunk and converts it into DemoInfo.
+	@classmethod
+	def from_raw_logchunk(cls, in_chk):
+		"""
+		Takes a handle_events.RawLogchunk and converts it into DemoInfo.
 
-	in_chk : RawLogchunk to process, as returned by an EventReader.
+		in_chk : RawLogchunk to process, as returned by an EventReader.
 
-	May raise: ValueError on bad logchunks.
-	"""
-	loglines = in_chk.content.split("\n")
-	if not loglines:
-		raise ValueError("Logchunks may not be empty.")
-	regres = RE_LINE.search(loglines[0])
-	if not regres:
-		raise ValueError("Regex match failed, Logchunk likely malformed.")
-	demo = regres[GROUP.DEMO] + ".dem"
+		May raise: ValueError on bad logchunks.
+		"""
+		loglines = in_chk.content.split("\n")
+		if not loglines:
+			raise ValueError("Logchunks may not be empty.")
+		regres = RE_LINE.search(loglines[0])
+		if not regres:
+			raise ValueError("Regex match failed, Logchunk malformed.")
+		demo = regres[GROUP.DEMO] + ".dem"
 
-	killstreaks = []
-	bookmarks = []
-	for line in loglines:
-		regres = RE_LINE.search(line)
-		line_type = regres[GROUP.TYPE]
-		value = regres[GROUP.VALUE]
-		tick = int(regres[GROUP.TICK])
-		if line_type == "Killstreak":
-			killstreaks.append((int(value), tick))
-		elif line_type == "Bookmark":
-			bookmarks.append((value, tick))
-	killstreaks = getstreakpeaks(killstreaks)
+		killstreaks = []
+		bookmarks = []
+		for line in loglines:
+			regres = RE_LINE.search(line)
+			if regres is None:
+				raise ValueError("Regex match failed, Logchunk malformed.")
+			line_type = regres[GROUP.TYPE]
+			value = regres[GROUP.VALUE]
+			tick = int(regres[GROUP.TICK])
+			if line_type == "Killstreak":
+				killstreaks.append((int(value), tick))
+			elif line_type == "Bookmark":
+				bookmarks.append((value, tick))
+		killstreaks = getstreakpeaks(killstreaks)
 
-	return DemoInfo(demo, killstreaks, bookmarks)
+		return cls(demo, killstreaks, bookmarks)
 
 def parse_events(handle, blocksz):
 	"""
@@ -101,4 +102,4 @@ def parse_events(handle, blocksz):
 	May raise OSError, PermissionError, ValueError.
 	"""
 	with handle_ev.EventReader(handle, blocksz=blocksz) as reader:
-		return [parse_logchunk(chk) for chk in reader]
+		return [DemoInfo.from_raw_logchunk(chk) for chk in reader]

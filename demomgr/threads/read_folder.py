@@ -1,11 +1,10 @@
 """Contains the ThreadReadFolder class."""
 
 import os
-import json
 import time
 
-from demomgr.demo_info import parse_events, parse_json
-from demomgr.helpers import assign_demo_info
+from demomgr.demo_data_manager import DemoDataManager
+from demomgr.demo_info import DemoInfo
 from demomgr.threads._threadsig import THREADSIG
 from demomgr.threads._base import _StoppableBaseThread
 from demomgr import constants as CNST
@@ -73,14 +72,6 @@ class ThreadReadFolder(_StoppableBaseThread):
 				if os.path.splitext(i)[1] == ".dem" and
 					os.path.isfile(os.path.join(self.targetdir, i))
 			]
-			datescreated = [os.path.getmtime(os.path.join(self.targetdir, i)) for i in files]
-			if self.stoprequest.is_set():
-				self.queue_out_put(THREADSIG.ABORTED)
-				return
-			sizes = [os.path.getsize(os.path.join(self.targetdir, i)) for i in files]
-			if self.stoprequest.is_set():
-				self.queue_out_put(THREADSIG.ABORTED)
-				return
 		except FileNotFoundError:
 			self.__stop(
 				f"ERROR: Current directory {self.targetdir!r} does not exist.",
@@ -93,91 +84,57 @@ class ThreadReadFolder(_StoppableBaseThread):
 			self.__stop(f"ERROR reading directory: {error}.", None, {}, THREADSIG.FAILURE)
 			return
 
-		# Grab demo information (returned through col_demo_info)
+		datescreated = [os.path.getmtime(os.path.join(self.targetdir, i)) for i in files]
+		if self.stoprequest.is_set():
+			self.queue_out_put(THREADSIG.ABORTED)
+			return
+		sizes = [os.path.getsize(os.path.join(self.targetdir, i)) for i in files]
+		if self.stoprequest.is_set():
+			self.queue_out_put(THREADSIG.ABORTED)
+			return
+
+		# Grab demo information
 		datamode = self.cfg.data_grab_mode
-		if datamode is CNST.DATA_GRAB_MODE.NONE:
+		ddm = DemoDataManager(self.targetdir)
+		try:
+			demo_info = ddm.get_demo_info(files, datamode)
+		except OSError as exc:
 			self.__stop(
-				"Demo information disabled.",
+				f"Error fetching demo info: {exc}",
 				3000,
 				{
 					"col_filename": files, "col_ks": [None] * len(files),
 					"col_bm": [None] * len(files), "col_ctime": datescreated,
 					"col_filesize": sizes,
 				},
-				THREADSIG.SUCCESS,
+				THREADSIG.FAILURE
 			)
 			return
-
-		elif datamode is CNST.DATA_GRAB_MODE.EVENTS:
+		finally:
 			try:
-				with open(os.path.join(self.targetdir, CNST.EVENT_FILE), "r") as h:
-					logchunk_list = parse_events(h, self.cfg.events_blocksize)
-			except Exception as exc:
-				self.__stop(
-					f"{CNST.EVENT_FILE!r} has not been found, can not be opened or "
-						f"is malformed.",
-					5000,
-					{
-						"col_filename": files, "col_ks": [None] * len(files),
-						"col_bm": [None] * len(files), "col_ctime": datescreated,
-						"col_filesize": sizes,
-					},
-					THREADSIG.FAILURE,
-				)
-				return
+				ddm.destroy()
+			except:
+				pass
 
-		elif datamode is CNST.DATA_GRAB_MODE.JSON:
-			try:
-				jsonfiles = [
-					i for i in os.listdir(self.targetdir) if
-					os.path.splitext(i)[1] == ".json" and
-					os.path.exists(os.path.join(self.targetdir, os.path.splitext(i)[0] + ".dem"))
-				]
-			except (OSError, FileNotFoundError, PermissionError) as error:
-				self.__stop(
-					f"Error getting .json files: {error}",
-					5000,
-					{
-						"col_filename": files, "col_ks": [None] * len(files),
-						"col_bm": [None] * len(files), "col_ctime": datescreated,
-						"col_filesize": sizes
-					},
-					THREADSIG.FAILURE,
-				)
-				return
-
-			logchunk_list = []
-			for json_file in jsonfiles:
-				if self.stoprequest.is_set():
-					self.queue_out_put(THREADSIG.ABORTED)
-					return
-				try: # Attempt to open the json file
-					file_stem = os.path.splitext(json_file)[0]
-					with open(os.path.join(self.targetdir, json_file)) as h:
-						logchunk_list.append(parse_json(h,  file_stem + ".dem"))
-				except (OSError, PermissionError, FileNotFoundError) as error:
-					continue
-				except (json.decoder.JSONDecodeError, KeyError, ValueError) as error:
-					continue
-
-		if self.stoprequest.is_set():
-			self.queue_out_put(THREADSIG.ABORTED)
-			return
-
-		# Parallelize, order of _events.txt uncertain; json likely retrieved in bad order.
-		logchunk_list = assign_demo_info(files, logchunk_list)
-		# Create final demo info lists
-		killstreaks = [None] * len(logchunk_list)
-		bookmarks = [None] * len(logchunk_list)
-		for i, chunk in enumerate(logchunk_list):
-			if chunk is None:
+		killstreaks = [None] * len(demo_info)
+		bookmarks = [None] * len(demo_info)
+		for i, chunk in enumerate(demo_info):
+			if not isinstance(chunk, DemoInfo):
+				# TODO: May even be able to propagate exceptions here
 				continue
 			killstreaks[i] = chunk.killstreaks
 			bookmarks[i] = chunk.bookmarks
 
+		if datamode is CNST.DATA_GRAB_MODE.NONE:
+			res_msg = "Demo information disabled."
+		else:
+			res_msg = (
+				f"Processed data from {len(files)} files in "
+				f"{round(time.time() - starttime, 4)} seconds."
+			)
+
 		self.__stop(
-			f"Processed data from {len(files)} files in "
-				f"{round(time.time() - starttime, 4)} seconds.",
+			res_msg,
 			3000,
 			{
 				"col_filename": files, "col_ks": killstreaks, "col_bm": bookmarks,

@@ -32,10 +32,11 @@ class ThreadMarkDemo(_StoppableBaseThread):
 			- Container type as an int.
 			- Boolean indicating whether the container now exists or not.
 
-		BOOKMARK_CONTAINER_UPDATE_FAILURE(1) when a bookmark container
+		BOOKMARK_CONTAINER_UPDATE_FAILURE(2) when a bookmark container
 				update fails. Its existence state should be
 				unchanged.
 			- Container type as an int.
+			- Error that occurred.
 
 		INFO_CONSOLE(1) for thread information # TODO: remove (issue #31)
 			- Text to be drawn whereever.

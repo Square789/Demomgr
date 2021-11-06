@@ -132,23 +132,6 @@ def getstreakpeaks(killstreaks):
 
 	return streakpeaks
 
-def assign_demo_info(files, demo_info):
-	"""
-	Creates a list where each DemoInfo object in demo_info is sitting next
-	to its file. If a file does not have a relevant entry in demo_info,
-	it will have None matched up instead.
-
-	files : List of file names ["abc.dem", "def.dem", ...]
-	demo_info : List of DemoInfo instances.
-	"""
-	assigned_dat = [None for _ in files]
-	for i, file in enumerate(files):
-		for j in demo_info:
-			if j.demo_name == file:
-				assigned_dat[i] = j
-				break
-	return assigned_dat
-
 def frmd_label(
 		parent, text,
 		styles = ("Framed.Contained.TFrame", "Labelframe.Contained.TLabel")
