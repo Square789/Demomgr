@@ -95,25 +95,12 @@ def readdemoheader(path):
 
 	return demhdr
 
-def none_len_formatter(pair):
-	"""If input is None, returns "?", otherwise the length of input as string."""
-	if pair is None:
-		return "?"
-	return str(len(pair))
-
-def none_len_sortkey(pair):
-	"""If input is None, returns -1, otherwise the length of input."""
-	if pair is None:
-		return -1
-	return len(pair)
-
 def getstreakpeaks(killstreaks):
 	"""
-	Takes a list of tuples where: element 0 is a number and 1 is a time
-	tick (which is ignored), then only returns the tuples that make up the
-	peak of their sequence.
-	For example: (1,2,3,4,5,6,1,2,1,2,3,4) -> (6,2,4) [Only element 0 of
-	the tuples displayed].
+	Takes a list of DemoEvents, then returns a list of only the tuples
+	whose values make up the peak of their sequence.
+	For example if values of DemoEvents were: (1,2,3,4,5,6,1,2,1,2,3,4),
+	the function would deliver the DemoEvents for (6,2,4).
 	This function does not perform any sorting, input is expected to already
 	be in a correct order.
 	"""
@@ -122,11 +109,11 @@ def getstreakpeaks(killstreaks):
 	if not killstreaks:
 		return streakpeaks
 
-	prv = (-1, -1)
-	for streaktup in killstreaks:
-		if streaktup[0] <= prv[0]:
+	prv = None
+	for event in killstreaks:
+		if prv is not None and event.value <= prv.value:
 			streakpeaks.append(prv)
-		prv = streaktup
+		prv = event
 	# Get last streak, won't attach (-1, -1) since killstreaks is at least 1 element long
 	streakpeaks.append(prv)
 

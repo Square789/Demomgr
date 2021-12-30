@@ -330,9 +330,9 @@ class Play(BaseDialog):
 
 		events = []
 		if self.info.killstreaks is not None:
-			events += [("Killstreak", t, v) for v, t in self.info.killstreaks]
+			events += [("Killstreak", t, v) for v, t, _ in self.info.killstreaks]
 		if self.info.bookmarks is not None:
-			events += [("Bookmark", t, v) for v, t in self.info.bookmarks]
+			events += [("Bookmark", t, v) for v, t, _ in self.info.bookmarks]
 		events.sort(key = lambda x: x[1])
 		data = {"col_type": [], "col_tick": [], "col_val": []}
 		for type, tick, val in events:
@@ -373,7 +373,7 @@ class Play(BaseDialog):
 				None if username is None else tk_secure_str(username),
 				launch_options,
 			)
-		except (OSError, PermissionError, FileNotFoundError, KeyError, SyntaxError):
+		except (OSError, KeyError, SyntaxError):
 			return (None, None)
 
 	def _ini_load_users(self, set_if_present = None):
@@ -387,7 +387,7 @@ class Play(BaseDialog):
 		"""
 		try:
 			raw_list = os.listdir(os.path.join(self.cfg.steam_path, CNST.STEAM_CFG_PATH0))
-		except (TypeError, OSError, PermissionError, FileNotFoundError):
+		except (TypeError, OSError):
 			# TypeError for when steam_path is None.
 			self.error_steamdir_invalid.set(True)
 		else:
@@ -560,7 +560,7 @@ class Play(BaseDialog):
 			# -steam param may cause conflicts when steam is not open but what do I know?
 		except FileNotFoundError:
 			tk_msg.showerror("Demomgr - Error", "Executable not found.", parent = self)
-		except (OSError, PermissionError) as error:
+		except OSError as error:
 			tk_msg.showerror(
 				"Demomgr - Error",
 				f"Could not access executable :\n{error}",

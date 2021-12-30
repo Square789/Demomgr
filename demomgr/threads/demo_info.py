@@ -46,7 +46,7 @@ class ThreadDemoInfo(_StoppableBaseThread):
 
 		try:
 			header = readdemoheader(self.target_demo_path)
-		except (OSError, PermissionError, FileNotFoundError):
+		except OSError:
 			header = None
 		self.queue_out_put(THREADSIG.RESULT_HEADER, header)
 

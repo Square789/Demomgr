@@ -62,7 +62,7 @@ class Deleter(BaseDialog):
 		startmsg = ""
 		try:
 			self.files = os.listdir(self.demodir)
-		except (OSError, PermissionError, FileNotFoundError) as e:
+		except OSError as e:
 			self.to_delete = []
 			startmsg += f"Failed to get files: {e.__class__.__name__}: {e}!\n"
 

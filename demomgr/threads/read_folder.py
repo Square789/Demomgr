@@ -80,22 +80,26 @@ class ThreadReadFolder(_StoppableBaseThread):
 				THREADSIG.FAILURE,
 			)
 			return
-		except (OSError, PermissionError) as error:
-			self.__stop(f"ERROR reading directory: {error}.", None, {}, THREADSIG.FAILURE)
-			return
-
-		datescreated = [os.path.getmtime(os.path.join(self.targetdir, i)) for i in files]
-		if self.stoprequest.is_set():
-			self.queue_out_put(THREADSIG.ABORTED)
-			return
-		sizes = [os.path.getsize(os.path.join(self.targetdir, i)) for i in files]
-		if self.stoprequest.is_set():
-			self.queue_out_put(THREADSIG.ABORTED)
+		except OSError as exc:
+			self.__stop(f"Error reading directory: {exc}.", None, {}, THREADSIG.FAILURE)
 			return
 
 		# Grab demo information
 		datamode = self.cfg.data_grab_mode
 		ddm = DemoDataManager(self.targetdir)
+		try:
+			fs_info = ddm.get_fs_info(files)
+		except OSError as exc:
+			self.__stop(f"Error fetching FS info: {exc}.", None, {}, THREADSIG.FAILURE)
+			return
+
+		sizes = [x["size"] for x in fs_info]
+		datescreated = [x["mtime"] for x in fs_info]
+
+		if self.stoprequest.is_set():
+			self.queue_out_put(THREADSIG.ABORTED)
+			return
+
 		try:
 			demo_info = ddm.get_demo_info(files, datamode)
 		except OSError as exc:
@@ -110,11 +114,6 @@ class ThreadReadFolder(_StoppableBaseThread):
 				THREADSIG.FAILURE
 			)
 			return
-		finally:
-			try:
-				ddm.destroy()
-			except:
-				pass
 
 		killstreaks = [None] * len(demo_info)
 		bookmarks = [None] * len(demo_info)

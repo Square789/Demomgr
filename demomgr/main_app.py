@@ -17,7 +17,7 @@ from demomgr.demo_info import DemoInfo
 from demomgr.dialogues import *
 from demomgr.explorer import open_explorer
 from demomgr.tk_widgets import KeyValueDisplay, HeadedFrame
-from demomgr.helpers import build_date_formatter, convertunit, none_len_formatter, none_len_sortkey
+from demomgr.helpers import build_date_formatter, convertunit, getstreakpeaks
 from demomgr.style_helper import StyleHelper
 from demomgr import platforming
 from demomgr.threadgroup import ThreadGroup, THREADGROUPSIG
@@ -102,7 +102,7 @@ class MainApp():
 					os.path.dirname(self.cfgpath), # self.cfgpath ends in a file, should be ok
 					exist_ok = True
 				)
-			except (OSError, PermissionError) as exc:
+			except OSError as exc:
 				tk_msg.showerror(
 					"Demomgr - Error", f"The following error occurred during startup: {exc}"
 				)
@@ -191,13 +191,17 @@ class MainApp():
 				{"name": "Name", "col_id": "col_filename", "sort": True,
 					"weight": round(1.5 * mfl.WEIGHT), "dblclick_cmd": lambda _: self._playdem()},
 				{"name": "Killstreaks", "col_id": "col_ks", "sort": True,
-					"weight": round(0.2 * mfl.WEIGHT), "formatter": none_len_formatter,
-					"sortkey": none_len_sortkey},
+					"weight": round(0.2 * mfl.WEIGHT),
+					"formatter": lambda i: str(len(getstreakpeaks(i))) if i is not None else "?",
+					"sortkey": lambda i: len(getstreakpeaks(i)) if i is not None else -1},
 				{"name": "Bookmarks", "col_id": "col_bm", "sort": True,
-					"weight": round(0.2 * mfl.WEIGHT), "formatter": none_len_formatter,
-					"sortkey": none_len_sortkey, "dblclick_cmd": lambda _: self._managebookmarks()},
+					"weight": round(0.2 * mfl.WEIGHT),
+					"formatter": lambda i: str(len(i)) if i is not None else "?",
+					"sortkey": lambda i: len(i) if i is not None else -1,
+					"dblclick_cmd": lambda _: self._managebookmarks()},
 				{"name": "Creation time", "col_id": "col_ctime", "sort": True,
-					"weight": round(0.9 * mfl.WEIGHT), "formatter": build_date_formatter(self.cfg)},
+					"weight": round(0.9 * mfl.WEIGHT),
+					"formatter": build_date_formatter(self.cfg)},
 				{"name": "Size", "col_id": "col_filesize", "sort": True,
 					"weight": round(0.42 * mfl.WEIGHT), "formatter": convertunit}
 			),
@@ -535,7 +539,7 @@ class MainApp():
 			stylehelper.load_theme(theme_path, theme_tuple[1])
 		except TclError as error:
 			tk_msg.showerror("Demomgr - Error", f"A Tcl error occurred:\n{error}")
-		except (OSError, PermissionError, FileNotFoundError) as error:
+		except OSError as error:
 			tk_msg.showerror(
 				"Demomgr - Error",
 				f"The theme file was not found or a permission problem occurred:\n{error}"
@@ -553,12 +557,12 @@ class MainApp():
 		ks = self.listbox.get_cell("col_ks", index)
 		bm = self.listbox.get_cell("col_bm", index)
 		if not (ks is None or bm is None):
-			for t, n in ((ks, "Killstreak"), (bm, "Bookmark")):
-				for streak, tick in t:
+			for events, n in ((ks, "Killstreak"), (bm, "Bookmark")):
+				for event in events:
 					self.demoeventmfl.insert_row({
 						"col_type": n,
-						"col_tick": tick,
-						"col_value": str(streak),
+						"col_tick": event.tick,
+						"col_value": str(event.value),
 					})
 
 		if not self.cfg.preview_demos or no_io:

@@ -56,8 +56,8 @@ class BookmarkSetter(BaseDialog):
 		"""
 		parent: Parent widget, should be a `Tk` or `Toplevel` instance.
 		targetdemo: Full path to the demo that should be marked.
-		bm_dat: Bookmarks for the specified demo in the usual info format
-			(((killstreak_peak, tick), ...), ((bookmark_name, tick), ...))
+		bm_dat: Bookmarks for the specified demo as a list of DemoEvents.
+			May also be None, which is treated as an empty list.
 		styleobj: Instance of `tkinter.ttk.Style`
 		cfg: Program configuration.
 		remember: List of arbitrary values. See class docstring for details.
@@ -237,7 +237,7 @@ class BookmarkSetter(BaseDialog):
 		"""Called by body, loads bookmarks into the listbox."""
 		if self.bm_dat is None:
 			return
-		for n, t in self.bm_dat:
+		for n, t, _ in self.bm_dat:
 			self.listbox.insert_row({"col_name": n, "col_tick": t})
 
 	def _log(self, tolog):

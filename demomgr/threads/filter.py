@@ -106,8 +106,8 @@ class ThreadFilter(_StoppableBaseThread):
 			if flags & FILTERFLAGS.HEADER:
 				try:
 					curdataset["header"] = readdemoheader(os.path.join(self.curdir, j))
-				except (FileNotFoundError, PermissionError, OSError):
-					break
+				except OSError:
+					continue
 
 			if all(lambda_(curdataset) for lambda_ in filters):
 				filtered_demo_data["col_filename"].append(j)
