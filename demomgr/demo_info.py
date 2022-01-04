@@ -3,6 +3,7 @@ Contains the DemoInfo class and offers ability to construct it
 from either a handle_events.RawLogchunk or a json file.
 """
 
+import os
 import re
 
 from demomgr.helpers import getstreakpeaks
@@ -85,6 +86,12 @@ class DemoInfo():
 		self.killstreak_peaks = getstreakpeaks(killstreaks)
 		self.bookmarks = bookmarks
 
+	def is_empty(self):
+		"""
+		Determines whether no events are stored in the DemoInfo.
+		"""
+		return not (self.killstreaks or self.bookmarks)
+
 	@classmethod
 	def from_json(cls, json_data, demo_name):
 		"""
@@ -116,8 +123,8 @@ class DemoInfo():
 
 		May raise: ValueError if data has been screwed up.
 		"""
-		events = [{"name": "Killstreak", "value": v, "tick": t} for v, t in self.killstreaks]
-		events += [{"name": "Bookmark", "value": v, "tick": t} for v, t in self.bookmarks]
+		events = [{"name": "Killstreak", "value": v, "tick": t} for v, t, _ in self.killstreaks]
+		events += [{"name": "Bookmark", "value": v, "tick": t} for v, t, _ in self.bookmarks]
 		return {"events": sorted(events, key = lambda e: int(e["tick"]))}
 
 	@classmethod
@@ -152,6 +159,26 @@ class DemoInfo():
 				bookmarks.append(DemoEvent(value, tick, regres[GROUP.DATE]))
 
 		return cls(demo, killstreaks, bookmarks)
+
+	def to_logchunk(self):
+		"""
+		Returns a string that can be written to an `_events.txt` file
+		and will be interpretable as a valid logchunk by the events
+		reader afterwards.
+		All info is sorted by tick.
+
+		May raise: ValueError if information has been messed up.
+		"""
+		demo_name = os.path.splitext(self.demo_name)[0]
+		to_write = [("Killstreak", value, tick, date) for value, tick, date in self.killstreaks]
+		to_write.extend(("Bookmark", value, tick, date) for value, tick, date in self.bookmarks)
+
+		to_write.sort(key = lambda t: t[2])
+
+		return "\n".join(
+			f'[{date}] {type_} {value} ("{demo_name}" at {tick})'
+			for type_, value, tick, date in to_write
+		)
 
 	def set_killstreaks(self, killstreaks):
 		self.killstreaks = killstreaks

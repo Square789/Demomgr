@@ -128,6 +128,7 @@ class Config():
 				else CNST.FILE_MANAGER_MODE.USER_DEFINED
 			).value
 
+		# enum-ify
 		cfg["data_grab_mode"] = CNST.DATA_GRAB_MODE(cfg["data_grab_mode"])
 		cfg["file_manager_mode"] = CNST.FILE_MANAGER_MODE(cfg["file_manager_mode"])
 

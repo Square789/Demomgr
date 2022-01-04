@@ -146,14 +146,14 @@ class Settings(BaseDialog):
 			suboptions_pane, padding = 8, labelwidget = frmd_label(suboptions_pane, "Get demo information via...")
 		)
 		datagrab_labelframe.grid_columnconfigure(0, weight = 1)
-		for name, enum_attr in (
-			("None",          CNST.DATA_GRAB_MODE.NONE),
-			(CNST.EVENT_FILE, CNST.DATA_GRAB_MODE.EVENTS),
-			(".json files",   CNST.DATA_GRAB_MODE.JSON),
+		for enum_attr in (
+			CNST.DATA_GRAB_MODE.NONE,
+			CNST.DATA_GRAB_MODE.EVENTS,
+			CNST.DATA_GRAB_MODE.JSON,
 		):
 			b = ttk.Radiobutton(
 				datagrab_labelframe, value = enum_attr.value, variable = self.datagrabmode_var,
-				text = name, style = "Contained.TRadiobutton"
+				text = enum_attr.get_display_name(), style = "Contained.TRadiobutton"
 			)
 			b.grid(sticky = "w", ipadx = 4)
 

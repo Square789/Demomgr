@@ -5,12 +5,13 @@ If an info container would end up completely empty (neither killstreaks
 nor bookmarks), it is ignored / not written.
 """
 
+from datetime import datetime
+import os
 import tkinter as tk
 import tkinter.ttk as ttk
 
-import os
-
 import multiframe_list as mfl
+from demomgr.demo_info import DemoEvent
 
 from demomgr.dialogues._base import BaseDialog
 from demomgr.dialogues._diagresult import DIAGSIG
@@ -150,13 +151,13 @@ class BookmarkSetter(BaseDialog):
 			widgetcontainer, labelwidget = frmd_label(widgetcontainer, "Save changes to:")
 		)
 		json_checkbox = ttk.Checkbutton(
-			save_loc_lblfrm, text = ".json",
+			save_loc_lblfrm, text = CNST.DATA_GRAB_MODE.JSON.get_display_name(),
 			variable = self.jsonmark_var, style = "Contained.TCheckbutton"
 		)
 		events_checkbox = ttk.Checkbutton(
-			save_loc_lblfrm, text = CNST.EVENT_FILE, variable = self.eventsmark_var,
-			style = "Contained.TCheckbutton"
-			)
+			save_loc_lblfrm, text = CNST.DATA_GRAB_MODE.EVENTS.get_display_name(),
+			variable = self.eventsmark_var, style = "Contained.TCheckbutton"
+		)
 		json_checkbox.grid(sticky = "w", ipadx = 2, padx = 5, pady = 5)
 		events_checkbox.grid(sticky = "w", ipadx = 2, padx = 5, pady = 5)
 		save_loc_lblfrm.grid(
@@ -180,7 +181,7 @@ class BookmarkSetter(BaseDialog):
 		self.listbox.bind("<<MultiframeSelect>>", self._callback_bookmark_selected)
 
 		self._fill_gui()
-		self._log(f"Marking {os.path.split(self.targetdemo)[1]}\n")
+		self._log(f"\nMarking {os.path.split(self.targetdemo)[1]}")
 
 	def _add_bookmark(self):
 		name = self.name_entry.get()
@@ -240,10 +241,14 @@ class BookmarkSetter(BaseDialog):
 		for n, t, _ in self.bm_dat:
 			self.listbox.insert_row({"col_name": n, "col_tick": t})
 
-	def _log(self, tolog):
-		"""Inserts "\n" + tolog into self.textbox."""
+	def _log(self, to_log, newline = True):
+		"""
+		Inserts `to_log` + "\n" into self.textbox, or just `to_log`
+		if `newline` is False.
+		"""
+		suffix = "\n" if newline else ""
 		with self.textbox:
-			self.textbox.insert(tk.END, "\n" + tolog)
+			self.textbox.insert(tk.END, to_log + suffix)
 			if self.textbox.yview()[1] < 1.0:
 				self.textbox.delete("1.0", "2.0")
 				self.textbox.yview_moveto(1.0)
@@ -252,10 +257,13 @@ class BookmarkSetter(BaseDialog):
 		mark_json = self.jsonmark_var.get()
 		mark_evts = self.eventsmark_var.get()
 
-		self.thread_target_bookmarks = tuple(zip(
-			self.listbox.get_column("col_name"),
-			map(int, self.listbox.get_column("col_tick")),
-		))
+		date = datetime.now().strftime("%Y/%m/%d %H:%M")
+		self.thread_target_bookmarks = [
+			DemoEvent(n, t, date) for n, t in zip(
+				self.listbox.get_column("col_name"),
+				map(int, self.listbox.get_column("col_tick")),
+			)
+		]
 		self.thread_container_state = [None, None]
 
 		self.savebtn.configure(text = "Cancel", command = self._cancel_mark)
@@ -264,7 +272,7 @@ class BookmarkSetter(BaseDialog):
 			mark_events = mark_evts,
 			bookmarks = self.thread_target_bookmarks,
 			targetdemo = self.targetdemo,
-			evtblocksz = self.cfg.events_blocksize,
+			cfg = self.cfg,
 		)
 
 	def _mark_after_callback(self, sig, *args):
@@ -276,10 +284,16 @@ class BookmarkSetter(BaseDialog):
 				self.result.data["containers"] = self.thread_container_state
 			return THREADGROUPSIG.FINISHED
 
+		elif sig is THREADSIG.BOOKMARK_CONTAINER_UPDATE_START:
+			self._log(f"Updating {args[0].get_display_name()}...", False)
+
 		elif sig is THREADSIG.BOOKMARK_CONTAINER_UPDATE_SUCCESS:
-			self.thread_container_state[args[0] - 1] = args[1]
-		elif sig is THREADSIG.INFO_CONSOLE:
-			self._log(args[0])
+			mode, exists = args
+			self.thread_container_state[mode.value - 1] = exists
+			self._log(f"Success!")
+
+		elif sig is THREADSIG.BOOKMARK_CONTAINER_UPDATE_FAILURE:
+			self._log(f"Failure: {args[0]}.")
 
 		return THREADGROUPSIG.CONTINUE
 

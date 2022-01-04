@@ -2,11 +2,21 @@
 from enum import IntEnum
 import json
 import os
+import re
 import tempfile
 
 from demomgr.constants import DATA_GRAB_MODE, EVENT_FILE
 from demomgr.demo_info import DemoInfo
 from demomgr import handle_events
+
+
+RE_DEM_NAME = re.compile(
+	r'\[\d{4}/\d\d/\d\d \d\d:\d\d\] (?:Killstreak|Bookmark) .* \("([^"]*)" at \d*\)$'
+)
+RE_TICK = re.compile(
+	r'\[\d{4}/\d\d/\d\d \d\d:\d\d\] (?:Killstreak|Bookmark) .* \("[^"]*" at (\d*)\)'
+)
+RE_LOGLINE_IS_BOOKMARK = re.compile(r"\[\d\d\d\d/\d\d/\d\d \d\d:\d\d\] Bookmark ")
 
 
 class PROCESSOR_TYPE(IntEnum):
@@ -15,8 +25,8 @@ class PROCESSOR_TYPE(IntEnum):
 
 
 class DemoInfoProcessor():
-	def __init__(self, directory):
-		self.directory = directory
+	def __init__(self, ddm):
+		self.ddm = ddm
 
 	def acquire(self):
 		"""
@@ -31,8 +41,9 @@ class DemoInfoProcessor():
 		Processor should release resources here.
 		"""
 
-	__enter__ = acquire
+	__enter__ = lambda s: s.acquire()
 	__exit__ = lambda s, *_: s.release()
+
 
 class Reader(DemoInfoProcessor):
 	def get_info(self, names):
@@ -45,95 +56,123 @@ class Writer(DemoInfoProcessor):
 
 
 class EventsReader(Reader):
-	def __init__(self, directory):
-		super().__init__(directory)
+	def __init__(self, ddm):
+		super().__init__(ddm)
 		self.reader = None
-		self.chunk_cache = {}
 
 	def get_info(self, names):
+		chunk_cache = {}
 		pending_names = set(names)
-		if set(pending_names - self.chunk_cache.keys()):
-			while pending_names:
-				chk, = self.reader.getchunks(1)
-				if not chk:
-					break
+		try:
+			for chk in self.reader:
 				try:
 					info = DemoInfo.from_raw_logchunk(chk)
 				except ValueError:
 					continue
-				self.chunk_cache[info.demo_name] = info
+				chunk_cache[info.demo_name] = info
 				pending_names.discard(info.demo_name)
-		return [self.chunk_cache.get(name, None) for name in names]
+				if not pending_names:
+					break
+		except OSError as e:
+			return [e] * len(names)
+		return [chunk_cache.get(name, None) for name in names]
 
 	def acquire(self):
-		self.reader = handle_events.EventReader(os.path.join(self.directory, EVENT_FILE))
-		self.chunk_cache = {}
+		self.reader = handle_events.EventReader(
+			os.path.join(self.ddm.directory, EVENT_FILE),
+			blocksz = self.ddm.cfg.events_blocksize,
+		)
 		return self
 
 	def release(self):
-		if self.reader is not None:
-			self.reader.close()
+		self.reader.destroy()
 
 
 class EventsWriter(Writer):
-	def __init__(self, directory):
-		super().__init__(directory)
+	def __init__(self, ddm):
+		super().__init__(ddm)
 		self.writer = None
 
-	def write_info(self, names, info):
-		chunk_found = False
-		chunk_exists = True
-		pending_modification = set(names)
-		# # Run through chunks and modify the found one if it exists
-		# for chk in event_reader:
-		# 	if self.stoprequest.is_set():
-		# 		interrupted = True
-		# 		break
-		# 	regres = RE_DEM_NAME.search(chk.content)
-		# 	towrite = chk.content
-		# 	# Found chunk
-		# 	if regres is not None and regres[1] == demo_name:
-		# 		chunk_found = True
-		# 		towrite = [
-		# 			i for i in towrite.split("\n")
-		# 			if not RE_LOGLINE_IS_BOOKMARK.search(i)
-		# 		]
-		# 		towrite.extend(formatted_bookmarks)
-		# 		towrite = "\n".join(sorted(
-		# 			towrite, key = lambda elem: int(RE_TICK.search(elem)[1])
-		# 		))
-		# 		if not towrite:
-		# 			chunk_exists = False
-		# 			continue
-		# 		self.queue_out_put(THREADSIG.INFO_CONSOLE, "Logchunk found and modified.")
-		# 	event_writer.writechunk(towrite)
+	def _cleanup(self, tempfile_path = None, prc = None, writer = None):
+		if tempfile_path is not None:
+			try:
+				os.unlink(tempfile_path)
+			except OSError:
+				pass
+		if prc is not None:
+			try:
+				prc.release()
+			except OSError:
+				pass
+		if writer is not None:
+			try:
+				writer.destroy()
+			except OSError:
+				pass
 
-		# # Append fabricated chunk if it was not found
-		# if not chunk_found:
-		# 	if formatted_bookmarks:
-		# 		event_writer.writechunk("\n".join(sorted(
-		# 			formatted_bookmarks, key = lambda elem: int(RE_TICK.search(elem)[1])
-		# 		)))
-		# 	else:
-		# 		chunk_exists = False
+	def write_info(self, names, info):
+		try:
+			_, fname = tempfile.mkstemp(text = True)
+		except OSError as e:
+			return [e] * len(names)
+
+		# Set up event reader and writer
+		# NOTE: ugly hack, getting the reader out of a processor like that
+		read_processor = self.ddm._get_reader(DATA_GRAB_MODE.EVENTS)
+		try:
+			read_processor.acquire()
+		except OSError as e:
+			self._cleanup(fname)
+			return [e] * len(names)
+		event_reader = read_processor.reader
+		try:
+			event_writer = handle_events.EventWriter(fname)
+		except OSError as e:
+			self._cleanup(prc=read_processor)
+			return [e] * len(names)
+
+		pending_modification = {n: i for n, i in zip(names, info)}
+		try:
+			for chk in event_reader:
+				try:
+					cur_info = DemoInfo.from_raw_logchunk(chk)
+				except ValueError:
+					print(f"_events writer: Dropped faulty logchunk:\n===\n{str(chk)}\n===")
+					continue
+				name = cur_info.demo_name
+				if name in pending_modification:
+					cur_info = pending_modification.pop(name)
+				if not cur_info.is_empty():
+					event_writer.writechunk(cur_info.to_logchunk())
+				else:
+					print(f"_events writer: No logchunk for demo {name!r}")
+			for name, cur_info in pending_modification.items():
+				if not cur_info.is_empty():
+					print(f"_events writer: Appending logchunk for demo {name!r}")
+					event_writer.writechunk(cur_info.to_logchunk())
+		except OSError as e:
+			self._cleanup(fname, read_processor, event_writer)
+			return [e] * len(names)
+
+		self._cleanup(prc = read_processor, writer = event_writer)
+		print("tempfile stored at", fname)
 
 		return [None] * len(names)
 
-
 	def acquire(self):
-		self.writer = handle_events.EventWriter(os.path.join(self.directory, EVENT_FILE))
+		self.writer = handle_events.EventWriter(os.path.join(self.ddm.directory, EVENT_FILE))
 		return self
 
 	def release(self):
 		if self.writer is not None:
-			self.writer.close()
+			self.writer.destroy()
 
 
 class JSONReader(Reader):
 	def _single_get_info(self, name):
 		json_name = os.path.splitext(name)[0] + ".json"
 		try:
-			fh = open(os.path.join(self.directory, json_name), "r")
+			fh = open(os.path.join(self.ddm.directory, json_name), "r")
 		except FileNotFoundError:
 			return None
 		except OSError as e:
@@ -159,15 +198,24 @@ class JSONWriter(Writer):
 	def _single_write_info(self, name, info: DemoInfo):
 		json_name = os.path.splitext(name)[0] + ".json"
 		try:
-			new = json.dump(info.to_json())
+			new = json.dumps(info.to_json())
 		except ValueError as e:
 			return e
 
-		try:
-			with open(os.path.join(self.directory, json_name), "w") as f:
-				json.dump(new, f)
-		except OSError as e:
-			return e
+		json_path = os.path.join(self.ddm.directory, json_name)
+		if not info.is_empty():
+			print(f"JSON writer: Would write {json_path!r}")
+			# try:
+			# 	with open(json_path, "w") as f:
+			# 		json.dump(new, f)
+			# except OSError as e:
+			# 	return e
+		else:
+			print(f"JSON writer: Would delete {json_path!r}")
+			# try:
+			# 	os.unlink(json_path)
+			# except OSError as e:
+			# 	return e
 
 		return None
 
@@ -207,30 +255,34 @@ class DemoDataManager():
 
 	This thing is not thread-safe.
 	"""
-	def __init__(self, directory):
+	def __init__(self, directory, cfg):
+		"""
+		Initializes a new DemoDataManager.
+
+		directory: Directory the DDM should operate on. (str)
+		cfg: Program configuration (demomgr.config.Config)
+		"""
 		self.readers = {}
 		self.writers = {}
 		self.directory = directory
+		self.cfg = cfg
 
 	def _get_reader(self, mode):
 		"""
 		Returns a reader for the specified mode or creates it
 		newly if it does not exist.
-		May raise: OSError.
 		"""
 		if mode not in self.readers:
-			self.readers[mode] = _PROCESSOR_MAP[mode][PROCESSOR_TYPE.READER](self.directory)
+			self.readers[mode] = _PROCESSOR_MAP[mode][PROCESSOR_TYPE.READER](self)
 		return self.readers[mode]
 
 	def _get_writer(self, mode):
 		"""
 		Returns a writer for the specified mode or creates it
 		newly if it does not exist.
-		The writer will have `acquire` called.
-		May raise: OSError.
 		"""
 		if mode not in self.writers:
-			self.writers[mode] = _PROCESSOR_MAP[mode][PROCESSOR_TYPE.WRITER](self.directory)
+			self.writers[mode] = _PROCESSOR_MAP[mode][PROCESSOR_TYPE.WRITER](self)
 		return self.writers[mode]
 
 	def get_demo_info(self, demos, mode):
@@ -273,6 +325,9 @@ class DemoDataManager():
 		"""
 		Sets information for the given demos for all supplied modes.
 		This will destroy any existing information.
+		If empty demo info is given for a demo name, any existing info
+		containers will be deleted/omitted so that the next read
+		attempt on the name returns `None`.
 		If `modes` is `None`, will set the data for all possible modes.
 		(That is, first `EVENTS`, then `JSON`).
 

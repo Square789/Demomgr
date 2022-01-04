@@ -1,6 +1,7 @@
 """
 Classes designed to ease up the handling of a _events.txt file as written
 by the source engine.
+2022 update: This code is like 2 years old and could use a serious make-over.
 """
 
 _DEF = {"sep": ">\n"}
@@ -82,9 +83,6 @@ class EventReader():
 		if not chk or chk.content.isspace():
 			raise StopIteration
 		return chk
-
-	def close(self):
-		self.destroy()
 
 	def destroy(self):
 		self.handle.close()
@@ -218,10 +216,6 @@ class EventWriter():
 		"""Accepts a list of Strings or Logchunks and writes them to file."""
 		for i in in_chks:
 			self.writechunk(i)
-
-	def close(self):
-		"""Alias for self.destroy()"""
-		self.destroy()
 
 	def destroy(self):
 		"""Closes handle if it was created inside of the EventWriter."""

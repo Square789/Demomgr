@@ -86,43 +86,29 @@ class ThreadReadFolder(_StoppableBaseThread):
 
 		# Grab demo information
 		datamode = self.cfg.data_grab_mode
-		ddm = DemoDataManager(self.targetdir)
-		try:
-			fs_info = ddm.get_fs_info(files)
-		except OSError as exc:
-			self.__stop(f"Error fetching FS info: {exc}.", None, {}, THREADSIG.FAILURE)
-			return
+		ddm = DemoDataManager(self.targetdir, self.cfg)
 
-		sizes = [x["size"] for x in fs_info]
-		datescreated = [x["mtime"] for x in fs_info]
+		# Get FS info and punch it into returnable shape, disposes of exceptions
+		sizes = [None] * len(files)
+		dates_created = [None] * len(files)
+		for i, x in enumerate(ddm.get_fs_info(files)):
+			if isinstance(x, dict):
+				sizes[i] = x["size"]
+				dates_created[i] = x["mtime"]
 
 		if self.stoprequest.is_set():
 			self.queue_out_put(THREADSIG.ABORTED)
 			return
 
-		try:
-			demo_info = ddm.get_demo_info(files, datamode)
-		except OSError as exc:
-			self.__stop(
-				f"Error fetching demo info: {exc}",
-				3000,
-				{
-					"col_filename": files, "col_ks": [None] * len(files),
-					"col_bm": [None] * len(files), "col_ctime": datescreated,
-					"col_filesize": sizes,
-				},
-				THREADSIG.FAILURE
-			)
-			return
-
-		killstreaks = [None] * len(demo_info)
-		bookmarks = [None] * len(demo_info)
-		for i, chunk in enumerate(demo_info):
-			if not isinstance(chunk, DemoInfo):
+		# Get demo info and split it up.
+		killstreaks = [None] * len(files)
+		bookmarks = [None] * len(files)
+		for i, info in enumerate(ddm.get_demo_info(files, datamode)):
+			if not isinstance(info, DemoInfo):
 				# TODO: May even be able to propagate exceptions here
 				continue
-			killstreaks[i] = chunk.killstreaks
-			bookmarks[i] = chunk.bookmarks
+			killstreaks[i] = info.killstreaks
+			bookmarks[i] = info.bookmarks
 
 		if datamode is CNST.DATA_GRAB_MODE.NONE:
 			res_msg = "Demo information disabled."
@@ -137,7 +123,7 @@ class ThreadReadFolder(_StoppableBaseThread):
 			3000,
 			{
 				"col_filename": files, "col_ks": killstreaks, "col_bm": bookmarks,
-				"col_ctime": datescreated, "col_filesize": sizes
+				"col_ctime": dates_created, "col_filesize": sizes
 			},
 			THREADSIG.SUCCESS,
 		)

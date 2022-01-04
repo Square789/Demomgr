@@ -9,6 +9,14 @@ class DATA_GRAB_MODE(IntEnum):
 	EVENTS = 1
 	JSON = 2
 
+	def get_display_name(self):
+		if self is self.NONE:
+			return "None"
+		elif self is self.EVENTS:
+			return EVENT_FILE
+		elif self is self.JSON:
+			return ".json"
+
 class FILE_MANAGER_MODE(IntEnum):
 	WINDOWS_EXPLORER = 0
 	USER_DEFINED = 1
