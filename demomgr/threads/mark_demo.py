@@ -59,11 +59,16 @@ class ThreadMarkDemo(_StoppableBaseThread):
 				continue
 
 			self.queue_out_put(THREADSIG.BOOKMARK_CONTAINER_UPDATE_START, data_mode)
-			res, = ddm.get_demo_info([demo_name], data_mode)
+			res = None
+			try:
+				res, = ddm.get_demo_info([demo_name], data_mode)
+			except OSError as e:
+				res = e
 			if isinstance(res, Exception): # Fetching failed.
 				self.queue_out_put(
 					THREADSIG.BOOKMARK_CONTAINER_UPDATE_FAILURE, data_mode, res
 				)
+				continue # NOTE: this skips the stoprequest check but who cares
 
 			if res is None:
 				res = DemoInfo(demo_name, [], self.bookmarks)

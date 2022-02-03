@@ -27,6 +27,16 @@ class PROCESSOR_TYPE(IntEnum):
 class DemoInfoProcessor():
 	def __init__(self, ddm):
 		self.ddm = ddm
+		self._check_stopflag = ddm.stopflag is not None
+		self._report_progress = ddm.queue is not None
+
+	def check_stopflag(self):
+		"""
+		Checks the status of the DDM's stopflag.
+		Always `False` if it wasn't given one.
+		If this method returns `True`, the processor should exit ASAP.
+		"""
+		return self._check_stopflag and self.ddm.stopflag.is_set()
 
 	def acquire(self):
 		"""
@@ -142,12 +152,12 @@ class EventsWriter(Writer):
 				name = cur_info.demo_name
 				if name in pending_modification:
 					cur_info = pending_modification.pop(name)
-				if not cur_info.is_empty():
+				if cur_info is not None and not cur_info.is_empty():
 					event_writer.writechunk(cur_info.to_logchunk())
 				else:
 					print(f"_events writer: No logchunk for demo {name!r}")
 			for name, cur_info in pending_modification.items():
-				if not cur_info.is_empty():
+				if cur_info is not None and not cur_info.is_empty():
 					print(f"_events writer: Appending logchunk for demo {name!r}")
 					event_writer.writechunk(cur_info.to_logchunk())
 		except OSError as e:
@@ -195,16 +205,15 @@ class JSONReader(Reader):
 
 
 class JSONWriter(Writer):
-	def _single_write_info(self, name, info: DemoInfo):
-		json_name = os.path.splitext(name)[0] + ".json"
-		try:
-			new = json.dumps(info.to_json())
-		except ValueError as e:
-			return e
-
-		json_path = os.path.join(self.ddm.directory, json_name)
-		if not info.is_empty():
+	def _single_write_info(self, name, info):
+		json_path = os.path.join(self.ddm.directory, os.path.splitext(name)[0] + ".json")
+		if info is not None and not info.is_empty():
 			print(f"JSON writer: Would write {json_path!r}")
+			try:
+				new = json.dumps(info.to_json())
+			except ValueError as e:
+				print(" ^ Writing failed, bad DemoInfo")
+				return e
 			# try:
 			# 	with open(json_path, "w") as f:
 			# 		json.dump(new, f)
@@ -220,7 +229,12 @@ class JSONWriter(Writer):
 		return None
 
 	def write_info(self, names, info):
-		return [self._single_write_info(name, info_obj) for name, info_obj in zip(names, info)]
+		res = [None] * len(names)
+		for i, (name, info_obj) in enumerate(zip(names, info)):
+			res[i] = self._single_write_info(name, info_obj)
+			# if self.check_stopflag():
+			# 	break
+		return res
 
 
 class NoneReader(Reader):
@@ -253,19 +267,29 @@ class DemoDataManager():
 	High-level class overlooking all demo data in a directory,
 	being able to read and modify it as safely as possible.
 
-	This thing is not thread-safe.
+	They are frequently used from within threads and can be passed
+	a stopflag as well as a queue which can be used for progress
+	reporting and interruption.
 	"""
-	def __init__(self, directory, cfg):
+
+	def __init__(self, directory, cfg, stopflag = None, queue = None):
 		"""
 		Initializes a new DemoDataManager.
 
 		directory: Directory the DDM should operate on. (str)
 		cfg: Program configuration (demomgr.config.Config)
+		# TODO below is not implemented, pretty unimportant anyways.
+		stopflag: An event to check for which will lead to early
+			abort of any operations. (threading.Event, default None)
+		queue: A queue which will be filled with varying status
+			events. # TODO specify which (queue.Queue)
 		"""
 		self.readers = {}
 		self.writers = {}
 		self.directory = directory
 		self.cfg = cfg
+		self.stopflag = stopflag
+		self.queue = queue
 
 	def _get_reader(self, mode):
 		"""
@@ -347,33 +371,3 @@ class DemoDataManager():
 			with self._get_writer(mode) as w:
 				results.append(w.write_info(names, demo_info))
 		return results
-
-	# def flush(self):
-	# 	"""
-	# 	Call this to write any data to where it should be.
-	# 	`set_info(x, y)` -> `get_info(x)` may not return `y`,
-	# 	but `set_info(x, y) -> `flush()` -> `get_info(x)` will.
-	# 	This function may raise OSErrors.
-	# 	"""
-	# 	for mode in DATA_GRAB_MODE:
-	# 		if mode in self.readers and mode in self.writers:
-	# 			self.readers[mode].release()
-	# 			self.writers[mode].flush()
-	# 			self.readers[mode].acquire()
-
-	# def destroy(self):
-	# 	"""
-	# 	Removes all processors of the DemoDataManager.
-	# 	"""
-	# 	for prc in self.readers.values():
-	# 		prc.release()
-	# 	for prc in self.writers.values():
-	# 		prc.release()
-	# 	self.readers = {}
-	# 	self.writers = {}
-
-	# def __del__(self):
-	# 	self.destroy()
-
-	__enter__ = lambda s: s
-	__exit__ = lambda s, *_: s.destroy()

@@ -86,7 +86,7 @@ class BookmarkSetter(BaseDialog):
 		self.eventsmark_var.set(u_r[1])
 
 		self.threadgroup = ThreadGroup(ThreadMarkDemo, parent)
-		self.threadgroup.decorate_and_patch(self, self._mark_after_callback)
+		self.threadgroup.build_cb_method(self._mark_after_callback)
 
 	def body(self, parent):
 		"""UI setup, listbox filling."""

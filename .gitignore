@@ -132,3 +132,6 @@ _*.png
 
 # nuitka build
 nuitka_build/
+
+# Local testing dir with some demos
+/.testing

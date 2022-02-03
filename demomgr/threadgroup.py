@@ -26,8 +26,7 @@ class DummyThread(_StoppableBaseThread):
 class ThreadGroup():
 	def __init__(self, thread_cls, tk_widget):
 		"""
-		Create a threadgroup. Follow this call up with a call to
-		decorate_and_patch as soon as possible.
+		Create a threadgroup.
 
 		thread_cls: A subclassed thread from / that behaves like the ones in
 			`demomgr.threads`.
@@ -38,13 +37,11 @@ class ThreadGroup():
 		self.queue_out = queue.Queue()
 		self.after_handle = self.tk_wdg.after(0, lambda: None)
 		self.thread = DummyThread()
-		self.caller_self = None
 		self.heldback_queue_elem = None
 		self.finalization_method = None
 		self.run_always_method_pre = None
 		self.run_always_method_post = None
-		self._decorated_cb = None
-		self._orig_cb_method = None
+		self._cb_method = None
 
 	def register_finalize_method(self, method):
 		"""
@@ -63,7 +60,7 @@ class ThreadGroup():
 		method: The finalization method.
 
 		Note that the finalization method must be registered before a
-		call to decorate_and_patch.
+		call to build_cb_method.
 		"""
 		self.finalization_method = method
 
@@ -76,7 +73,7 @@ class ThreadGroup():
 		method: The method to be registered.
 
 		Note that this method must be registered before a call to
-		decorate_and_patch.
+		build_cb_method.
 		"""
 		self.run_always_method_pre = method
 
@@ -88,14 +85,15 @@ class ThreadGroup():
 		method: The method to be registered.
 
 		Note that this method must be registered before a call to
-		decorate_and_patch.
+		build_cb_method.
 		"""
 		self.run_always_method_post = method
 
-	def decorate_and_patch(self, targetobj, cb_method):
+	def build_cb_method(self, cb_method):
 		"""
-		Decorates and patches a class method so it works properly with the thread
-		and is able to process elements from its output queue.
+		Builds an internal callback method from a class method so it works
+		properly with the thread and is able to process elements from its
+		output queue.
 		The callback method must be structured as follows:
 			It should take three input arguments, self, sig and args.
 			It then performs actions on its class as normal depending on
@@ -108,25 +106,25 @@ class ThreadGroup():
 		targetobj: Object the queue processing method is an attribute of.
 		cb_method: The queue processing callback method.
 
-		example: `tg.decorate_and_patch(self, self.thread_callback)`
+		example: `tg.build_cb_method(self, self.thread_callback)`
 		"""
 		if self.finalization_method is None:
-			def decorated0(self_, reschedule):
+			def decorated0(reschedule):
 				finished = False
 				while True:
 					try:
 						sig, *args = self.queue_out.get_nowait()
 					except queue.Empty:
 						break
-					# Should be a bound method, so self (targetobj) is passed in automatically
+					# Should be a bound method, so the original `self` is passed in automatically
 					res = cb_method(sig, *args)
 					if res is THREADGROUPSIG.FINISHED:
 						finished = True
 				if not finished and reschedule:
 					# decorated is made a bound class method below, which this will access.
-					self.after_handle = self.tk_wdg.after(CNST.GUI_UPDATE_WAIT, decorated)
+					self.after_handle = self.tk_wdg.after(CNST.GUI_UPDATE_WAIT, self._decorated_cb)
 		else:
-			def decorated0(self_, reschedule):
+			def decorated0(reschedule):
 				finished = False
 				while True:
 					try:
@@ -137,9 +135,9 @@ class ThreadGroup():
 					if res is THREADGROUPSIG.FINISHED:
 						finished = True
 					elif res is THREADGROUPSIG.HOLDBACK:
-						self.heldback_queue_elem = [sig] + args
+						self.heldback_queue_elem = (sig, *args)
 				if not finished and reschedule:
-					self.after_handle = self.tk_wdg.after(CNST.GUI_UPDATE_WAIT, decorated)
+					self.after_handle = self.tk_wdg.after(CNST.GUI_UPDATE_WAIT, self._decorated_cb)
 				else:
 					if self.heldback_queue_elem is None:
 						self.finalization_method(None)
@@ -152,38 +150,34 @@ class ThreadGroup():
 		# probably the if else branch
 		if self.run_always_method_pre is None:
 			if self.run_always_method_post is None:
-				def decorated1(self_, reschedule = True):
-					decorated0(self_, reschedule)
+				def decorated1(reschedule = True):
+					decorated0(reschedule)
 			else:
-				def decorated1(self_, reschedule = True):
-					decorated0(self_, reschedule)
+				def decorated1(reschedule = True):
+					decorated0(reschedule)
 					self.run_always_method_post()
 		else:
 			if self.run_always_method_post is None:
-				def decorated1(self_, reschedule = True):
+				def decorated1(reschedule = True):
 					self.run_always_method_pre()
-					decorated0(self_, reschedule)
+					decorated0(reschedule)
 			else:
-				def decorated1(self_, reschedule = True):
+				def decorated1(reschedule = True):
 					self.run_always_method_pre()
-					decorated0(self_, reschedule)
+					decorated0(reschedule)
 					self.run_always_method_post()
 
-		self._orig_cb_method = cb_method
-		self.caller_self = targetobj
-		decorated = types.MethodType(decorated1, targetobj)
-		self._decorated_cb = decorated
-		setattr(targetobj, cb_method.__name__, decorated) # Patch method
+		self._decorated_cb = decorated1
 
 	def start_thread(self, *args, **kwargs):
-		"""
+		""" 
 		Instantiate the thread with the supplied args and kwargs, except the
 		ThreadGroup's output queue will always be passed in before them
 		as `queue_out`, and then start it.
 		"""
 		if self._decorated_cb is None:
 			raise ValueError(
-				"No callback defined in threadgroup. Call decorate_and_patch on a "
+				"No callback defined in threadgroup. Call build_cb_method on a "
 				"suitable callback function."
 			)
 		self.heldback_queue_elem = None
@@ -219,9 +213,3 @@ class ThreadGroup():
 		Cancels after handle immediatedly.
 		"""
 		self.tk_wdg.after_cancel(self.after_handle)
-
-	def call_original_callback(self, queue_elem):
-		"""
-		Calls the original callback method with the supplied queue element.
-		"""
-		self._orig_cb_method(queue_elem)

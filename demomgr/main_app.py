@@ -81,12 +81,10 @@ class MainApp():
 		)
 		self.threadgroups["fetchdata"].register_finalize_method(self._finalization_fetchdata)
 
-		self.threadgroups["filter_select"].decorate_and_patch(
-			self, self._after_callback_filter_select
-		)
-		self.threadgroups["demoinfo"].decorate_and_patch(self, self._after_callback_demoinfo)
-		self.threadgroups["fetchdata"].decorate_and_patch(self, self._after_callback_fetchdata)
-		self.threadgroups["filter"].decorate_and_patch(self, self._after_callback_filter)
+		self.threadgroups["filter_select"].build_cb_method(self._after_callback_filter_select)
+		self.threadgroups["demoinfo"].build_cb_method(self._after_callback_demoinfo)
+		self.threadgroups["fetchdata"].build_cb_method(self._after_callback_fetchdata)
+		self.threadgroups["filter"].build_cb_method(self._after_callback_filter)
 
 		# startup routine
 		is_firstrun = False
@@ -451,22 +449,20 @@ class MainApp():
 			self.listbox.get_cell("col_filename", i): i
 			for i in self.listbox.selection
 		}
-		dialog = Deleter(
+		dialog = BulkOperator(
 			self.root,
 			demodir = self.curdir,
-			to_delete = selected_files,
+			files = selected_files,
 			cfg = self.cfg,
 			styleobj = self.ttkstyle,
+			operation = BulkOperator.DELETE,
 		)
 		dialog.show()
 		if dialog.state == DIAGSIG.GLITCHED:
 			return
 		if dialog.result.state == DIAGSIG.SUCCESS:
 			if self.cfg.lazy_reload:
-				indices_to_remove = [
-					file_idx_map[file]
-					for file, deleted in dialog.result.data.items() if deleted
-				]
+				indices_to_remove = [file_idx_map[file] for file in dialog.result.data]
 				self.directory_inf_kvd.set_value(
 					"l_amount",
 					self.directory_inf_kvd.get_value("l_amount") - len(indices_to_remove)

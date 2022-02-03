@@ -1,6 +1,6 @@
 from .bookmark_setter import BookmarkSetter
 from .cfg_error import CfgError
-from .deleter import Deleter
+from .bulk_operator import BulkOperator
 from .first_run import FirstRun
 from .play import Play
 from .settings import Settings

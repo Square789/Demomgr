@@ -137,7 +137,7 @@ class Play(BaseDialog):
 		)
 		self.rcon_threadgroup = ThreadGroup(RCONThread, self)
 		self.rcon_threadgroup.register_run_always_method_pre(self._rcon_run_always)
-		self.rcon_threadgroup.decorate_and_patch(self, self._rcon_after_callback)
+		self.rcon_threadgroup.build_cb_method(self._rcon_after_callback)
 		self.animate_spinner = False
 		self.rcon_in_queue = queue.Queue()
 

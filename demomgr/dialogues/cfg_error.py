@@ -39,7 +39,7 @@ class CfgError(BaseDialog):
 			"config path, then retry.\nQuit: Quit Demomgr\n\n{}: {}"
 		).format(
 				("read from" if self.mode == 0 else "written to"),
-				(" either corrupted, deleted," if self.mode == 0 else ""),
+				(" either corrupted, deleted" if self.mode == 0 else ""),
 				(" or has bad values" if self.mode == 0 else ""),
 				type(self.error).__name__,
 				self.error,
