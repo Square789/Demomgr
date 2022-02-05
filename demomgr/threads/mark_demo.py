@@ -59,11 +59,7 @@ class ThreadMarkDemo(_StoppableBaseThread):
 				continue
 
 			self.queue_out_put(THREADSIG.BOOKMARK_CONTAINER_UPDATE_START, data_mode)
-			res = None
-			try:
-				res, = ddm.get_demo_info([demo_name], data_mode)
-			except OSError as e:
-				res = e
+			res, = ddm.get_demo_info([demo_name], data_mode)
 			if isinstance(res, Exception): # Fetching failed.
 				self.queue_out_put(
 					THREADSIG.BOOKMARK_CONTAINER_UPDATE_FAILURE, data_mode, res
@@ -75,9 +71,9 @@ class ThreadMarkDemo(_StoppableBaseThread):
 			else:
 				res.bookmarks = self.bookmarks
 
-			(write_res,), = ddm.write_demo_info([demo_name], [res], [data_mode])
-
-			if isinstance(write_res, Exception):
+			ddm.write_demo_info([demo_name], [res], [data_mode])
+			ddm.flush()
+			if isinstance(ddm.get_write_results()[data_mode][demo_name], Exception):
 				self.queue_out_put(THREADSIG.BOOKMARK_CONTAINER_UPDATE_FAILURE, data_mode)
 			else:
 				self.queue_out_put(

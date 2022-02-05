@@ -240,7 +240,7 @@ class MainApp():
 			), width = 240, height = 60,
 		)
 
-		filterlabel = ttk.Label(widgetframe1, text = "Filter demos: ")
+		filterlabel = ttk.Label(widgetframe1, text = "Filter: ")
 		self.filterentry = ttk.Entry(widgetframe1, textvariable = self.filterentry_var)
 		self.filterentry.bind("<Return>", self._filter)
 		self.filterbtn = ttk.Button(widgetframe1, text = "Apply filter", command = self._filter)

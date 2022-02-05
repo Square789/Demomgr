@@ -31,29 +31,23 @@ class ThreadDelete(_StoppableBaseThread):
 		super().__init__(None, queue_out)
 
 	def run(self):
-		ddm = DemoDataManager(self.demodir, self.cfg, self.stoprequest, self.queue_out)
+		ddm = DemoDataManager(self.demodir, self.cfg)
 
 		for file in self.to_delete:
-			# This code kinda sucks but i am having a complete brainfart
-			# so I guess it stays
+			ddm.write_demo_info([file], [None])
 			try:
-				# TODO resurrect the flushing / caching behavior of the DDM since
-				# this is horribly inefficient with _events.txt
-				ddm.write_demo_info([file], [None])
+				# os.remove(os.path.join(self.demodir, file))
+				print("Delete thread would delete", os.path.join(self.demodir, file))
 			except OSError as e:
 				self.queue_out_put(THREADSIG.DELETION_FAILURE, file, e)
 			else:
-				try:
-					# os.remove(os.path.join(self.demodir, file))
-					print("Delete thread would delete", os.path.join(self.demodir, file))
-				except OSError as e:
-					self.queue_out_put(THREADSIG.DELETION_FAILURE, file, e)
-					continue
-				else:
-					self.queue_out_put(THREADSIG.DELETION_SUCCESS, file)
+				self.queue_out_put(THREADSIG.DELETION_SUCCESS, file)
 
 			if self.stoprequest.is_set():
 				self.queue_out_put(THREADSIG.ABORTED)
 				return
+
+		ddm.flush()
+		# TODO handle ddm write results?
 
 		self.queue_out_put(THREADSIG.SUCCESS)

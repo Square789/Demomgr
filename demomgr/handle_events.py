@@ -46,6 +46,8 @@ class EventReader():
 	resethandle: Will reset the file handle's position to 0 upon
 		creation. (Default True, bool)
 	blocksz: Blocksize to read files in. (Default 65536, int)
+
+	May raise: OSError when handle creation fails.
 	"""
 	def __init__(self, handle, sep = None, resethandle = None, blocksz = None):
 		self.isownhandle = False
@@ -145,7 +147,8 @@ class EventWriter():
 	"""
 	Class designed to write to a Source engine demo event log file.
 
-	handle: Must either be a file handle object or a string to a file.
+	handle: Must either a file handle object or one of the types accepted
+		by `open`.
 		If a file handle, must be opened in a+ mode.
 		If a file handle, it will not be closed after destruction
 		of the writer.
@@ -169,7 +172,7 @@ class EventWriter():
 				self.cnf[n] = v
 
 		self.isownhandle = False
-		if isinstance(handle, str):
+		if isinstance(handle, (str, bytes, int)):
 			self.isownhandle = True
 			handle = open(handle, "a+")
 
