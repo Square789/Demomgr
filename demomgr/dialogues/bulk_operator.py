@@ -190,6 +190,8 @@ class BulkOperator(BaseDialog):
 			self.appendtextbox(f"Deleted {args[0]}\n")
 		elif sig is THREADSIG.DELETION_FAILURE:
 			self.appendtextbox(f"Failed to delete {args[0]}: {args[1]}\n")
+		elif sig is THREADSIG.RESULT_INFO_WRITE_RESULTS:
+			pass
 
 		return THREADGROUPSIG.CONTINUE
 

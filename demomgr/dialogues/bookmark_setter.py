@@ -43,17 +43,13 @@ class BookmarkSetter(BaseDialog):
 			Containers are 0: _events.txt; 1: json file
 		If the thread only failed or wasn't even started,
 		`self.result.data` will be an empty dict.
-
-	Widget state remembering:
-		0: json checkbox (bool)
-		1: _events.txt checkbox (bool)
 	"""
 	# this docstring and class hurts my head, is needlessly overcomplicated and
 	# i hope i don't have to deal with it again
 
 	REMEMBER_DEFAULT = [False, False]
 
-	def __init__(self, parent, targetdemo, bm_dat, styleobj, cfg, remember):
+	def __init__(self, parent, targetdemo, bm_dat, styleobj, cfg):
 		"""
 		parent: Parent widget, should be a `Tk` or `Toplevel` instance.
 		targetdemo: Full path to the demo that should be marked.
@@ -61,7 +57,6 @@ class BookmarkSetter(BaseDialog):
 			May also be None, which is treated as an empty list.
 		styleobj: Instance of `tkinter.ttk.Style`
 		cfg: Program configuration.
-		remember: List of arbitrary values. See class docstring for details.
 		"""
 		super().__init__(parent, "Insert bookmark...")
 
@@ -79,12 +74,6 @@ class BookmarkSetter(BaseDialog):
 		# if thread fails
 		self.thread_container_state = None
 
-		u_r = self.validate_and_update_remember(remember)
-		self.jsonmark_var = tk.BooleanVar()
-		self.eventsmark_var = tk.BooleanVar()
-		self.jsonmark_var.set(u_r[0])
-		self.eventsmark_var.set(u_r[1])
-
 		self.threadgroup = ThreadGroup(ThreadMarkDemo, parent)
 		self.threadgroup.build_cb_method(self._mark_after_callback)
 
@@ -98,8 +87,7 @@ class BookmarkSetter(BaseDialog):
 
 		widgetcontainer = ttk.Frame(parent)#, style = "Contained.TFrame")
 		widgetcontainer.columnconfigure(0, weight = 4)
-		widgetcontainer.columnconfigure(1, weight = 1)
-		widgetcontainer.columnconfigure(2, weight = 1)
+		widgetcontainer.columnconfigure((1, 2), weight = 1)
 		widgetcontainer.rowconfigure(3, weight = 1)
 
 		self.listbox = mfl.MultiframeList(
@@ -146,23 +134,6 @@ class BookmarkSetter(BaseDialog):
 
 		add_bm_btn.grid(row = 1, column = 1, sticky = "ew", padx = (5, 0), pady = 5)
 		rem_bm_btn.grid(row = 1, column = 2, sticky = "ew", padx = (5, 0), pady = 5)
-
-		save_loc_lblfrm = ttk.Labelframe(
-			widgetcontainer, labelwidget = frmd_label(widgetcontainer, "Save changes to:")
-		)
-		json_checkbox = ttk.Checkbutton(
-			save_loc_lblfrm, text = CNST.DATA_GRAB_MODE.JSON.get_display_name(),
-			variable = self.jsonmark_var, style = "Contained.TCheckbutton"
-		)
-		events_checkbox = ttk.Checkbutton(
-			save_loc_lblfrm, text = CNST.DATA_GRAB_MODE.EVENTS.get_display_name(),
-			variable = self.eventsmark_var, style = "Contained.TCheckbutton"
-		)
-		json_checkbox.grid(sticky = "w", ipadx = 2, padx = 5, pady = 5)
-		events_checkbox.grid(sticky = "w", ipadx = 2, padx = 5, pady = 5)
-		save_loc_lblfrm.grid(
-			row = 2, column = 1, sticky = "ew", padx = (5, 0), columnspan = 2
-		)
 
 		widgetcontainer.grid(row = 0, column = 0, columnspan = 2, sticky = "news")
 
@@ -254,9 +225,6 @@ class BookmarkSetter(BaseDialog):
 				self.textbox.yview_moveto(1.0)
 
 	def _mark(self):
-		mark_json = self.jsonmark_var.get()
-		mark_evts = self.eventsmark_var.get()
-
 		date = datetime.now().strftime("%Y/%m/%d %H:%M")
 		self.thread_target_bookmarks = [
 			DemoEvent(n, t, date) for n, t in zip(
@@ -268,8 +236,6 @@ class BookmarkSetter(BaseDialog):
 
 		self.savebtn.configure(text = "Cancel", command = self._cancel_mark)
 		self.threadgroup.start_thread(
-			mark_json = mark_json,
-			mark_events = mark_evts,
 			bookmarks = self.thread_target_bookmarks,
 			targetdemo = self.targetdemo,
 			cfg = self.cfg,
@@ -305,5 +271,4 @@ class BookmarkSetter(BaseDialog):
 
 	def destroy(self):
 		self._cancel_mark()
-		self.result.remember = [self.jsonmark_var.get(), self.eventsmark_var.get()]
 		super().destroy()

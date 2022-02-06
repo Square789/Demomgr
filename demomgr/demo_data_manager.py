@@ -20,6 +20,22 @@ RE_TICK = re.compile(
 RE_LOGLINE_IS_BOOKMARK = re.compile(r"\[\d\d\d\d/\d\d/\d\d \d\d:\d\d\] Bookmark ")
 
 
+def _insert_write_result(target_dict, demo_name, result):
+	"""
+	Inserts a write result under the key `demo_name` into
+	`target_dict` if:
+	`demo_name` is not contained in the dict or
+	the existing result is an exception
+	"""
+	if demo_name not in target_dict:
+		target_dict[demo_name] = result
+	else:
+		# None indicates write success, which can't be undone by
+		# a write error.
+		if target_dict[demo_name] is not None:
+			target_dict[demo_name] = result
+
+
 class PROCESSOR_TYPE(IntEnum):
 	READER = 0
 	WRITER = 1
@@ -28,17 +44,24 @@ class PROCESSOR_TYPE(IntEnum):
 class DemoInfoProcessor():
 	def __init__(self, ddm):
 		self.ddm = ddm
+		self.is_acquired = False
 
 	def acquire(self):
 		"""
 		Processor should acquire resources here.
+		This method may raise `OSError`s, in which case it is
+		considered faulty and will be removed from DDMs.
 		"""
+		self.is_acquired = True
 
 	def release(self):
 		"""
 		Processor should release resources here.
-		This method is expected to never raise errors.
+		This method is expected to never raise errors and instead
+		(in case of a writer) report exceptions by writing them into
+		`self._write_results` or ignoring them otherwise.
 		"""
+		self.is_acquired = False
 
 
 class Reader(DemoInfoProcessor):
@@ -82,6 +105,7 @@ class EventsReader(Reader):
 		return [self.chunk_cache.get(name, None) for name in names]
 
 	def acquire(self):
+		super().acquire()
 		self.reader = he.EventReader(
 			os.path.join(self.ddm.directory, EVENT_FILE),
 			blocksz = self.ddm.cfg.events_blocksize,
@@ -89,11 +113,13 @@ class EventsReader(Reader):
 		self.chunk_cache = {}
 
 	def release(self):
+		super().release()
 		try:
 			self.reader.destroy()
-			self.reader = None
 		except OSError:
 			pass
+		finally:
+			self.reader = None
 
 
 class EventsWriter(Writer):
@@ -143,6 +169,7 @@ class EventsWriter(Writer):
 				self._demo_info.append(info)
 
 	def acquire(self):
+		super().acquire()
 		events_file = os.path.join(self.ddm.directory, EVENT_FILE)
 		if not os.path.exists(events_file):
 			self.reader = None
@@ -155,6 +182,7 @@ class EventsWriter(Writer):
 		self._expected_write_result_names = set()
 
 	def release(self):
+		super().release()
 		fname = writer = write_result = None
 
 		try:
@@ -170,6 +198,7 @@ class EventsWriter(Writer):
 
 			for info in self._demo_info:
 				if info is not None and not info.is_empty():
+					print(f"_events writer: Writing logchunk for {info.demo_name}")
 					writer.writechunk(info.to_logchunk())
 			# Writes any pending logchunks from a non-fully-exhausted reader.
 			# This is so stupidly overengineered lmao
@@ -180,6 +209,7 @@ class EventsWriter(Writer):
 					except ValueError:
 						print(f"_events writer: Dropping faulty logchunk:\n===\n{str(chk)}\n===")
 						continue
+					print(f"_events writer: Post-reading & writing logchunk for {info.demo_name}")
 					writer.writechunk(info.to_logchunk())
 				self.reader.destroy()
 				self.reader = None
@@ -216,7 +246,6 @@ class EventsWriter(Writer):
 				except OSError:
 					print(f"_events writer: Failure deleting tempfile {fname!r}")
 					pass
-
 
 
 class JSONReader(Reader):
@@ -274,7 +303,9 @@ class JSONWriter(Writer):
 
 	def write_info(self, names, info):
 		for name, info_obj in zip(names, info):
-			self._write_results[name] = self._single_write_info(name, info_obj)
+			_insert_write_result(
+				self._write_results, name, self._single_write_info(name, info_obj)
+			)
 
 
 class NoneReader(Reader):
@@ -282,7 +313,7 @@ class NoneReader(Reader):
 		return [None] * len(names)
 
 
-class NoneWriter(Reader):
+class NoneWriter(Writer):
 	def write_info(self, names, _):
 		return [None] * len(names)
 
@@ -327,8 +358,9 @@ class DemoDataManager():
 		newly if it does not exist.
 		"""
 		if mode not in self.readers:
-			self.readers[mode] = _PROCESSOR_MAP[mode][PROCESSOR_TYPE.READER](self)
-			self.readers[mode].acquire()
+			r = _PROCESSOR_MAP[mode][PROCESSOR_TYPE.READER](self)
+			r.acquire()
+			self.readers[mode] = r
 		return self.readers[mode]
 
 	def _get_writer(self, mode):
@@ -337,22 +369,15 @@ class DemoDataManager():
 		newly if it does not exist.
 		"""
 		if mode not in self.writers:
-			self.writers[mode] = _PROCESSOR_MAP[mode][PROCESSOR_TYPE.WRITER](self)
-			self.writers[mode].acquire()
+			w = _PROCESSOR_MAP[mode][PROCESSOR_TYPE.WRITER](self)
+			w.acquire()
+			self.writers[mode] = w
 		return self.writers[mode]
 
 	def _merge_write_results(self, mode, results):
-		for name, status in results.items():
-			if name not in self._write_results[mode]:
-				self._write_results[mode][name] = status
-			else:
-				# We want to shadow exceptions with either new exceptions or data
-				# Shadow data with only new data
-				if (
-					isinstance(status, (DemoInfo, type(None))) or
-					isinstance(self._write_results[mode][name], Exception)
-				):
-					self._write_results[mode][name] = status
+		for name, result in results.items():
+			t = self._write_results[mode]
+			_insert_write_result(t, name, result)
 
 	def _fetch_write_results(self, mode):
 		if mode not in self.writers:
@@ -365,8 +390,10 @@ class DemoDataManager():
 		"""
 		Retrieves information on how writing of DemoInfo went.
 		This method only returns a non-empty result after `flush` is
-		called, where it will return:
-			# TODO
+		called, where it will return a dict mapping touched data modes
+		to other dicts where a demo name (str) maps to either:
+			- An exception
+			- None if all went well and the most recently 
 		"""
 		r = self._write_results
 		self._write_results = {}
@@ -407,30 +434,29 @@ class DemoDataManager():
 			res.append(stat_res)
 		return res
 
-	def write_demo_info(self, names, demo_info, modes = None):
+	def write_demo_info(self, names, demo_info, mode):
 		"""
-		Sets information for the given demos for all supplied modes.
+		Sets information for the given demos for the supplied mode.
 		This will destroy any existing information.
 		If empty demo info is given for a demo name, any existing info
 		containers will be deleted/omitted so that the next read
 		attempt on the name returns `None`.
-		If `modes` is `None`, will set the data for all possible modes.
-		(That is, first `EVENTS`, then `JSON`).
 
-		May raise: ValueError in case `demo_info` and `modes` differ in length.
+		May raise:
+			- ValueError in case `names` and `demo_info` differ in
+			  length.
+			- OSError on writer creation failure. `get_write_results`
+			  can be used to retrieve the exception.
 		"""
 		if len(demo_info) != len(names):
 			raise ValueError("Each supplied demo name must have a corresponding DemoInfo.")
 
-		modes = (DATA_GRAB_MODE.EVENTS, DATA_GRAB_MODE.JSON) if modes is None else modes
-
-		for mode in modes:
-			try:
-				w = self._get_writer(mode)
-			except OSError as e:
-				self._merge_write_results(mode, {name: e for name in names})
-				continue
-			w.write_info(names, demo_info)
+		try:
+			w = self._get_writer(mode)
+		except OSError as e:
+			self._merge_write_results(mode, {name: e for name in names})
+			raise
+		w.write_info(names, demo_info)
 
 	def flush(self):
 		"""
@@ -438,23 +464,44 @@ class DemoDataManager():
 		`write_demo_info(x, y)` -> `get_demo_info(x)` may not return
 		`y`, but `write_demo_info(x, y) -> `flush()` ->
 		`get_demo_info(x)` will.
-		This function may raise OSErrors.
+
+		This function may raise an OSError, in which case the data
+		written may be all over the place and ruined. If this happens,
+		the DDM should not be used anymore. Shouldn't happen on a sane
+		system.
 		"""
+		exc = None
+		for mode in DATA_GRAB_MODE:
+			if mode not in self.writers: # No need to release reader
+				continue
+
+			if mode in self.readers:
+				self.readers[mode].release()
+			self.writers[mode].release()
+			self._fetch_write_results(mode)
+
+		_acquired_processors = []
 		for mode in DATA_GRAB_MODE:
 			if mode not in self.writers:
 				continue
 
-			# TODO: acquire may error. How to handle?
-			if mode in self.readers:
-				self.readers[mode].release()
+			try:
+				self.writers[mode].acquire()
+				_acquired_processors.append(self.writers[mode])
+				if mode in self.readers:
+					self.readers[mode].acquire()
+					_acquired_processors.append(self.readers[mode])
+			except OSError as e:
+				exc = e
+				for prc in _acquired_processors:
+					prc.release()
+				for writer_mode in self.writers.keys():
+					self._fetch_write_results(writer_mode)
+				self.readers = {}
+				self.writers = {}
 
-			self.writers[mode].release()
-			self.writers[mode].acquire()
-
-			if mode in self.readers:
-				self.readers[mode].acquire()
-
-			self._fetch_write_results(mode)
+		if exc is not None:
+			raise exc
 
 	def destroy(self):
 		"""

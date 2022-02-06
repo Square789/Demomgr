@@ -29,18 +29,14 @@ class ThreadMarkDemo(_StoppableBaseThread):
 			- Container type as the proper enum member.
 			- Error that occurred.
 	"""
-	def __init__(self, queue_out, mark_json, mark_events, bookmarks, targetdemo, cfg):
+	def __init__(self, queue_out, bookmarks, targetdemo, cfg):
 		"""
 		Thread takes an output queue and as the following args:
-			mark_json <Bool>: Whether the .json file should be modified
-			mark_events <Bool>: Whether the _events.txt file should be modified
 			bookmarks <Seq[Tuple[Str, Int]]>: Bookmarks as a sequence of
 				(name, tick) tuples.
 			targetdemo <Str>: Absolute path to the demo to be marked.
 			cfg <config.Config>: Program configuration.
 		"""
-		self.mark_json = mark_json
-		self.mark_events = mark_events
 		self.bookmarks = bookmarks
 		self.targetdemo = targetdemo
 		self.cfg = cfg
@@ -51,11 +47,8 @@ class ThreadMarkDemo(_StoppableBaseThread):
 		ddm = DemoDataManager(os.path.dirname(self.targetdemo), self.cfg)
 		demo_name = os.path.basename(self.targetdemo)
 
-		for data_mode, should_mark in (
-			(CNST.DATA_GRAB_MODE.JSON, self.mark_json),
-			(CNST.DATA_GRAB_MODE.EVENTS, self.mark_events),
-		):
-			if not should_mark:
+		for data_mode in CNST.DATA_GRAB_MODE:
+			if data_mode is CNST.DATA_GRAB_MODE.NONE:
 				continue
 
 			self.queue_out_put(THREADSIG.BOOKMARK_CONTAINER_UPDATE_START, data_mode)
@@ -71,8 +64,11 @@ class ThreadMarkDemo(_StoppableBaseThread):
 			else:
 				res.bookmarks = self.bookmarks
 
-			ddm.write_demo_info([demo_name], [res], [data_mode])
-			ddm.flush()
+			try:
+				ddm.write_demo_info([demo_name], [res], data_mode)
+				ddm.flush()
+			except OSError:
+				pass
 			if isinstance(ddm.get_write_results()[data_mode][demo_name], Exception):
 				self.queue_out_put(THREADSIG.BOOKMARK_CONTAINER_UPDATE_FAILURE, data_mode)
 			else:

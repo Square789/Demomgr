@@ -492,7 +492,6 @@ class MainApp():
 			bm_dat = self.listbox.get_cell("col_bm", index),
 			styleobj = self.ttkstyle,
 			cfg = self.cfg,
-			remember = self.cfg.ui_remember["bookmark_setter"],
 		)
 		dialog.show()
 		if dialog.result.state == DIAGSIG.GLITCHED:

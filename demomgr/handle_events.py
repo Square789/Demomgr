@@ -74,7 +74,6 @@ class EventReader():
 		return self
 
 	def __iter__(self):
-		self.reset()
 		return self
 
 	def __exit__(self, *_):

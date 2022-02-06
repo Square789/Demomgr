@@ -1,4 +1,5 @@
 import os
+from demomgr.constants import DATA_GRAB_MODE
 
 from demomgr.demo_data_manager import DemoDataManager
 from demomgr.threads._base import _StoppableBaseThread
@@ -33,21 +34,28 @@ class ThreadDelete(_StoppableBaseThread):
 	def run(self):
 		ddm = DemoDataManager(self.demodir, self.cfg)
 
+		successfully_deleted = []
 		for file in self.to_delete:
-			ddm.write_demo_info([file], [None])
 			try:
 				# os.remove(os.path.join(self.demodir, file))
-				print("Delete thread would delete", os.path.join(self.demodir, file))
+				print("Delete thread: Would delete file at", os.path.join(self.demodir, file))
 			except OSError as e:
 				self.queue_out_put(THREADSIG.DELETION_FAILURE, file, e)
 			else:
 				self.queue_out_put(THREADSIG.DELETION_SUCCESS, file)
+				successfully_deleted.append(file)
 
 			if self.stoprequest.is_set():
 				self.queue_out_put(THREADSIG.ABORTED)
-				return
+				break
 
-		ddm.flush()
-		# TODO handle ddm write results?
+		try:
+			for mode in DATA_GRAB_MODE:
+				ddm.write_demo_info(successfully_deleted, [None] * len(successfully_deleted), mode)
+			ddm.flush()
+		except OSError:
+			pass # if this happens (seriously unlikely), data is probably out of sync. Too bad!
+
+		self.queue_out_put(THREADSIG.RESULT_INFO_WRITE_RESULTS, ddm.get_write_results())
 
 		self.queue_out_put(THREADSIG.SUCCESS)

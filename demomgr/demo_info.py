@@ -7,7 +7,6 @@ import os
 import re
 
 from demomgr.helpers import getstreakpeaks
-from demomgr import handle_events as handle_ev
 
 RE_LINE = re.compile(r'\[(\d{4}/\d\d/\d\d \d\d:\d\d)\] (Killstreak|Bookmark)'
 	r' (.*) \("([^"]*)" at (\d+)\)')
@@ -183,16 +182,3 @@ class DemoInfo():
 	def set_killstreaks(self, killstreaks):
 		self.killstreaks = killstreaks
 		self.killstreak_peaks = getstreakpeaks(killstreaks)
-
-def parse_events(handle, blocksz):
-	"""
-	This function reads an events.txt file as it's written by the source
-	engine, returns a list of DemoInfo instances containing demo name,
-	killstreaks and bookmarks.
-
-	handle : Open file handle to the events file. Must be readable.
-	blocksz : Block size the handle file should be read in. (int)
-	May raise OSError, PermissionError, ValueError.
-	"""
-	with handle_ev.EventReader(handle, blocksz=blocksz) as reader:
-		return [DemoInfo.from_raw_logchunk(chk) for chk in reader]
