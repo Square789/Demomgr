@@ -64,11 +64,6 @@ THEME_SUBDIR = "ui_themes"
 THEME_PACKAGES = {
 	"Dark": ("dark.tcl", "demomgr_dark", "dark"),
 }
-FALLBACK_HEADER = {
-	"dem_prot": 3, "net_prot": 24, "hostname": "",
-	"clientid": "", "map_name": "", "game_dir": "", "playtime": 0,
-	"tick_num": 0, "framenum": 0, "tickrate": 0,
-}
 HEADER_HUMAN_NAMES = {
 	"hostname": "Hostname", "clientid": "Playername",
 	"map_name": "Map", "playtime": "Playtime",

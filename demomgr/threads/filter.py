@@ -2,7 +2,6 @@ import os
 import time
 import queue
 
-import demomgr.constants as CNST
 from demomgr.filterlogic import process_filterstring, FILTERFLAGS
 from demomgr.helpers import readdemoheader
 from demomgr.threads.read_folder import ThreadReadFolder
@@ -69,20 +68,21 @@ class ThreadFilter(_StoppableBaseThread):
 				if queueobj[0] is THREADSIG.RESULT_DEMODATA:
 					demo_data = queueobj[1]
 				elif queueobj[0].is_finish_signal():
-					if queueobj[0] is THREADSIG.FAILURE:
-						self.queue_out_put(
-							THREADSIG.INFO_STATUSBAR,
-							("Demo fetching thread failed during filtering.", 4000)
-						)
-						self.queue_out_put(THREADSIG.FAILURE)
-						return
-					break
+					if queueobj[0] is THREADSIG.SUCCESS:
+						break
+					self.queue_out_put(
+						THREADSIG.INFO_STATUSBAR,
+						("Demo fetching thread failed during filtering.", 4000)
+					)
+					self.queue_out_put(THREADSIG.FAILURE)
+					return
 			except queue.Empty:
 				break
 		if self.stoprequest.is_set():
 			self.queue_out_put(THREADSIG.ABORTED)
 			return
 
+		errors = 0
 		filtered_demo_data = {
 			"col_filename": [], "col_ks": [], "col_bm": [], "col_ctime": [], "col_filesize": []
 		}
@@ -106,7 +106,8 @@ class ThreadFilter(_StoppableBaseThread):
 			if flags & FILTERFLAGS.HEADER:
 				try:
 					curdataset["header"] = readdemoheader(os.path.join(self.curdir, j))
-				except OSError:
+				except (OSError, ValueError):
+					errors += 1
 					continue
 
 			if all(lambda_(curdataset) for lambda_ in filters):
@@ -120,9 +121,9 @@ class ThreadFilter(_StoppableBaseThread):
 				self.queue_out_put(THREADSIG.ABORTED)
 				return
 
-		self.queue_out_put(
-			THREADSIG.INFO_STATUSBAR,
-			(f"Filtered {file_amnt} demos in {round(time.time() - starttime, 3)} seconds.", 3000)
-		)
+		res_msg = f"Filtered {file_amnt} demos in {round(time.time() - starttime, 3)} seconds."
+		if errors > 0:
+			res_msg += f" {errors} of those excluded due to errors."
+		self.queue_out_put(THREADSIG.INFO_STATUSBAR, (res_msg, 3000))
 		self.queue_out_put(THREADSIG.RESULT_DEMODATA, filtered_demo_data)
 		self.queue_out_put(THREADSIG.SUCCESS)

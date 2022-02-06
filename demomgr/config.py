@@ -40,7 +40,6 @@ DEFAULT = {
 	"rcon_pwd": None,
 	"steam_path": None,
 	"ui_remember": {
-		"bookmark_setter": [],
 		"launch_tf2": [],
 		"settings": [],
 	},
@@ -71,7 +70,6 @@ _SCHEMA = Schema(
 		"rcon_pwd": Or(None, str),
 		"steam_path": Or(None, str),
 		"ui_remember": {
-			"bookmark_setter": [object],
 			"launch_tf2": [object],
 			"settings": [object],
 		},

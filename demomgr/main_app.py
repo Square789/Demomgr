@@ -496,7 +496,6 @@ class MainApp():
 		dialog.show()
 		if dialog.result.state == DIAGSIG.GLITCHED:
 			return
-		self.cfg.ui_remember["bookmark_setter"] = dialog.result.remember
 		if dialog.result.state == DIAGSIG.SUCCESS:
 			if self.cfg.lazy_reload:
 				if self.cfg.data_grab_mode == 0:

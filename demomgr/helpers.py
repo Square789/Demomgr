@@ -56,42 +56,46 @@ def deepupdate_dict(target, update):
 			target[k] = v
 	return target
 
-def readbinStr(handle, leng = 260):
+def readbin_str(handle, leng = 260):
 	"""Reads file handle by leng bytes and attempts to decode to utf-8."""
 	rawbin = handle.read(leng)
 	bin = rawbin.strip(b"\x00")
 	return bin.decode("utf-8")
 
-def readbinInt(handle, leng = 4):
+def readbin_int(handle, leng = 4):
 	rawbin = handle.read(leng)
 	return struct.unpack("i", rawbin)[0]
 
-def readbinFlt(handle):
+def readbin_flt(handle):
 	rawbin = handle.read(4)
 	return struct.unpack("f", rawbin)[0]
 
 # Code happily duplicated from https://developer.valvesoftware.com/wiki/DEM_Format
 def readdemoheader(path):
 	"""
-	Reads the header information of a demo. May raise exceptions on
-	denied read access or malformed demos.
+	Reads the header information of a demo.
+	May raise:
+		- OSError on denied read access or other file failures.
+		- ValueError on malformed demos.
 	"""
-	demhdr = CNST.FALLBACK_HEADER.copy()
-
-	h = open(path, "rb")
-	if readbinStr(h, 8) == "HL2DEMO":
-		demhdr["dem_prot"] = readbinInt(h)
-		demhdr["net_prot"] = readbinInt(h)
-		demhdr["hostname"] = readbinStr(h)
-		demhdr["clientid"] = readbinStr(h)
-		demhdr["map_name"] = readbinStr(h)
-		demhdr["game_dir"] = readbinStr(h)
-		demhdr["playtime"] = readbinFlt(h)
-		demhdr["tick_num"] = readbinInt(h)
-		demhdr["framenum"] = readbinInt(h)
-		demhdr["tickrate"] = int(demhdr["tick_num"] / demhdr["playtime"]) if \
-			demhdr["playtime"] != 0.0 else -1
-	h.close()
+	demhdr = {}
+	with open(path, "rb") as h:
+		if readbin_str(h, 8) != "HL2DEMO":
+			raise ValueError("Malformed demo, expected `HL2DEMO` header")
+		try:
+			demhdr["dem_prot"] = readbin_int(h)
+			demhdr["net_prot"] = readbin_int(h)
+			demhdr["hostname"] = readbin_str(h)
+			demhdr["clientid"] = readbin_str(h)
+			demhdr["map_name"] = readbin_str(h)
+			demhdr["game_dir"] = readbin_str(h)
+			demhdr["playtime"] = readbin_flt(h)
+			demhdr["tick_num"] = readbin_int(h)
+			demhdr["framenum"] = readbin_int(h)
+			demhdr["tickrate"] = int(demhdr["tick_num"] / demhdr["playtime"]) if \
+				demhdr["playtime"] != 0.0 else -1
+		except struct.error as exc:
+			raise ValueError() from exc
 
 	return demhdr
 
