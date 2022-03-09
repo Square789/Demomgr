@@ -21,7 +21,7 @@ from demomgr.helpers import build_date_formatter, convertunit, getstreakpeaks
 from demomgr.style_helper import StyleHelper
 from demomgr import platforming
 from demomgr.threadgroup import ThreadGroup, THREADGROUPSIG
-from demomgr.threads import THREADSIG, ThreadFilter, ThreadReadFolder, ThreadReadDemoInfo
+from demomgr.threads import THREADSIG, ThreadFilter, ThreadReadFolder, ReadDemoMetaThread
 
 __version__ = "1.9.0"
 __author__ = "Square789"
@@ -71,7 +71,7 @@ class MainApp():
 		# Threading setup
 		self.threadgroups = {
 			"filter_select": ThreadGroup(ThreadFilter, self.root),
-			"demoinfo": ThreadGroup(ThreadReadDemoInfo, self.root),
+			"demoinfo": ThreadGroup(ReadDemoMetaThread, self.root),
 			"fetchdata": ThreadGroup(ThreadReadFolder, self.root),
 			"filter": ThreadGroup(ThreadFilter, self.root),
 		}
@@ -359,16 +359,20 @@ class MainApp():
 		dialog.show()
 		if dialog.result.state == DIAGSIG.GLITCHED:
 			return
+
 		self.cfg.ui_remember["settings"] = dialog.result.remember
-		if dialog.result.state == DIAGSIG.SUCCESS:
-			# what a hardcoded piece of garbage, there must be better ways
-			if self.cfg.date_format != dialog.result.data["date_format"]:
-				self.listbox.config_column(
-					"col_ctime", formatter = build_date_formatter(dialog.result.data)
-				)
-			self.cfg.update(**dialog.result.data)
-			self.reloadgui()
-			self._applytheme()
+
+		if dialog.result.state != DIAGSIG.SUCCESS:
+			return
+
+		# what a hardcoded piece of garbage, there must be better ways
+		if self.cfg.date_format != dialog.result.data["date_format"]:
+			self.listbox.config_column(
+				"col_ctime", formatter = build_date_formatter(dialog.result.data)
+			)
+		self.cfg.update(**dialog.result.data)
+		self.reloadgui()
+		self._applytheme()
 
 	def _open_file_manager(self):
 		"""
@@ -457,26 +461,28 @@ class MainApp():
 			operation = CNST.BULK_OPERATION.DELETE,
 		)
 		dialog.show()
-		if dialog.state == DIAGSIG.GLITCHED:
+		if dialog.state != DIAGSIG.SUCCESS:
 			return
-		if dialog.result.state == DIAGSIG.SUCCESS:
-			if self.cfg.lazy_reload:
-				indices_to_remove = [file_idx_map[file] for file in dialog.result.data]
-				self.directory_inf_kvd.set_value(
-					"l_amount",
-					self.directory_inf_kvd.get_value("l_amount") - len(indices_to_remove)
+
+		if self.cfg.lazy_reload:
+			self.reloadgui()
+			return
+
+		if False: # TODO think about dialog's return values and fix this
+			indices_to_remove = [file_idx_map[file] for file in dialog.result.data]
+			self.directory_inf_kvd.set_value(
+				"l_amount",
+				self.directory_inf_kvd.get_value("l_amount") - len(indices_to_remove)
+			)
+			self.directory_inf_kvd.set_value(
+				"l_totalsize",
+				self.directory_inf_kvd.get_value("l_totalsize") - sum(
+					self.listbox.get_cell("col_filesize", index)
+					for index in indices_to_remove
 				)
-				self.directory_inf_kvd.set_value(
-					"l_totalsize",
-					self.directory_inf_kvd.get_value("l_totalsize") - sum(
-						self.listbox.get_cell("col_filesize", index)
-						for index in indices_to_remove
-					)
-				)
-				self.listbox.remove_rows(indices_to_remove)
-				self._updatedemowindow(clear = True)
-			else:
-				self.reloadgui()
+			)
+			self.listbox.remove_rows(indices_to_remove)
+			self._updatedemowindow(clear = True)
 
 	def _managebookmarks(self):
 		"""Offers dialog to manage a demo's bookmarks."""
@@ -493,22 +499,23 @@ class MainApp():
 			cfg = self.cfg,
 		)
 		dialog.show()
-		if dialog.result.state == DIAGSIG.GLITCHED:
+		if dialog.result.state != DIAGSIG.SUCCESS:
 			return
-		if dialog.result.state == DIAGSIG.SUCCESS:
-			if self.cfg.lazy_reload:
-				if self.cfg.data_grab_mode == 0:
-					return
-				container_state = dialog.result.data["containers"][self.cfg.data_grab_mode - 1]
-				if container_state is None:
-					return
-				self.listbox.set_cell(
-					"col_bm", index, dialog.result.data["bookmarks"] if container_state else None
-				)
-				self.listbox.format(("col_bm", ), (index, ))
-				self._updatedemowindow(no_io = True)
-			else:
-				self.reloadgui()
+
+		if self.cfg.lazy_reload:
+			self.reloadgui()
+			return
+
+		if self.cfg.data_grab_mode == 0:
+			return
+		container_state = dialog.result.data["containers"][self.cfg.data_grab_mode - 1]
+		if container_state is None:
+			return
+		self.listbox.set_cell(
+			"col_bm", index, dialog.result.data["bookmarks"] if container_state else None
+		)
+		self.listbox.format(("col_bm", ), (index, ))
+		self._updatedemowindow(no_io = True)
 
 	def _applytheme(self):
 		"""
@@ -518,6 +525,7 @@ class MainApp():
 		if self.cfg.ui_theme == "_DEFAULT":
 			self.root.tk.call("ttk::setTheme", self._DEFAULT_THEME)
 			return
+
 		try:
 			theme_tuple = CNST.THEME_PACKAGES[self.cfg.ui_theme]
 			# Really hacky way of doing this
@@ -525,6 +533,7 @@ class MainApp():
 		except KeyError:
 			tk_msg.showerror("Demomgr - Error", "Cannot find Tcl theme, using default.")
 			return
+
 		try:
 			stylehelper = StyleHelper(self.root)
 			imgdir = os.path.join(os.path.dirname(__file__), CNST.THEME_SUBDIR, theme_tuple[2])

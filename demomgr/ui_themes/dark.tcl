@@ -158,8 +158,10 @@ ttk::style theme create demomgr_dark -settings \
 			Labelframe.l_border -sticky swn -side left
 		}
 	}
+
 	ttk::style map TButton -foreground [
 			list active #FFFFFF !disabled #DDDDDD disabled #999999
 		]
 	ttk::style map TEntry -foreground [list readonly #999999]
+	ttk::style map TRadiobutton -foreground [list disabled #999999]
 }

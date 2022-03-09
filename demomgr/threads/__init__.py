@@ -1,4 +1,3 @@
-from .cmd_demo_info import CMDDemoInfoThread
 from .cmd_demos import CMDDemosThread
 from .filter import ThreadFilter
 from .mark_demo import ThreadMarkDemo

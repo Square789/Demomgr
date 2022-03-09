@@ -12,7 +12,7 @@ from demomgr.dialogues._diagresult import DIAGSIG
 from demomgr.helpers import frmd_label
 from demomgr.tk_widgets import TtkText
 from demomgr.threadgroup import ThreadGroup, THREADGROUPSIG
-from demomgr.threads import THREADSIG, CMDDemosThread, CMDDemoInfoThread
+from demomgr.threads import THREADSIG, CMDDemosThread
 
 
 _TMP = {CNST.DATA_GRAB_MODE.JSON: "JSON file", CNST.DATA_GRAB_MODE.EVENTS: "_events.txt entry"}
@@ -98,11 +98,10 @@ class BulkOperator(BaseDialog):
 		self.pending_files = set() # Files that still need to be processed
 		self.pending_demo_info = {} # Demo info that still needs to be processed
 
-		self.demo_threadgroup = ThreadGroup(CMDDemosThread, self.master)
-		self.demo_threadgroup.build_cb_method(self._demo_after_callback)
+		self._FULL_DGM = {m for m in CNST.DATA_GRAB_MODE if m is not CNST.DATA_GRAB_MODE.NONE}
 
-		self.demoinfo_threadgroup = ThreadGroup(CMDDemoInfoThread, self.master)
-		self.demoinfo_threadgroup.build_cb_method(self._demoinfo_after_callback)
+		self.threadgroup = ThreadGroup(CMDDemosThread, self.master)
+		self.threadgroup.build_cb_method(self._demo_after_callback)
 
 	def body(self, master):
 		self.protocol("WM_DELETE_WINDOW", self.destroy)
@@ -111,7 +110,7 @@ class BulkOperator(BaseDialog):
 		master.grid_rowconfigure((0, 1, 2, 3), weight = 1)
 
 		button_frame = ttk.Frame(master)
-		self.okbutton = ttk.Button(button_frame, text = "Start", command = lambda: self._start_demo_processing)
+		self.okbutton = ttk.Button(button_frame, text = "Start", command = self._start_demo_processing)
 		self.closebutton = ttk.Button(button_frame, text = "Cancel", command = self.destroy)
 		self.canceloperationbutton = ttk.Button(button_frame, text = "Abort", command = self._stopoperation)
 
@@ -152,6 +151,7 @@ class BulkOperator(BaseDialog):
 
 		self.operation_var = tk.IntVar()
 		self.target_directory_var = tk.StringVar()
+		self.operation_radiobuttons = []
 		option_frame = ttk.LabelFrame(
 			master,
 			padding = 5,
@@ -172,8 +172,8 @@ class BulkOperator(BaseDialog):
 				text = text,
 				style = "Contained.TRadiobutton"
 			)
-
 			bt.grid(row = 0, column = i, padx = (0, 10 * (i < 2)), ipadx = 1, sticky = "ew")
+			self.operation_radiobuttons.append(bt)
 
 		self.operation_var.set(self._ini_operation.value)
 		del self._ini_operation
@@ -225,39 +225,40 @@ class BulkOperator(BaseDialog):
 
 	def _start_demo_processing(self):
 		self.thread_start_time = time()
+		locked_operation = CNST.BULK_OPERATION(self.operation_var.get())
+		target_dir = None
+		if (
+			locked_operation is CNST.BULK_OPERATION.COPY or
+			locked_operation is CNST.BULK_OPERATION.MOVE
+		):
+			target_dir = self.target_directory_var.get()
+			if target_dir == "":
+				return
 
 		self.textbox.replace("status_start", "status_end", "Running")
 		self.okbutton.pack_forget()
 		self.closebutton.pack_forget()
 		self.canceloperationbutton.pack(side = tk.LEFT, fill = tk.X, expand = 1)
-		self._locked_operation = CNST.BULK_OPERATION(self.operation_var.get())
+		for b in self.operation_radiobuttons:
+			b.configure(state = tk.DISABLED)
 
+		self._locked_operation = locked_operation
 		self.pending_files = set(self.files)
 
-		target_dir = None
-		if (
-			self._locked_operation is CNST.BULK_OPERATION.COPY or
-			self._locked_operation is CNST.BULK_OPERATION.MOVE
-		):
-			target_dir = self.target_directory_var.get()
-
-		self.demo_threadgroup.start_thread(
+		self.threadgroup.start_thread(
 			source_dir = self.demodir,
 			target_dir = target_dir,
-			mode = self._locked_operation,
-			to_process = self.files,
+			mode = locked_operation,
+			files_to_process = self.pending_files.copy(),
+			info_to_process = {d: m.copy() for d, m in self.pending_demo_info.items()},
 			cfg = self.cfg,
 		)
-
-	def _start_demo_info_processing(self):
-		pass
 
 	def _refresh_demo_to_index_map(self):
 		self._listbox_idx_map = {f: i for i, f in enumerate(self.listbox.get_column("col_file"))}
 
 	def _stopoperation(self):
-		if self.active_threadgroup is not None:
-			self.active_threadgroup.join_thread()
+		self.threadgroup.join_thread()
 
 	def _on_operation_change(self):
 		new_op = CNST.BULK_OPERATION(self.operation_var.get())
@@ -281,34 +282,6 @@ class BulkOperator(BaseDialog):
 
 	def _demo_after_callback(self, sig, *args):
 		if sig.is_finish_signal():
-			self._start_demo_info_processing()
-			return THREADGROUPSIG.FINISHED
-
-		elif sig is THREADSIG.FILE_OPERATION_SUCCESS or sig is THREADSIG.FILE_OPERATION_FAILURE:
-			name = args[0]
-			file_state = self.listbox.get_cell("col_state", self._listbox_idx_map[name])
-			file_state.set(sig is THREADSIG.FILE_OPERATION_SUCCESS, self._locked_operation)
-			if sig is THREADSIG.FILE_OPERATION_SUCCESS:
-				self.pending_files.remove(name)
-			self.listbox.format(("col_file",), (self._listbox_idx_map[name],))
-
-		elif sig is THREADSIG.RESULT_INFO_WRITE_RESULTS:
-			# Format the FileStates with appropiate information.
-			for mode, inner in args[0].items():
-				for demo_name, write_result in inner.items():
-					self.listbox.get_cell(
-						"col_state", self._listbox_idx_map[demo_name]
-					).processed_data_grab_modes[mode] = write_result
-					if demo_name in self.pending_files:
-						print(f"Something went wrong: {demo_name} was still pending.")
-						continue
-					self.pending_files.remove(demo_name)
-			self.listbox.format(("col_state",))
-
-		return THREADGROUPSIG.CONTINUE
-
-	def _demoinfo_after_callback(self, sig, *args):
-		if sig.is_finish_signal():
 			if sig is THREADSIG.SUCCESS:
 				self.appendtextbox(
 					f"Successfully processed {len(self._processed_files)}/"
@@ -322,6 +295,44 @@ class BulkOperator(BaseDialog):
 				self.textbox.replace("status_start", "status_end", "Finished")
 				self.textbox.delete("spinner", "spinner + 1 chars")
 				self.textbox.insert("spinner", ".")
+
+			print("Thread finished!")
+			pprint = __import__("pprint").pprint
+			print("Pending files:")
+			pprint(self.pending_files)
+			print("\nPending info:")
+			pprint(self.pending_demo_info)
+			print("\n")
+
+			return THREADGROUPSIG.FINISHED
+
+		elif sig is THREADSIG.FILE_OPERATION_SUCCESS or sig is THREADSIG.FILE_OPERATION_FAILURE:
+			name = args[0]
+			file_state = self.listbox.get_cell("col_state", self._listbox_idx_map[name])
+			file_state.set(sig is THREADSIG.FILE_OPERATION_SUCCESS, self._locked_operation)
+			if sig is THREADSIG.FILE_OPERATION_SUCCESS:
+				self.pending_files.remove(name)
+				self.pending_demo_info[name] = self._FULL_DGM.copy()
+			self.listbox.format(("col_file",), (self._listbox_idx_map[name],))
+
+		elif sig is THREADSIG.RESULT_INFO_WRITE_RESULTS:
+			# Format the FileStates with appropiate information.
+			mode = args[0]
+			for demo_name, write_result in args[1].items():
+				self.listbox.get_cell(
+					"col_state", self._listbox_idx_map[demo_name]
+				).processed_data_grab_modes[mode] = write_result
+				if demo_name in self.pending_files:
+					print(f"Something went wrong: {demo_name} was still pending.")
+					continue
+				if write_result is None:
+					if len(self.pending_demo_info[demo_name]) == 1:
+						self.pending_demo_info.pop(demo_name)
+					else:
+						self.pending_demo_info[demo_name].remove(mode)
+			self.listbox.format(("col_state",))
+
+		return THREADGROUPSIG.CONTINUE
 
 	def appendtextbox(self, _inp):
 		with self.textbox:
