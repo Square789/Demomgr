@@ -21,6 +21,11 @@ class FILE_MANAGER_MODE(IntEnum):
 	WINDOWS_EXPLORER = 0
 	USER_DEFINED = 1
 
+class BULK_OPERATION(IntEnum):
+	MOVE = 0
+	COPY = 1
+	DELETE = 2
+
 CFG_FOLDER = ".demomgr"
 CFG_NAME = "config.cfg"
 WELCOME = (

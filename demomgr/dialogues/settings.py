@@ -216,7 +216,7 @@ class Settings(BaseDialog):
 			self.date_fmt_combobox.set(CNST.DATE_FORMATS[0])
 
 		# Set up main interface
-		self._interface = {
+		self._INTERFACE = {
 			"Interface": (display_labelframe, date_format_labelframe),
 			"Information reading": (datagrab_labelframe, eventread_labelframe),
 			"Paths": (path_labelframe, ),
@@ -224,7 +224,7 @@ class Settings(BaseDialog):
 			"File manager": (file_manager_labelframe, ),
 		}
 		self._create_tk_var("int", "_selectedpane_var", 0)
-		self._selected_pane = next(iter(self._interface)) # Yields first key
+		self._selected_pane = next(iter(self._INTERFACE)) # Yields first key
 		# Only useful so deleting widgets for the first time in
 		# self._reload_options_panel will not throw AttributeErrors
 
@@ -233,7 +233,7 @@ class Settings(BaseDialog):
 		sidebar_outerframe.grid_rowconfigure(0, weight = 1)
 		sidebar = ttk.Frame(sidebar_outerframe, style = "Contained.TFrame")
 
-		for i, (k, v) in enumerate(self._interface.items()):
+		for i, k in enumerate(self._INTERFACE):
 			def _handler(self = self, k = k):
 				self._reload_options_pane(k)
 			curbtn = ttk.Radiobutton(
@@ -304,14 +304,14 @@ class Settings(BaseDialog):
 	def _reload_options_pane(self, key):
 		"""
 		Clears and repopulates right pane with the widgets in
-		self._interface[`key`]
+		self._INTERFACE[`key`]
 		"""
-		for widget in self._interface[self._selected_pane]:
+		for widget in self._INTERFACE[self._selected_pane]:
 			widget.grid_forget()
 		self._selected_pane = key
-		for i, widget in enumerate(self._interface[key]):
+		for i, widget in enumerate(self._INTERFACE[key]):
 			pady = (
 				3 * (i != 0),
-				3 * (i != len(self._interface[key]) - 1),
+				3 * (i != len(self._INTERFACE[key]) - 1),
 			)
 			widget.grid(column = 0, row = i, sticky = "nesw", padx = (3, 0), pady = pady)

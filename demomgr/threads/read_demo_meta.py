@@ -1,17 +1,13 @@
-"""
-Thread to read a demo's header and supply other information
-"""
-
 import os
 
 from demomgr.helpers import readdemoheader
 from demomgr.threads._threadsig import THREADSIG
 from demomgr.threads._base import _StoppableBaseThread
 
-class ThreadDemoInfo(_StoppableBaseThread):
+
+class ReadDemoMetaThread(_StoppableBaseThread):
 	"""
 	Thread to deliver filesystem-related information on a demo.
-	
 
 	Sent to the output queue:
 		RESULT_FS_INFO(1) when file system info on a demo is retrieved.

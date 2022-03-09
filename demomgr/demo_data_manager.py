@@ -393,7 +393,7 @@ class DemoDataManager():
 		called, where it will return a dict mapping touched data modes
 		to other dicts where a demo name (str) maps to either:
 			- An exception
-			- None if all went well and the most recently 
+			- None if all went well
 		"""
 		r = self._write_results
 		self._write_results = {}
@@ -404,8 +404,9 @@ class DemoDataManager():
 		Retrieves information about demos via the data grab mode
 		given in `mode`.
 
-		This returns a list of: A DemoInfo object, None in case no info
-		container at all was found, or an exception if one occurred.
+		This returns a list of (For each string passed in via `demos`):
+		A DemoInfo object, `None` in case no info container at all was
+		found, or an exception if one occurred.
 		"""
 		try:
 			r = self._get_reader(mode)
@@ -441,12 +442,12 @@ class DemoDataManager():
 		If empty demo info is given for a demo name, any existing info
 		containers will be deleted/omitted so that the next read
 		attempt on the name returns `None`.
+		Returns whether an error occurred. If it did, it can be
+		retrieved immediatedly via `get_write_results`.
 
 		May raise:
 			- ValueError in case `names` and `demo_info` differ in
 			  length.
-			- OSError on writer creation failure. `get_write_results`
-			  can be used to retrieve the exception.
 		"""
 		if len(demo_info) != len(names):
 			raise ValueError("Each supplied demo name must have a corresponding DemoInfo.")
@@ -455,8 +456,10 @@ class DemoDataManager():
 			w = self._get_writer(mode)
 		except OSError as e:
 			self._merge_write_results(mode, {name: e for name in names})
-			raise
+			return True
+
 		w.write_info(names, demo_info)
+		return False
 
 	def flush(self):
 		"""
@@ -465,10 +468,12 @@ class DemoDataManager():
 		`y`, but `write_demo_info(x, y) -> `flush()` ->
 		`get_demo_info(x)` will.
 
-		This function may raise an OSError, in which case the data
-		written may be all over the place and ruined. If this happens,
-		the DDM should not be used anymore. Shouldn't happen on a sane
-		system.
+		This function may return (not raise) an OSError, in which case
+		the data written may be all over the place and ruined.
+		The return value of `get_write_results` will be updated
+		nonetheless.
+		If this happens, the DDM should not be used anymore.
+		Shouldn't happen on a sane system.
 		"""
 		exc = None
 		for mode in DATA_GRAB_MODE:
@@ -500,8 +505,7 @@ class DemoDataManager():
 				self.readers = {}
 				self.writers = {}
 
-		if exc is not None:
-			raise exc
+		return exc
 
 	def destroy(self):
 		"""

@@ -21,7 +21,7 @@ from demomgr.helpers import build_date_formatter, convertunit, getstreakpeaks
 from demomgr.style_helper import StyleHelper
 from demomgr import platforming
 from demomgr.threadgroup import ThreadGroup, THREADGROUPSIG
-from demomgr.threads import THREADSIG, ThreadFilter, ThreadReadFolder, ThreadDemoInfo
+from demomgr.threads import THREADSIG, ThreadFilter, ThreadReadFolder, ThreadReadDemoInfo
 
 __version__ = "1.9.0"
 __author__ = "Square789"
@@ -71,7 +71,7 @@ class MainApp():
 		# Threading setup
 		self.threadgroups = {
 			"filter_select": ThreadGroup(ThreadFilter, self.root),
-			"demoinfo": ThreadGroup(ThreadDemoInfo, self.root),
+			"demoinfo": ThreadGroup(ThreadReadDemoInfo, self.root),
 			"fetchdata": ThreadGroup(ThreadReadFolder, self.root),
 			"filter": ThreadGroup(ThreadFilter, self.root),
 		}
@@ -412,9 +412,9 @@ class MainApp():
 		"""
 		Opens play dialog for the currently selected demo.
 		"""
-		# Safeguard, shouldn't happen but who knows if events go out of order
 		if len(self.listbox.selection) != 1:
 			return
+
 		index = next(iter(self.listbox.selection))
 		dialog = Play(
 			self.root,
@@ -437,7 +437,6 @@ class MainApp():
 		"""
 		Deletes the selected demos.
 		"""
-		# Safeguard, unlikely to ever be triggered
 		if not self.listbox.selection:
 			return
 
@@ -455,7 +454,7 @@ class MainApp():
 			files = selected_files,
 			cfg = self.cfg,
 			styleobj = self.ttkstyle,
-			operation = BulkOperator.DELETE,
+			operation = CNST.BULK_OPERATION.DELETE,
 		)
 		dialog.show()
 		if dialog.state == DIAGSIG.GLITCHED:
@@ -481,9 +480,9 @@ class MainApp():
 
 	def _managebookmarks(self):
 		"""Offers dialog to manage a demo's bookmarks."""
-		# Safeguard, shouldn't be triggered
 		if not self.listbox.selection:
 			return
+
 		index = next(iter(self.listbox.selection))
 		path = os.path.join(self.curdir, self.listbox.get_cell("col_filename", index))
 		dialog = BookmarkSetter(
