@@ -170,7 +170,7 @@ class ThreadGroup():
 		self._decorated_cb = decorated1
 
 	def start_thread(self, *args, **kwargs):
-		""" 
+		"""
 		Instantiate the thread with the supplied args and kwargs, except the
 		ThreadGroup's output queue will always be passed in before them
 		as `queue_out`, and then start it.

@@ -1,7 +1,9 @@
 from itertools import chain, cycle, repeat
+import random
 from time import time
 import tkinter as tk
 from tkinter import filedialog as tk_fid
+from tkinter import messagebox as tk_msg
 import tkinter.ttk as ttk
 
 from multiframe_list import MultiframeList, SELECTION_TYPE
@@ -10,55 +12,27 @@ from demomgr import constants as CNST, platforming
 from demomgr.dialogues._base import BaseDialog
 from demomgr.dialogues._diagresult import DIAGSIG
 from demomgr.helpers import frmd_label
+from demomgr.platforming import is_same_path
 from demomgr.tk_widgets import TtkText
 from demomgr.threadgroup import ThreadGroup, THREADGROUPSIG
 from demomgr.threads import THREADSIG, CMDDemosThread
 
 
-_TMP = {CNST.DATA_GRAB_MODE.JSON: "JSON file", CNST.DATA_GRAB_MODE.EVENTS: "_events.txt entry"}
-
-class FileState:
-	# __slots__ = ("processed", "processed_data_grab_modes", "success")
-
-	def __init__(self):
-		self.processed = False
-		self.success = False
-		self.processed_data_grab_modes = {}
-
-	def set(self, success, action):
-		self.processed = True
-		self.success = success
-
-	def __str__(self):
-		if not self.processed:
-			return ""
-
-		if not self.success:
-			return "Failure."
-
-		r = ["Processed."]
-		for mode in CNST.DATA_GRAB_MODE:
-			if mode is CNST.DATA_GRAB_MODE.NONE or mode not in self.processed_data_grab_modes:
-				continue
-			if self.processed_data_grab_modes[mode] is not None:
-				r.append(
-					f"Error removing {_TMP[mode]}."
-				)
-		return " ".join(r)
-
+_DGM_TXT = {CNST.DATA_GRAB_MODE.JSON: "JSON file", CNST.DATA_GRAB_MODE.EVENTS: "_events logchunk"}
 
 class BulkOperator(BaseDialog):
 	"""
 	Dialog that offers operations over multiple demos, while retaining
 	their info.
-	Able to start deletion, moving and copying threads.
+	Able to start and restart the Move/Copy/Delete thread.
 
-	# TODO change below
 	After the dialog is closed:
-	`self.result.state` will be SUCCESS if a thread was run
+	`self.result.state` will be SUCCESS if a thread was run at least once
 		and the filesystem was likely modified in some way.
 		Otherwise, it will be FAILURE.
-	`self.result.data` will be # TODO.
+	`self.result.data` will be a 2-element tuple.
+	The first element contains all deleted files as a list.
+	The second element is a dict mapp
 	"""
 
 	def __init__(
@@ -92,33 +66,61 @@ class BulkOperator(BaseDialog):
 			))
 		)
 
+		self._locked_operation = None
+		self._locked_operation_success_str = ""
+		self._locked_operation_failure_str = ""
 		self._listbox_idx_map = {}
-		self.thread_start_time = 0
-		self._processed_files = {}
+		self.thread_last_start_time = 0
+		self.thread_last_start_pending_files = 0
+		self.thread_last_processed_files = 0
 		self.pending_files = set() # Files that still need to be processed
 		self.pending_demo_info = {} # Demo info that still needs to be processed
+		self.thread_alive = False
 
 		self._FULL_DGM = {m for m in CNST.DATA_GRAB_MODE if m is not CNST.DATA_GRAB_MODE.NONE}
 
 		self.threadgroup = ThreadGroup(CMDDemosThread, self.master)
 		self.threadgroup.build_cb_method(self._demo_after_callback)
 
+	def _listbox_fmt_state(self, demo_name):
+		# Usually gets called just after pending_files or pending_demo_info has been
+		# modified as well as once after thread termination.
+		# Updates the values all accordingly and stuff
+		if self._locked_operation is None:
+			return ""
+
+		if self.thread_alive:
+			return (
+				self._locked_operation_failure_str if demo_name in self.pending_files else
+				self._locked_operation_success_str
+			)
+
+		if demo_name in self.pending_files:
+			return self._locked_operation_failure_str
+		elif demo_name in self.pending_demo_info:
+			return (
+				self._locked_operation_success_str + "Failed transferring demo info for " +
+				" ".join(_DGM_TXT[mode] for mode in self.pending_demo_info[demo_name])
+			)
+		else:
+			return self._locked_operation_success_str
+
 	def body(self, master):
 		self.protocol("WM_DELETE_WINDOW", self.destroy)
 
 		master.grid_columnconfigure(0, weight = 1)
-		master.grid_rowconfigure((0, 1, 2, 3), weight = 1)
+		master.grid_rowconfigure(0, weight = 1)
 
 		button_frame = ttk.Frame(master)
 		self.okbutton = ttk.Button(button_frame, text = "Start", command = self._start_demo_processing)
-		self.closebutton = ttk.Button(button_frame, text = "Cancel", command = self.destroy)
+		self.closebutton = ttk.Button(button_frame, text = "Close", command = self.destroy)
 		self.canceloperationbutton = ttk.Button(button_frame, text = "Abort", command = self._stopoperation)
 
 		self.listbox = MultiframeList(
 			master,
 			(
 				{"col_id": "col_file", "name": "Filename"},
-				{"col_id": "col_state", "name": "State", "formatter": str},
+				{"col_id": "col_state", "name": "State", "formatter": self._listbox_fmt_state},
 			),
 			rightclickbtn = platforming.get_rightclick_btn(),
 			resizable = True,
@@ -126,7 +128,7 @@ class BulkOperator(BaseDialog):
 		)
 		self.listbox.set_data({
 			"col_file": self.files,
-			"col_state": [FileState() for _ in self.files],
+			"col_state": self.files,
 		})
 		self.listbox.format()
 		self._refresh_demo_to_index_map()
@@ -205,8 +207,8 @@ class BulkOperator(BaseDialog):
 
 		self.listbox.grid(row = 0, column = 0, sticky = "nesw")
 
-		self.textbox.grid(column = 0, row = 0, sticky = "news", padx = (0, 3), pady = (0, 3))
-		textframe.grid(row = 1, column = 0, sticky = "nesw")
+		self.textbox.grid(column = 0, row = 0, sticky = "ew", padx = (0, 3), pady = (0, 3))
+		textframe.grid(row = 1, column = 0, sticky = "ew")
 
 		radiobutton_frame.grid(row = 0, column = 0, pady = (0, 5))
 		self.target_entry.grid(row = 1, column = 0, sticky = "ew")
@@ -215,44 +217,24 @@ class BulkOperator(BaseDialog):
 		self.warning_label.grid(row = 2, column = 0, columnspan = 2, sticky = "ew")
 		option_frame.grid(row = 2, column = 0, sticky = "ew", pady = (0, 5))
 
-		self.okbutton.pack(side = tk.LEFT, anchor = tk.CENTER, fill = tk.X, expand = 1, padx = (0, 3))
-		self.closebutton.pack(side = tk.LEFT, anchor = tk.CENTER, fill = tk.X, expand = 1, padx = (3, 0))
+		self.okbutton.pack(side = tk.LEFT, fill = tk.X, expand = 1, padx = (0, 3))
+		self.closebutton.pack(side = tk.LEFT, fill = tk.X, expand = 1, padx = (3, 0))
 		button_frame.grid(row = 3, column = 0, columnspan = 2, sticky = "ew")
 
 		# Pokes all widgets that may need to be modified depending to the operation the dialog was
 		# initialized with
 		self._on_operation_change()
 
-	def _start_demo_processing(self):
-		self.thread_start_time = time()
-		locked_operation = CNST.BULK_OPERATION(self.operation_var.get())
-		target_dir = None
-		if (
-			locked_operation is CNST.BULK_OPERATION.COPY or
-			locked_operation is CNST.BULK_OPERATION.MOVE
-		):
-			target_dir = self.target_directory_var.get()
-			if target_dir == "":
-				return
-
-		self.textbox.replace("status_start", "status_end", "Running")
-		self.okbutton.pack_forget()
-		self.closebutton.pack_forget()
-		self.canceloperationbutton.pack(side = tk.LEFT, fill = tk.X, expand = 1)
+	def _lock_operation(self, op):
 		for b in self.operation_radiobuttons:
 			b.configure(state = tk.DISABLED)
-
-		self._locked_operation = locked_operation
-		self.pending_files = set(self.files)
-
-		self.threadgroup.start_thread(
-			source_dir = self.demodir,
-			target_dir = target_dir,
-			mode = locked_operation,
-			files_to_process = self.pending_files.copy(),
-			info_to_process = {d: m.copy() for d, m in self.pending_demo_info.items()},
-			cfg = self.cfg,
-		)
+		self.target_sel_button.configure(state = tk.DISABLED)
+		self._locked_operation = op
+		self._locked_operation_success_str, self._locked_operation_failure_str = {
+			CNST.BULK_OPERATION.COPY: ("Copied.", "Failed copying."),
+			CNST.BULK_OPERATION.MOVE: ("Moved.", "Failed moving."),
+			CNST.BULK_OPERATION.DELETE: ("Deleted.", "Failed deleting."),
+		}[op]
 
 	def _refresh_demo_to_index_map(self):
 		self._listbox_idx_map = {f: i for i, f in enumerate(self.listbox.get_column("col_file"))}
@@ -261,6 +243,9 @@ class BulkOperator(BaseDialog):
 		self.threadgroup.join_thread()
 
 	def _on_operation_change(self):
+		if self._locked_operation is not None:
+			return
+
 		new_op = CNST.BULK_OPERATION(self.operation_var.get())
 		if new_op is CNST.BULK_OPERATION.COPY or new_op is CNST.BULK_OPERATION.MOVE:
 			self.target_sel_button.configure(state = tk.NORMAL)
@@ -270,6 +255,9 @@ class BulkOperator(BaseDialog):
 			self.target_path_frame.grid_remove()
 
 	def _select_target(self):
+		if self._locked_operation is not None:
+			return
+
 		res = tk_fid.askdirectory(parent = self)
 		if not res:
 			return
@@ -280,16 +268,70 @@ class BulkOperator(BaseDialog):
 			self.textbox.delete("spinner", "spinner + 1 chars")
 			self.textbox.insert("spinner", next(self.spinner))
 
+	def _start_demo_processing(self):
+		selected_op = CNST.BULK_OPERATION(self.operation_var.get())
+
+		target_dir = None
+		if (
+			selected_op is CNST.BULK_OPERATION.COPY or
+			selected_op is CNST.BULK_OPERATION.MOVE
+		):
+			target_dir = self.target_directory_var.get()
+			if target_dir == "":
+				tk_msg.showinfo("Demomgr", "You must select a target directory.")
+				return
+
+			try:
+				if is_same_path(self.demodir, target_dir):
+					tk_msg.showerror("Demomgr", "The directories must be distinct!")
+					return
+			except (FileNotFoundError, OSError) as e:
+				tk_msg.showerror(
+					"Demomgr",
+					f"Error while checking directories for distinctness: {e}",
+				)
+				return
+
+		# We're in business once this point is reached
+
+		self._lock_operation(selected_op)
+		self.textbox.replace("status_start", "status_end", "Running")
+		self.okbutton.pack_forget()
+		self.okbutton.configure(text = "Retry")
+		self.closebutton.pack_forget()
+		self.canceloperationbutton.pack(side = tk.LEFT, fill = tk.X, expand = 1)
+		self.pending_files = set(self.files)
+
+		self.thread_last_start_time = time()
+		self.thread_last_start_pending_files = len(self.pending_files) + len(self.pending_demo_info)
+		self.thread_last_processed_files = 0
+		self.thread_alive = True
+		self.threadgroup.start_thread(
+			source_dir = self.demodir,
+			target_dir = target_dir,
+			mode = selected_op,
+			files_to_process = self.pending_files.copy(),
+			# Copy, the thread modifies this object
+			info_to_process = {d: m.copy() for d, m in self.pending_demo_info.items()},
+			cfg = self.cfg,
+		)
+
 	def _demo_after_callback(self, sig, *args):
 		if sig.is_finish_signal():
+			self.thread_alive = False
 			if sig is THREADSIG.SUCCESS:
-				self.appendtextbox(
-					f"Successfully processed {len(self._processed_files)}/"
-					f"{len(self.files)} files in {round(time() - self.thread_start_time, 3)} "
-					f"seconds."
+				self.textbox_set_line(
+					2,
+					(
+						f"Successfully processed {self.thread_last_processed_files}/"
+						f"{self.thread_last_start_pending_files} files in "
+						f"{round(time() - self.thread_last_start_time, 3)} seconds."
+					)
 				)
 			self.result.state = DIAGSIG.SUCCESS
 			self.canceloperationbutton.pack_forget()
+			if self.pending_files or self.pending_demo_info:
+				self.okbutton.pack(side = tk.LEFT, fill = tk.X, expand = 1, padx = (0, 3))
 			self.closebutton.pack(side = tk.LEFT, fill = tk.X, expand = 1)
 			with self.textbox:
 				self.textbox.replace("status_start", "status_end", "Finished")
@@ -303,44 +345,42 @@ class BulkOperator(BaseDialog):
 			print("\nPending info:")
 			pprint(self.pending_demo_info)
 			print("\n")
+			self.listbox.format(("col_state",))
 
 			return THREADGROUPSIG.FINISHED
 
 		elif sig is THREADSIG.FILE_OPERATION_SUCCESS or sig is THREADSIG.FILE_OPERATION_FAILURE:
 			name = args[0]
-			file_state = self.listbox.get_cell("col_state", self._listbox_idx_map[name])
-			file_state.set(sig is THREADSIG.FILE_OPERATION_SUCCESS, self._locked_operation)
 			if sig is THREADSIG.FILE_OPERATION_SUCCESS:
 				self.pending_files.remove(name)
 				self.pending_demo_info[name] = self._FULL_DGM.copy()
 			self.listbox.format(("col_file",), (self._listbox_idx_map[name],))
 
 		elif sig is THREADSIG.RESULT_INFO_WRITE_RESULTS:
-			# Format the FileStates with appropiate information.
 			mode = args[0]
 			for demo_name, write_result in args[1].items():
-				self.listbox.get_cell(
-					"col_state", self._listbox_idx_map[demo_name]
-				).processed_data_grab_modes[mode] = write_result
 				if demo_name in self.pending_files:
 					print(f"Something went wrong: {demo_name} was still pending.")
 					continue
 				if write_result is None:
 					if len(self.pending_demo_info[demo_name]) == 1:
 						self.pending_demo_info.pop(demo_name)
+						self.thread_last_processed_files += 1
 					else:
 						self.pending_demo_info[demo_name].remove(mode)
 			self.listbox.format(("col_state",))
 
 		return THREADGROUPSIG.CONTINUE
 
-	def appendtextbox(self, _inp):
+	def textbox_set_line(self, line, _inp):
 		with self.textbox:
-			self.textbox.insert(tk.END, str(_inp))
+			self.textbox.replace(f"{line}.0", f"{line}.end", _inp)
 			self.textbox.yview_moveto(1.0)
 			self.textbox.update()
 
 	def destroy(self):
 		self._stopoperation()
-		self.result.data = self._processed_files
+		# Thread is done at this point, which means self.pending_* contains all
+		# non-completed work units.
+
 		super().destroy()

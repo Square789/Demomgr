@@ -64,11 +64,8 @@ class ThreadMarkDemo(_StoppableBaseThread):
 			else:
 				res.bookmarks = self.bookmarks
 
-			try:
-				ddm.write_demo_info([demo_name], [res], data_mode)
-				ddm.flush()
-			except OSError:
-				pass
+			ddm.write_demo_info([demo_name], [res], data_mode)
+			ddm.flush()
 			if isinstance(ddm.get_write_results()[data_mode][demo_name], Exception):
 				self.queue_out_put(THREADSIG.BOOKMARK_CONTAINER_UPDATE_FAILURE, data_mode)
 			else:

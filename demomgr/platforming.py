@@ -1,12 +1,63 @@
 """
-Module to return values loosely based on the platform demomgr is run on.
+Functionality that needs different implementations
+based on the platform Demomgr is run on.
 """
 
+import ctypes
+from ctypes import wintypes
+from ctypes import Structure, POINTER
 import os
 from pathlib import Path
 import platform
 
 import demomgr.constants as CNST
+
+if os.name == "nt":
+	kernel32 = ctypes.windll.Kernel32
+
+	BITNESS = 64 if "64" in os.environ["PROCESSOR_ARCHITECTURE"] else 32
+	INVALID_HANDLE_VALUE = 2**BITNESS - 1
+
+	class BY_HANDLE_FILE_INFORMATION(Structure):
+		_fields_ = [
+			("dwFileAttributes", wintypes.DWORD),
+			("ftCreationTime", wintypes.FILETIME),
+			("ftLastAccessTime", wintypes.FILETIME),
+			("ftLastWriteTime", wintypes.FILETIME),
+			("dwVolumeSerialNumber", wintypes.DWORD),
+			("nFileSizeHigh", wintypes.DWORD),
+			("nFileSizeLow", wintypes.DWORD),
+			("nNumberOfLinks", wintypes.DWORD),
+			("nFileIndexHigh", wintypes.DWORD),
+			("nFileIndexLow", wintypes.DWORD),
+		]
+
+	kernel32.GetFileInformationByHandle.argtypes = [
+		wintypes.HANDLE, POINTER(BY_HANDLE_FILE_INFORMATION)
+	]
+	kernel32.GetFileInformationByHandle.restype = wintypes.BOOL
+
+	kernel32.CreateFileW.argtypes = [
+		wintypes.LPCWSTR,
+		wintypes.DWORD,
+		wintypes.DWORD,
+		ctypes.c_void_p,
+		wintypes.DWORD,
+		wintypes.DWORD,
+		wintypes.HANDLE,
+	]
+	kernel32.CreateFileW.restype = wintypes.HANDLE
+
+	kernel32.CloseHandle.argtypes = [wintypes.HANDLE]
+	kernel32.CloseHandle.restype = wintypes.BOOL
+
+	kernel32.GetLastError.argtypes = []
+	kernel32.GetLastError.restype = wintypes.DWORD
+
+else:
+	coredll = None
+	kernel32 = None
+
 
 def get_cfg_storage_path():
 	if os.name == "nt": # Windows
@@ -53,3 +104,69 @@ def get_rightclick_btn():
 	elif system == "windows":
 		return "3"
 	return "3" # best guess
+
+def _win_create_file(p):
+	# OPEN_EXISTING is 3
+	# FILE_ATTRIBUTE_NORMAL is 128
+	# FILE_FLAG_BACKUP_SEMANTICS is 0x02000000
+	h = kernel32.CreateFileW(p, 0, 0, None, 3, 128 | 0x0200_0000, None)
+	print(f"{p} opened, {h=}")
+	if h == INVALID_HANDLE_VALUE:
+		raise OSError("CreateFile returned invalid handle.")
+	return h
+
+def is_same_path(a, b):
+	"""
+	Compares the paths a and b given as strings and returns whether
+	they lead to the same location.
+	To be honest, I have no idea whether it works for files,
+	(on windows). Should work for directories and files on linux.
+	If one of the paths does not exist, a `FileNotFoundError` is
+	raised.
+	May raise `OSError` on other failures.
+	"""
+	a = os.path.abspath(os.path.normcase(os.path.normpath(a)))
+	b = os.path.abspath(os.path.normcase(os.path.normpath(b)))
+	if os.name == "nt":
+		# Using this answer:
+		# https://stackoverflow.com/questions/562701/
+		# 	best-way-to-determine-if-two-path-reference-to-same-file-in-windows
+
+		for path in (a, b):
+			if not os.path.exists(path):
+				raise FileNotFoundError(f"Path {path} did not exist.")
+
+		# Yes, the OS may pause python right here to delete the
+		# previous files and then fail due to different reasons below.
+		# Who cares, different exception type then
+
+		# Fueling my desire to switch to Linux, this shit is.
+		ah = _win_create_file(a)
+		try:
+			bh = _win_create_file(b)
+		except OSError as e:
+			kernel32.CloseHandle(ah)
+			raise e from None
+
+		ai = BY_HANDLE_FILE_INFORMATION()
+		bi = BY_HANDLE_FILE_INFORMATION()
+		if (
+			kernel32.GetFileInformationByHandle(ah, ctypes.byref(ai)) == 0 or
+			kernel32.GetFileInformationByHandle(bh, ctypes.byref(bi)) == 0
+		):
+			kernel32.CloseHandle(ah)
+			kernel32.CloseHandle(bh)
+			raise OSError("GetFileInformation failed.")
+
+		res = (
+			ai.dwVolumeSerialNumber == bi.dwVolumeSerialNumber and
+			ai.nFileIndexLow == bi.nFileIndexLow and
+			ai.nFileIndexHigh == bi.nFileIndexHigh
+		)
+
+		kernel32.CloseHandle(ah)
+		kernel32.CloseHandle(bh)
+
+		return res
+	else:
+		return os.path.samefile(a, b)

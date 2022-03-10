@@ -20,22 +20,6 @@ RE_TICK = re.compile(
 RE_LOGLINE_IS_BOOKMARK = re.compile(r"\[\d\d\d\d/\d\d/\d\d \d\d:\d\d\] Bookmark ")
 
 
-def _insert_write_result(target_dict, demo_name, result):
-	"""
-	Inserts a write result under the key `demo_name` into
-	`target_dict` if:
-	`demo_name` is not contained in the dict or
-	the existing result is an exception
-	"""
-	if demo_name not in target_dict:
-		target_dict[demo_name] = result
-	else:
-		# None indicates write success, which can't be undone by
-		# a write error.
-		if target_dict[demo_name] is not None:
-			target_dict[demo_name] = result
-
-
 class PROCESSOR_TYPE(IntEnum):
 	READER = 0
 	WRITER = 1
@@ -218,7 +202,7 @@ class EventsWriter(Writer):
 			writer = None
 
 			print(f"_events writer: Would copy {fname!r} -> {os.path.join(self.ddm.directory, EVENT_FILE)!r}")
-			# shutil.copyfile(fname, os.path.join(self.ddm.directory, EVENT_FILE))
+			shutil.copyfile(fname, os.path.join(self.ddm.directory, EVENT_FILE))
 		except OSError as e:
 			write_result = e
 		finally:
@@ -241,7 +225,7 @@ class EventsWriter(Writer):
 
 			if fname is not None:
 				try:
-					# os.unlink(fname)
+					os.unlink(fname)
 					pass
 				except OSError:
 					print(f"_events writer: Failure deleting tempfile {fname!r}")
@@ -284,28 +268,27 @@ class JSONWriter(Writer):
 			except ValueError as e:
 				print(" ^ Writing failed, bad DemoInfo")
 				return e
-			# try:
-			# 	with open(json_path, "w") as f:
-			# 		json.dump(new, f)
-			# except OSError as e:
-			# 	return e
+			try:
+				with open(json_path, "w") as f:
+					json.dump(new, f)
+			except OSError as e:
+				return e
 		else:
 			try:
 				if os.path.exists(json_path):
 					print(f"JSON writer: Would delete {json_path!r}")
-					# os.unlink(json_path)
+					os.unlink(json_path)
 				else:
 					print(f"JSON writer: Info is empty and json does not exist for {json_path!r}, all good")
 			except OSError as e:
+				print(" ^ Failure")
 				return e
 
 		return None
 
 	def write_info(self, names, info):
 		for name, info_obj in zip(names, info):
-			_insert_write_result(
-				self._write_results, name, self._single_write_info(name, info_obj)
-			)
+			self._write_results[name] = self._single_write_info(name, info_obj)
 
 
 class NoneReader(Reader):
@@ -376,8 +359,7 @@ class DemoDataManager():
 
 	def _merge_write_results(self, mode, results):
 		for name, result in results.items():
-			t = self._write_results[mode]
-			_insert_write_result(t, name, result)
+			self._write_results[mode][name] = result
 
 	def _fetch_write_results(self, mode):
 		if mode not in self.writers:
@@ -394,6 +376,9 @@ class DemoDataManager():
 		to other dicts where a demo name (str) maps to either:
 			- An exception
 			- None if all went well
+		This method should be called before an operation is affecting
+		the same demo/mode pair twice, in order to get a fully overview
+		of all write processes.
 		"""
 		r = self._write_results
 		self._write_results = {}
