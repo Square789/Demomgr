@@ -9,8 +9,8 @@ Demomgr is a python program designed to keep track of, cleanup and play demo fil
 * View and edit bookmark information of individual demos
 * View header information of individual demos
 * Sort and filter demos by multiple criteria
-* Cleanup entire folders by multiple criteria
-  * Removes unneccessary entries from \_events.txt and also deletes useless .json files
+* Cleanup folders by filter criteria
+* Copy/Move demos and their info to other directories
 * Launch TF2 with a playdemo command attached
   * Optionally with HLAE
 * Play a demo into an already running instance of TF2 using [RCON](https://developer.valvesoftware.com/wiki/Source_RCON_Protocol)

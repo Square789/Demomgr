@@ -177,7 +177,7 @@ class BookmarkSetter(BaseDialog):
 		self.listbox.remove_rows(index)
 		new_idx = self._find_insertion_index(int(new_tick))
 		self.listbox.insert_row({"col_name": new_name, "col_tick": new_tick}, new_idx)
-		self.listbox.set_selection(new_idx)
+		self.listbox.set_selection((new_idx,))
 
 	def _callback_bookmark_selected(self, *_):
 		self.name_entry.delete(0, tk.END)
@@ -214,7 +214,7 @@ class BookmarkSetter(BaseDialog):
 
 	def _log(self, to_log, newline = True):
 		"""
-		Inserts `to_log` + "\n" into self.textbox, or just `to_log`
+		Inserts `to_log` + `"\n"` into self.textbox, or just `to_log`
 		if `newline` is False.
 		"""
 		suffix = "\n" if newline else ""
@@ -259,7 +259,7 @@ class BookmarkSetter(BaseDialog):
 			self._log(f"Success!")
 
 		elif sig is THREADSIG.BOOKMARK_CONTAINER_UPDATE_FAILURE:
-			self._log(f"Failure: {args[0]}.")
+			self._log(f"Failure: {args[1]}.")
 
 		return THREADGROUPSIG.CONTINUE
 

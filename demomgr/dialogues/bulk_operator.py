@@ -75,6 +75,7 @@ class BulkOperator(BaseDialog):
 		self.thread_last_processed_files = 0
 		self.pending_files = set() # Files that still need to be processed
 		self.pending_demo_info = {} # Demo info that still needs to be processed
+		# I would like to use threadgroup.thread.is_alive but it's faulty.
 		self.thread_alive = False
 
 		self._FULL_DGM = {m for m in CNST.DATA_GRAB_MODE if m is not CNST.DATA_GRAB_MODE.NONE}
@@ -237,6 +238,8 @@ class BulkOperator(BaseDialog):
 		}[op]
 
 	def _refresh_demo_to_index_map(self):
+		# Originally supposed to be called when sorting but why would you want to sort
+		# these files man
 		self._listbox_idx_map = {f: i for i, f in enumerate(self.listbox.get_column("col_file"))}
 
 	def _stopoperation(self):
@@ -270,6 +273,10 @@ class BulkOperator(BaseDialog):
 
 	def _start_demo_processing(self):
 		selected_op = CNST.BULK_OPERATION(self.operation_var.get())
+		# It is possible to start multiple threads by holding space with the start/retry
+		# button focussed, this should make that impossible
+		if self.thread_alive:
+			return
 
 		target_dir = None
 		if (
@@ -318,7 +325,6 @@ class BulkOperator(BaseDialog):
 
 	def _demo_after_callback(self, sig, *args):
 		if sig.is_finish_signal():
-			self.thread_alive = False
 			if sig is THREADSIG.SUCCESS:
 				self.textbox_set_line(
 					2,
@@ -347,6 +353,7 @@ class BulkOperator(BaseDialog):
 			print("\n")
 			self.listbox.format(("col_state",))
 
+			self.thread_alive = False
 			return THREADGROUPSIG.FINISHED
 
 		elif sig is THREADSIG.FILE_OPERATION_SUCCESS or sig is THREADSIG.FILE_OPERATION_FAILURE:
@@ -382,5 +389,21 @@ class BulkOperator(BaseDialog):
 		self._stopoperation()
 		# Thread is done at this point, which means self.pending_* contains all
 		# non-completed work units.
+
+		# TODO WORK HERE
+		processed_files = set(self.files) - self.pending_files
+		# These files have been processed. In the case of DELETE or MOVE they are now
+		# gone. In failure cases, their demo info might remain, but that doesn't matter
+		# too much to the source dir.
+
+		# The only thing the CMD thread can do to demo info from perspective of the source
+		# directory is to have destroyed or left info as-is, so no need to transfer
+		# the actual info in the result.
+
+		if self.result.state is DIAGSIG.SUCCESS:
+			self.result.data = {
+				"processed_files": processed_files,
+				"operation": self._locked_operation,
+			}
 
 		super().destroy()

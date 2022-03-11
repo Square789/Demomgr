@@ -44,7 +44,11 @@ class CMDDemosThread(_StoppableBaseThread):
 			target_dir <Str|None>: Absolute directory to copy/move demos to.
 			mode <BULK_OPERATION>: What to do.
 			files_to_process <List[Str]>: Names of the demos to be processed.
-			info_to_process <Dict[Str, List[DATA_GRAB_MODE]]> #TODO
+			info_to_process <Dict[Str, List[DATA_GRAB_MODE]]> A dict specifying
+				partial work units for demo information. Each entry should
+				map a demo name to an iterable of data grab modes.
+				These will be worked on in addition to all demos
+				successfully processed in `files_to_process`.
 			cfg <demomgr.config.Config>: Program configuration.
 
 			Note that all demos that are successfully processed in

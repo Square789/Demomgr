@@ -100,7 +100,7 @@ class DemoInfo():
 		json_data: Dict converted from a JSON file as the source engine writes it.
 		demo_name: Name of associated demo file; i.e. "foo.dem". (str)
 
-		May raise: KeyError, ValueError
+		May raise: KeyError, ValueError, TypeError.
 		"""
 		cur_bm = []
 		cur_ks = []

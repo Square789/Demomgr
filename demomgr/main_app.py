@@ -57,7 +57,7 @@ class MainApp():
 
 		self.demooperations = (
 			DemoOp("Play...", self._playdem, None, lambda s: s == 1),
-			DemoOp("Delete...", self._deldem, None, lambda s: s > 0),
+			DemoOp("Delete...", self._copy_move_delete_demos, None, lambda s: s > 0),
 			DemoOp("Manage bookmarks...", self._managebookmarks, None, lambda s: s == 1),
 			DemoOp("Reveal in file manager...", self._open_file_manager, None, lambda _: True),
 		)
@@ -71,7 +71,7 @@ class MainApp():
 		# Threading setup
 		self.threadgroups = {
 			"filter_select": ThreadGroup(ThreadFilter, self.root),
-			"demoinfo": ThreadGroup(ReadDemoMetaThread, self.root),
+			"demometa": ThreadGroup(ReadDemoMetaThread, self.root),
 			"fetchdata": ThreadGroup(ThreadReadFolder, self.root),
 			"filter": ThreadGroup(ThreadFilter, self.root),
 		}
@@ -82,7 +82,7 @@ class MainApp():
 		self.threadgroups["fetchdata"].register_finalize_method(self._finalization_fetchdata)
 
 		self.threadgroups["filter_select"].build_cb_method(self._after_callback_filter_select)
-		self.threadgroups["demoinfo"].build_cb_method(self._after_callback_demoinfo)
+		self.threadgroups["demometa"].build_cb_method(self._after_callback_demoinfo)
 		self.threadgroups["fetchdata"].build_cb_method(self._after_callback_fetchdata)
 		self.threadgroups["filter"].build_cb_method(self._after_callback_filter)
 
@@ -437,9 +437,10 @@ class MainApp():
 			return
 		self.cfg.ui_remember["launch_tf2"] = dialog.result.remember
 
-	def _deldem(self):
+	def _copy_move_delete_demos(self):
 		"""
-		Deletes the selected demos.
+		Opens a bulk operator dialog on the selected demos and applies
+		its return values.
 		"""
 		if not self.listbox.selection:
 			return
@@ -464,12 +465,14 @@ class MainApp():
 		if dialog.state != DIAGSIG.SUCCESS:
 			return
 
-		if self.cfg.lazy_reload:
+		if not self.cfg.lazy_reload:
 			self.reloadgui()
 			return
 
-		if False: # TODO think about dialog's return values and fix this
-			indices_to_remove = [file_idx_map[file] for file in dialog.result.data]
+		# TODO think about dialog's return values and fix this
+		# Possibly unify with _managebookmarks and extract to common methods.
+		if False:
+			to_remove = [file_idx_map[file] for file in dialog.result.data["processed_files"]]
 			self.directory_inf_kvd.set_value(
 				"l_amount",
 				self.directory_inf_kvd.get_value("l_amount") - len(indices_to_remove)
@@ -477,11 +480,10 @@ class MainApp():
 			self.directory_inf_kvd.set_value(
 				"l_totalsize",
 				self.directory_inf_kvd.get_value("l_totalsize") - sum(
-					self.listbox.get_cell("col_filesize", index)
-					for index in indices_to_remove
+					self.listbox.get_cell("col_filesize", index) for index in to_remove
 				)
 			)
-			self.listbox.remove_rows(indices_to_remove)
+			self.listbox.remove_rows(to_remove)
 			self._updatedemowindow(clear = True)
 
 	def _managebookmarks(self):
@@ -502,15 +504,17 @@ class MainApp():
 		if dialog.result.state != DIAGSIG.SUCCESS:
 			return
 
-		if self.cfg.lazy_reload:
+		if not self.cfg.lazy_reload:
 			self.reloadgui()
 			return
 
-		if self.cfg.data_grab_mode == 0:
+		if self.cfg.data_grab_mode == CNST.DATA_GRAB_MODE.NONE.value:
 			return
+
 		container_state = dialog.result.data["containers"][self.cfg.data_grab_mode - 1]
 		if container_state is None:
 			return
+
 		self.listbox.set_cell(
 			"col_bm", index, dialog.result.data["bookmarks"] if container_state else None
 		)
@@ -548,10 +552,14 @@ class MainApp():
 			)
 
 	def _updatedemowindow(self, clear = False, no_io = False):
-		"""Renew contents of demo information windows"""
+		"""
+		Renews contents of demo information windows.
+		When `clear` is set to `True`, just clears the associated
+		widgets and returns.
+		If `no_io` is set to `True`, will not start a DemoMeta thread.
+		"""
 		index = self.listbox.get_active_cell()[1]
-		if not no_io:
-			self.demo_header_kvd.clear()
+		self.demo_header_kvd.clear()
 		self.demoeventmfl.clear()
 		if clear or index is None:
 			return
@@ -573,8 +581,8 @@ class MainApp():
 		demname = self.listbox.get_cell("col_filename", index)
 		# In case of a super slow drive, this will hang in order to
 		# prevent multiple referenceless threads going wild in the demo directory
-		self.threadgroups["demoinfo"].join_thread()
-		self.threadgroups["demoinfo"].start_thread(
+		self.threadgroups["demometa"].join_thread()
+		self.threadgroups["demometa"].start_thread(
 			target_demo_path = os.path.join(self.curdir, demname)
 		)
 
@@ -618,10 +626,7 @@ class MainApp():
 				"No directories registered. Click \"Add demo path...\" to get started!"
 			)
 		else:
-			self.threadgroups["fetchdata"].start_thread(
-				targetdir = self.curdir,
-				cfg = self.cfg,
-			)
+			self.threadgroups["fetchdata"].start_thread(targetdir = self.curdir, cfg = self.cfg)
 
 	def _after_callback_fetchdata(self, sig, *args):
 		"""
