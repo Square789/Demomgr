@@ -57,7 +57,7 @@ class MainApp():
 
 		self.demooperations = (
 			DemoOp("Play...", self._playdem, None, lambda s: s == 1),
-			DemoOp("Delete...", self._copy_move_delete_demos, None, lambda s: s > 0),
+			DemoOp("Delete/Copy/Move...", self._copy_move_delete_demos, None, lambda s: s > 0),
 			DemoOp("Manage bookmarks...", self._managebookmarks, None, lambda s: s == 1),
 			DemoOp("Reveal in file manager...", self._open_file_manager, None, lambda _: True),
 		)
@@ -445,10 +445,6 @@ class MainApp():
 		if not self.listbox.selection:
 			return
 
-		selected_files = [
-			x for i, x in enumerate(self.listbox.get_column("col_filename"))
-			if i in self.listbox.selection
-		]
 		file_idx_map = {
 			self.listbox.get_cell("col_filename", i): i
 			for i in self.listbox.selection
@@ -456,26 +452,33 @@ class MainApp():
 		dialog = BulkOperator(
 			self.root,
 			demodir = self.curdir,
-			files = selected_files,
+			files = [
+				x for i, x in enumerate(self.listbox.get_column("col_filename"))
+				if i in self.listbox.selection
+			],
 			cfg = self.cfg,
 			styleobj = self.ttkstyle,
-			operation = CNST.BULK_OPERATION.DELETE,
+			remember = self.cfg.ui_remember["bulk_operator"],
 		)
 		dialog.show()
-		if dialog.state != DIAGSIG.SUCCESS:
+		if dialog.result.state != DIAGSIG.GLITCHED:
+			return
+
+		self.cfg.ui_remember["bulk_operator"] = dialog.result.remember
+
+		if dialog.result.state != DIAGSIG.SUCCESS:
 			return
 
 		if not self.cfg.lazy_reload:
 			self.reloadgui()
 			return
 
-		# TODO think about dialog's return values and fix this
-		# Possibly unify with _managebookmarks and extract to common methods.
-		if False:
+		# Processed demos are gone when they were deleted/moved.
+		if dialog.result.data != CNST.BULK_OPERATION.COPY:
 			to_remove = [file_idx_map[file] for file in dialog.result.data["processed_files"]]
 			self.directory_inf_kvd.set_value(
 				"l_amount",
-				self.directory_inf_kvd.get_value("l_amount") - len(indices_to_remove)
+				self.directory_inf_kvd.get_value("l_amount") - len(to_remove)
 			)
 			self.directory_inf_kvd.set_value(
 				"l_totalsize",
@@ -559,7 +562,8 @@ class MainApp():
 		If `no_io` is set to `True`, will not start a DemoMeta thread.
 		"""
 		index = self.listbox.get_active_cell()[1]
-		self.demo_header_kvd.clear()
+		if clear or not no_io:
+			self.demo_header_kvd.clear()
 		self.demoeventmfl.clear()
 		if clear or index is None:
 			return
@@ -806,7 +810,7 @@ class MainApp():
 				with open(self.cfgpath, "w") as handle:
 					handle.write(self.cfg.to_json())
 				write_ok = True
-			except Exception as error:
+			except OSError as error:
 				dialog = CfgError(self.root, cfgpath = self.cfgpath, error = error, mode = 1)
 				dialog.show()
 				if dialog.result.data == 0: # Retry
@@ -828,7 +832,7 @@ class MainApp():
 		while cfg is None:
 			try:
 				cfg = Config.load_and_validate(self.cfgpath)
-			except (json.decoder.JSONDecodeError, FileNotFoundError, OSError, SchemaError) as exc:
+			except (OSError, json.decoder.JSONDecodeError, SchemaError, ValueError) as exc:
 				dialog = CfgError(self.root, cfgpath = self.cfgpath, error = exc, mode = 0)
 				dialog.show()
 				if dialog.result.data == 0: # Retry

@@ -39,8 +39,6 @@ class Settings(BaseDialog):
 		0: Last visited section
 	"""
 
-	REMEMBER_DEFAULT = [0]
-
 	def __init__(self, parent, cfg, remember):
 		"""
 		parent: Tkinter widget that is the parent of this dialog.
@@ -63,7 +61,7 @@ class Settings(BaseDialog):
 		self._create_tk_var("str", "rcon_pwd_var", cfg.rcon_pwd or "")
 
 		self._selected_pane = None
-		self.ui_remember = self.validate_and_update_remember(remember)
+		self.ui_remember = remember
 
 		self.blockszvals = {convertunit(i, "B"): i for i in (2**pw for pw in range(12, 28))}
 
@@ -233,6 +231,7 @@ class Settings(BaseDialog):
 		sidebar_outerframe.grid_rowconfigure(0, weight = 1)
 		sidebar = ttk.Frame(sidebar_outerframe, style = "Contained.TFrame")
 
+		tmp_inibtn = None
 		for i, k in enumerate(self._INTERFACE):
 			def _handler(self = self, k = k):
 				self._reload_options_pane(k)
@@ -241,10 +240,11 @@ class Settings(BaseDialog):
 				variable = self._selectedpane_var, style = "Contained.TRadiobutton"
 			)
 			curbtn.grid(column = 0, row = i, sticky = "w", ipadx = 4, padx = 4)
-			if i == self.ui_remember[0]:
+			# Fallback to 0 if remember value is scuffed
+			if i == 0 or i == self.ui_remember[0]:
 				tmp_inibtn = curbtn
 
-		tmp_inibtn.invoke() # To invoke filling command
+		tmp_inibtn.invoke()
 
 		sidebar.grid(column = 0, row = 0, sticky = "nesw", padx = 1, pady = 1)
 		sidebar_outerframe.grid(column = 0, row = 0, sticky = "nesw")

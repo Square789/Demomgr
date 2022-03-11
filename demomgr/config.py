@@ -1,7 +1,7 @@
 from copy import deepcopy
 import json
 
-from schema import And, Or, Schema
+from schema import And, Or, Schema, SchemaError
 
 import demomgr.constants as CNST
 from demomgr.helpers import deepupdate_dict
@@ -42,22 +42,70 @@ DEFAULT = {
 	"ui_remember": {
 		"launch_tf2": [],
 		"settings": [],
+		"bulk_operator": [],
 	},
 	"ui_theme": "Dark",
 }
 
-def _in_enum(v, enum):
-	return any(v == e.value for e in enum.__members__.values())
+class EnumTransformer:
+	def __init__(self, enum_type) -> None:
+		self.enum_type = enum_type
+
+	def validate(self, v):
+		return self.enum_type(v)
+
+
+class RememberListValidator:
+	"""
+	RememberListValidators validate the types of submitted values
+	against the types in the given default types, then apply a
+	forward-compatible update scheme of update_with into a copy
+	of the default values, returning it.
+	If the validation fails, an unchanged copy of the default is
+	returned, all errors ignored.
+
+		i. e.: `DEF: [], UPD: [1, 2]` -> `[1, 2]`;
+		`DEF: [False, 5], UPD: [True]` -> `[True, 5]`
+		`DEF: ["abc", 10], UPD: ["def", "ghi"]` -> `["abc", 10]`
+	"""
+	def __init__(self, default, default_types = None) -> None:
+		if default_types is None:
+			default_types = tuple(map(Schema, map(type, default)))
+		else:
+			default_types = tuple(Schema(type(t)) if t is None else t for t in default_types)
+
+		self.default = default
+		self.default_types = default_types
+
+	def validate(self, update_with):
+		if len(self.default) < len(update_with):
+			return self.default.copy()
+
+		transformed_values = []
+		for schem, newval in zip(self.default_types, update_with):
+			try:
+				transformed_values.append(schem.validate(newval))
+			except SchemaError:
+				return self.default.copy()
+
+		if len(self.default) == len(update_with):
+			return transformed_values
+
+		# If this gets too complex for whatever reason, use deepcopy
+		out = self.default.copy()
+		out[:len(transformed_values)] = transformed_values
+		return out
+
 
 _SCHEMA = Schema(
 	{
-		"data_grab_mode": And(int, lambda x: _in_enum(x, CNST.DATA_GRAB_MODE)),
+		"data_grab_mode": And(int, EnumTransformer(CNST.DATA_GRAB_MODE)),
 		"date_format": str,
 		"demo_paths": [And(str, lambda x: x != "")],
 		"events_blocksize": And(int, lambda x: x > 0),
 		"file_manager_mode": Or(
 			None,
-			And(int, lambda x: _in_enum(x, CNST.FILE_MANAGER_MODE))
+			And(int, EnumTransformer(CNST.FILE_MANAGER_MODE))
 		), # will be set depending on OS when None
 		"file_manager_path": Or(None, str),
 		"_comment": str,
@@ -70,8 +118,12 @@ _SCHEMA = Schema(
 		"rcon_pwd": Or(None, str),
 		"steam_path": Or(None, str),
 		"ui_remember": {
-			"launch_tf2": [object],
-			"settings": [object],
+			"launch_tf2": RememberListValidator([False, True, ""]),
+			"settings": RememberListValidator([0]),
+			"bulk_operator": RememberListValidator(
+				[CNST.BULK_OPERATION.DELETE, ""],
+				[EnumTransformer(CNST.BULK_OPERATION), None],
+			),
 		},
 		"ui_theme": str,
 	},
@@ -92,6 +144,9 @@ class Config():
 		Will merge the supplied dict with a copy of the default
 		config and run a Schema validation on the supplied dict, so a
 		SchemaError may be raised.
+		May also raise ValueErrors in case some of the numbers contained
+		in the config can not be translated to their respective enum
+		members.
 
 		Will perform some backwards-compatibility operations on the
 		supplied arguments, notably `hlae_path`, `last_path`, `rcon_pwd`
@@ -108,27 +163,27 @@ class Config():
 		deepupdate_dict(cfg, _rename_fields(passed_cfg))
 		cfg = _SCHEMA.validate(cfg)
 
-		# Schema could also do these, but not the `last_path` conversion, so
-		# keeping all data compatibility transformation here
+		# It would feel scuffed to put some of these in the schema itself.
+		# Pre-1.9.0 path replacement
 		for k in ("hlae_path", "last_path", "rcon_pwd", "steam_path"):
 			if cfg[k] == "":
 				cfg[k] = None
 
+		# Change pre-1.9.0 path to an index
 		if isinstance(cfg["last_path"], str):
 			try:
 				cfg["last_path"] = cfg["demo_paths"].index(cfg["last_path"])
 			except ValueError:
 				cfg["last_path"] = None
 
+		# Select fm mode based on system
 		if cfg["file_manager_mode"] is None:
 			cfg["file_manager_mode"] = (
 				CNST.FILE_MANAGER_MODE.WINDOWS_EXPLORER if should_use_windows_explorer()
 				else CNST.FILE_MANAGER_MODE.USER_DEFINED
-			).value
+			)
 
-		# enum-ify
-		cfg["data_grab_mode"] = CNST.DATA_GRAB_MODE(cfg["data_grab_mode"])
-		cfg["file_manager_mode"] = CNST.FILE_MANAGER_MODE(cfg["file_manager_mode"])
+		print("!", cfg["ui_remember"]["bulk_operator"])
 
 		cfg["_comment"] = DEFAULT["_comment"]
 

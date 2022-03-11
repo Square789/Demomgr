@@ -47,8 +47,6 @@ class BookmarkSetter(BaseDialog):
 	# this docstring and class hurts my head, is needlessly overcomplicated and
 	# i hope i don't have to deal with it again
 
-	REMEMBER_DEFAULT = [False, False]
-
 	def __init__(self, parent, targetdemo, bm_dat, styleobj, cfg):
 		"""
 		parent: Parent widget, should be a `Tk` or `Toplevel` instance.

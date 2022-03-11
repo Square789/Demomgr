@@ -1,4 +1,5 @@
 from itertools import chain, cycle, repeat
+import os
 import random
 from time import time
 import tkinter as tk
@@ -30,14 +31,14 @@ class BulkOperator(BaseDialog):
 	`self.result.state` will be SUCCESS if a thread was run at least once
 		and the filesystem was likely modified in some way.
 		Otherwise, it will be FAILURE.
-	`self.result.data` will be a 2-element tuple.
-	The first element contains all deleted files as a list.
-	The second element is a dict mapp
+	`self.result.data` will be a dict with the following keys:
+		# TODO
+	Widget state remembering:
+		0: Last selected `BULK_OPERATION`.
+		1: Target path as it is entered for the `MOVE` or `COPY` operation.
 	"""
 
-	def __init__(
-		self, parent, demodir, files, cfg, styleobj, operation, target = None
-	):
+	def __init__(self, parent, demodir, files, cfg, styleobj, remember):
 		"""
 		parent: Parent widget, should be a `Tk` or `Toplevel` instance.
 		demodir: Absolute path to the directory containing the demos.
@@ -46,8 +47,7 @@ class BulkOperator(BaseDialog):
 		cfg: Program config.
 		styleobj: Instance of tkinter.ttk.Style.
 		operation: What to do. One of the BULK_OPERATION enum members.
-		target: Optional argument describing the target of a `MOVE` or
-			`COPY` operation. Ignored when it's `DELETE`.
+		remember: Widget state remembering; See class docstring.
 		"""
 		super().__init__(parent, "Bulk Operator")
 
@@ -56,8 +56,8 @@ class BulkOperator(BaseDialog):
 		self.files = files
 		self.cfg = cfg
 		self.styleobj = styleobj
-		self._ini_operation = operation
-		self.target = target
+		self._ini_operation = remember[0]
+		self.target = remember[1]
 
 		self.spinner = cycle(
 			chain(*(
@@ -178,6 +178,9 @@ class BulkOperator(BaseDialog):
 			bt.grid(row = 0, column = i, padx = (0, 10 * (i < 2)), ipadx = 1, sticky = "ew")
 			self.operation_radiobuttons.append(bt)
 
+		if self.target and os.path.isabs(self.target):
+			self.target_directory_var.set(self.target)
+			del self.target
 		self.operation_var.set(self._ini_operation.value)
 		del self._ini_operation
 
@@ -390,16 +393,22 @@ class BulkOperator(BaseDialog):
 		# Thread is done at this point, which means self.pending_* contains all
 		# non-completed work units.
 
-		# TODO WORK HERE
 		processed_files = set(self.files) - self.pending_files
 		# These files have been processed. In the case of DELETE or MOVE they are now
 		# gone. In failure cases, their demo info might remain, but that doesn't matter
 		# too much to the source dir.
 
 		# The only thing the CMD thread can do to demo info from perspective of the source
-		# directory is to have destroyed or left info as-is, so no need to transfer
-		# the actual info in the result.
+		# directory is to have destroyed it along with its demo or left the info as-is,
+		# so no need to transfer the actual info in the result.
 
+		self.result.remember = [
+			(
+				self._locked_operation if self.result.state is DIAGSIG.SUCCESS
+				else self.operation_var.get()
+			),
+			self.target_directory_var.get(),
+		]
 		if self.result.state is DIAGSIG.SUCCESS:
 			self.result.data = {
 				"processed_files": processed_files,

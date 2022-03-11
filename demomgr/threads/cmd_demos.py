@@ -98,7 +98,6 @@ class CMDDemosThread(_StoppableBaseThread):
 					os.path.join(self.source_dir, file),
 					os.path.join(self.target_dir, file),
 				)
-				print("Demo CMD thread: Would move file at", os.path.join(self.source_dir, file))
 			except OSError as e:
 				self.queue_out_put(THREADSIG.FILE_OPERATION_FAILURE, file, e)
 			else:
@@ -119,7 +118,6 @@ class CMDDemosThread(_StoppableBaseThread):
 					os.path.join(self.source_dir, file),
 					os.path.join(self.target_dir, file),
 				)
-				print("Demo CMD thread: Would copy file at", os.path.join(self.source_dir, file))
 			except OSError as e:
 				self.queue_out_put(THREADSIG.FILE_OPERATION_FAILURE, file, e)
 			else:
@@ -137,7 +135,6 @@ class CMDDemosThread(_StoppableBaseThread):
 		for file in self.to_process:
 			try:
 				os.remove(os.path.join(self.source_dir, file))
-				print("Demo CMD thread: Would delete file at", os.path.join(self.source_dir, file))
 			except OSError as e:
 				self.queue_out_put(THREADSIG.FILE_OPERATION_FAILURE, file, e)
 			else:
@@ -188,7 +185,7 @@ class CMDDemosThread(_StoppableBaseThread):
 				info_transfer_successful, [None] * len(info_transfer_successful), mode
 			)
 			src_ddm.flush()
-			# Consider info move failed when deleting them in the source dir fails.
+			# Consider info move failed when deleting it in the source dir fails.
 			# I think this may fail when the OS really screws up and destroys
 			# the source data while still raising an OSError?
 			# Whatever, not my problem

@@ -102,8 +102,6 @@ class Play(BaseDialog):
 		2: Selected userprofile (str) (ignored when not existing)
 	"""
 
-	REMEMBER_DEFAULT = [False, True, ""]
-
 	def __init__(self, parent, demo_dir, info, cfg, style, remember):
 		"""
 		parent: Parent widget, should be a `Tk` or `Toplevel` instance.
@@ -118,6 +116,7 @@ class Play(BaseDialog):
 		self.info = info
 		self._style = style
 		self.cfg = cfg
+		self.remember = remember
 
 		self.rcon_password_var = tk.StringVar()
 		self.user_select_var = tk.StringVar()
@@ -146,8 +145,6 @@ class Play(BaseDialog):
 		self.info_launch_options_not_found = ErrorLabel()
 
 		self.rcon_password_var.set(self.cfg.rcon_pwd or "")
-
-		self.remember = self.validate_and_update_remember(remember)
 
 	def body(self, master):
 		"""UI"""

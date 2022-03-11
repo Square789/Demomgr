@@ -27,7 +27,6 @@ class BaseDialog(tk.Toplevel):
 	"""
 
 	_is_open = False
-	REMEMBER_DEFAULT = []
 
 	def __init__(self, parent, title = None):
 		"""
@@ -78,32 +77,6 @@ class BaseDialog(tk.Toplevel):
 
 		self.deiconify()
 		self.wait_window(self)
-
-	def validate_and_update_remember(self, update_with):
-		"""
-		Validates the types of update_with against the types in the dialog's
-		REMEMBER_DEFAULT list, then applies a forward-compatible update
-		scheme of update_with into a copy of REMEMBER_DEFAULT, returning it.
-		If the validation fails, an unchanged copy of REMEMBER_DEFAULT is returned.
-
-		i. e.: `DEF: [], UPD: [1, 2]` -> `[1, 2]`;
-		`DEF: [False, 5], UPD: [True]` -> `[True, 5]`
-		`DEF: ["abc", 10], UPD: ["def", "ghi"]` -> `["abc", 10]`
-		"""
-		if len(self.REMEMBER_DEFAULT) < len(update_with):
-			return self.REMEMBER_DEFAULT.copy()
-		for defval, newval in zip(self.REMEMBER_DEFAULT, update_with):
-			if type(defval) is not type(newval):
-				return self.REMEMBER_DEFAULT.copy()
-
-		if len(self.REMEMBER_DEFAULT) == len(update_with):
-			return update_with
-
-		# If this gets too complex for whatever reason, use deepcopy
-		out = self.REMEMBER_DEFAULT.copy()
-		for i, j in enumerate(update_with):
-			out[i] = j
-		return out
 
 	def body(self, master):
 		"""Override this"""
