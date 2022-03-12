@@ -56,7 +56,7 @@ class BookmarkSetter(BaseDialog):
 		styleobj: Instance of `tkinter.ttk.Style`
 		cfg: Program configuration.
 		"""
-		super().__init__(parent, "Insert bookmark...")
+		super().__init__(parent, "Bookmark Setter")
 
 		self.result.data = {}
 

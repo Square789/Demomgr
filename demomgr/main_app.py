@@ -581,10 +581,8 @@ class MainApp():
 		widgets and returns.
 		If `no_io` is set to `True`, will not start a DemoMeta thread.
 		"""
-		print(f"Running, {clear=}, {no_io=}")
 		index = self.listbox.get_active_cell()[1]
 		if clear or not no_io:
-			print("cleared")
 			self.demo_header_kvd.clear()
 		self.demoeventmfl.clear()
 		if clear or index is None:
