@@ -41,6 +41,7 @@ class DemoOp():
 		yield self.button
 		yield self.fit_for_selection_size
 
+
 class MainApp():
 	def __init__(self):
 		"""
@@ -190,12 +191,12 @@ class MainApp():
 					"weight": round(1.5 * mfl.WEIGHT), "dblclick_cmd": lambda _: self._playdem()},
 				{"name": "Killstreaks", "col_id": "col_ks", "sort": True,
 					"weight": round(0.2 * mfl.WEIGHT),
-					"formatter": lambda i: len(getstreakpeaks(i)) if i is not None else "?",
-					"sortkey": lambda i: len(getstreakpeaks(i)) if i is not None else -1},
+					"formatter": lambda i: len(i.killstreak_peaks) if i is not None else "?",
+					"sortkey": lambda i: len(i.killstreak_peaks) if i is not None else -1},
 				{"name": "Bookmarks", "col_id": "col_bm", "sort": True,
 					"weight": round(0.2 * mfl.WEIGHT),
-					"formatter": lambda i: len(i) if i is not None else "?",
-					"sortkey": lambda i: len(i) if i is not None else -1,
+					"formatter": lambda i: len(i.bookmarks) if i is not None else "?",
+					"sortkey": lambda i: len(i.bookmarks) if i is not None else -1,
 					"dblclick_cmd": lambda _: self._managebookmarks()},
 				{"name": "Creation time", "col_id": "col_ctime", "sort": True,
 					"weight": round(0.9 * mfl.WEIGHT),
@@ -319,7 +320,11 @@ class MainApp():
 					else tk.DISABLED
 				)
 			)
-		self._updatedemowindow()
+		# NOTE: After removing/deleting demos, an event will be fired with a then-empty
+		# selection, which fills the demo event screen confusingly with the next demo's
+		# event data/header. Prevent that with the if.
+		if self.listbox.selection:
+			self._updatedemowindow()
 
 	def quit_app(self, save_cfg = True):
 		for g in self.threadgroups.values():
@@ -420,13 +425,14 @@ class MainApp():
 			return
 
 		index = next(iter(self.listbox.selection))
+		demo_info = self.listbox.get_cell("col_ks", index)
 		dialog = Play(
 			self.root,
 			demo_dir = self.curdir,
 			info = DemoInfo(
 				self.listbox.get_cell("col_filename", index),
-				self.listbox.get_cell("col_ks", index),
-				self.listbox.get_cell("col_bm", index),
+				[] if demo_info is None else demo_info.killstreaks,
+				[] if demo_info is None else demo_info.bookmarks,
 			),
 			cfg = self.cfg,
 			style = self.ttkstyle,
@@ -495,11 +501,13 @@ class MainApp():
 			return
 
 		index = next(iter(self.listbox.selection))
-		path = os.path.join(self.curdir, self.listbox.get_cell("col_filename", index))
+		demo_name = self.listbox.get_cell("col_filename", index)
+		path = os.path.join(self.curdir, demo_name)
+		info = self.listbox.get_cell("col_bm", index)
 		dialog = BookmarkSetter(
 			self.root,
 			targetdemo = path,
-			bm_dat = self.listbox.get_cell("col_bm", index),
+			bm_dat = None if info is None else info.bookmarks,
 			styleobj = self.ttkstyle,
 			cfg = self.cfg,
 		)
@@ -518,10 +526,22 @@ class MainApp():
 		if container_state is None:
 			return
 
-		self.listbox.set_cell(
-			"col_bm", index, dialog.result.data["bookmarks"] if container_state else None
-		)
-		self.listbox.format(("col_bm", ), (index, ))
+		if container_state:
+			# FIXME The DemoInfo object is stored both in col_bm and col_ks, so the change is
+			# visible in both. See multiframe_list issue #7
+			info = self.listbox.get_cell("col_bm", index)
+			if info is None:
+				info = DemoInfo(demo_name, [], dialog.result.data["bookmarks"])
+				# This is nasty, info needs to be inserted here
+				self.listbox.set_cell("col_ks", index, info)
+				self.listbox.set_cell("col_bm", index, info)
+			else:
+				info.bookmarks = dialog.result.data["bookmarks"]
+		else:
+			# Container doesn't exist anymore; the info is now None.
+			self.listbox.set_cell("col_ks", index, None)
+			self.listbox.set_cell("col_bm", index, None)
+		self.listbox.format(("col_bm", "col_ks"), (index, ))
 		self._updatedemowindow(no_io = True)
 
 	def _applytheme(self):
@@ -561,20 +581,24 @@ class MainApp():
 		widgets and returns.
 		If `no_io` is set to `True`, will not start a DemoMeta thread.
 		"""
+		print(f"Running, {clear=}, {no_io=}")
 		index = self.listbox.get_active_cell()[1]
 		if clear or not no_io:
+			print("cleared")
 			self.demo_header_kvd.clear()
 		self.demoeventmfl.clear()
 		if clear or index is None:
 			return
 
-		ks = self.listbox.get_cell("col_ks", index)
-		bm = self.listbox.get_cell("col_bm", index)
-		if not (ks is None or bm is None):
-			for events, n in ((ks, "Killstreak"), (bm, "Bookmark")):
+		info = self.listbox.get_cell("col_ks", index)
+		if info is not None:
+			for events, name in (
+				(info.killstreak_peaks, "Killstreak"),
+				(info.bookmarks, "Bookmark"),
+			):
 				for event in events:
 					self.demoeventmfl.insert_row({
-						"col_type": n,
+						"col_type": name,
 						"col_tick": event.tick,
 						"col_value": str(event.value),
 					})

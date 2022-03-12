@@ -101,14 +101,12 @@ class ThreadReadFolder(_StoppableBaseThread):
 			return
 
 		# Get demo info and split it up.
-		killstreaks = [None] * len(files)
-		bookmarks = [None] * len(files)
+		demo_info = [None] * len(files)
 		for i, info in enumerate(ddm.get_demo_info(files, datamode)):
 			if not isinstance(info, DemoInfo):
 				# TODO: May even be able to propagate exceptions here
 				continue
-			killstreaks[i] = info.killstreaks
-			bookmarks[i] = info.bookmarks
+			demo_info[i] = info
 
 		if datamode is CNST.DATA_GRAB_MODE.NONE:
 			res_msg = "Demo information disabled."
@@ -122,7 +120,7 @@ class ThreadReadFolder(_StoppableBaseThread):
 			res_msg,
 			3000,
 			{
-				"col_filename": files, "col_ks": killstreaks, "col_bm": bookmarks,
+				"col_filename": files, "col_ks": demo_info, "col_bm": demo_info,
 				"col_ctime": dates_created, "col_filesize": sizes
 			},
 			THREADSIG.SUCCESS,

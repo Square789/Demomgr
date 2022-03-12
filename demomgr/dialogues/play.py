@@ -252,7 +252,7 @@ class Play(BaseDialog):
 		)
 
 		# the griddening
-		master.grid_rowconfigure((0, 1), weight = 1)
+		master.grid_rowconfigure(1, weight = 1)
 		master.grid_columnconfigure(0, weight = 1)
 
 		# = RCON frame
@@ -273,6 +273,7 @@ class Play(BaseDialog):
 
 		# = Play frame
 		play_labelframe.grid_columnconfigure(0, weight = 1)
+		play_labelframe.grid_rowconfigure(2, weight = 1)
 		# Launch config region
 		launch_config_frame.grid_columnconfigure(1, weight = 1)
 		user_select_label.grid(row = 0, column = 0, pady = (0, 5), sticky = "e")
@@ -305,7 +306,8 @@ class Play(BaseDialog):
 		tick_options_frame.grid(row = 0, column = 1)
 
 		bookmark_region.grid_columnconfigure(0, weight = 1)
-		self.tick_mfl.grid(row = 0, column = 0, padx = (0, 5), sticky = "ew")
+		bookmark_region.grid_rowconfigure(0, weight = 1)
+		self.tick_mfl.grid(row = 0, column = 0, padx = (0, 5), sticky = "nesw")
 		bookmark_region.grid(row = 2, column = 0, pady = (0, 5), sticky = "nesw")
 
 		self.warning_not_in_tf_dir.set_grid_options(row = 3, column = 0, sticky = "ew")
@@ -326,10 +328,8 @@ class Play(BaseDialog):
 		self.rcon_text.configure(xscrollcommand = rcon_text_scrollbar.set, state = tk.DISABLED)
 
 		events = []
-		if self.info.killstreaks is not None:
-			events += [("Killstreak", t, v) for v, t, _ in self.info.killstreaks]
-		if self.info.bookmarks is not None:
-			events += [("Bookmark", t, v) for v, t, _ in self.info.bookmarks]
+		events += [("Killstreak", t, v) for v, t, _ in self.info.killstreak_peaks]
+		events += [("Bookmark", t, v) for v, t, _ in self.info.bookmarks]
 		events.sort(key = lambda x: x[1])
 		data = {"col_type": [], "col_tick": [], "col_val": []}
 		for type, tick, val in events:
