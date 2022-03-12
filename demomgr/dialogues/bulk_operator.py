@@ -83,7 +83,7 @@ class BulkOperator(BaseDialog):
 		self.thread_last_start_time = 0
 		self.thread_last_start_pending_files = 0
 		self.thread_last_processed_files = 0
-		self.pending_files = set() # Files that still need to be processed
+		self.pending_files = set(files) # Files that still need to be processed
 		self.pending_demo_info = {} # Demo info that still needs to be processed
 		# I would like to use threadgroup.thread.is_alive but it's faulty.
 		self.thread_alive = False
@@ -91,6 +91,7 @@ class BulkOperator(BaseDialog):
 		self._FULL_DGM = {m for m in CNST.DATA_GRAB_MODE if m is not CNST.DATA_GRAB_MODE.NONE}
 
 		self.threadgroup = ThreadGroup(CMDDemosThread, self.master)
+		self.threadgroup.register_run_always_method_pre(self._thread_run_always)
 		self.threadgroup.build_cb_method(self._demo_after_callback)
 
 	def _listbox_fmt_state(self, demo_name):
@@ -287,8 +288,9 @@ class BulkOperator(BaseDialog):
 	def _start_demo_processing(self):
 		selected_op = CNST.BULK_OPERATION(self.operation_var.get())
 		# It is possible to start multiple threads by holding space with the start/retry
-		# button focussed, this should make that impossible
-		if self.thread_alive:
+		# button focussed, and the button stays clickable with space even when ungridded.
+		# This should prevent unwanted and potentially catastrophic thread starts.
+		if self.thread_alive or not self._should_retry():
 			return
 
 		target_dir = None
@@ -315,12 +317,12 @@ class BulkOperator(BaseDialog):
 		# We're in business once this point is reached
 
 		self._lock_operation(selected_op)
-		self.textbox.replace("status_start", "status_end", "Running")
+		with self.textbox:
+			self.textbox.replace("status_start", "status_end", "Running")
 		self.okbutton.pack_forget()
 		self.okbutton.configure(text = "Retry")
 		self.closebutton.pack_forget()
 		self.canceloperationbutton.pack(side = tk.LEFT, fill = tk.X, expand = 1)
-		self.pending_files = set(self.files)
 
 		self.thread_last_start_time = time()
 		self.thread_last_start_pending_files = len(self.pending_files) + len(self.pending_demo_info)
@@ -336,20 +338,22 @@ class BulkOperator(BaseDialog):
 			cfg = self.cfg,
 		)
 
+	def _should_retry(self):
+		return bool(self.pending_demo_info or self.pending_files)
+
 	def _demo_after_callback(self, sig, *args):
 		if sig.is_finish_signal():
-			if sig is THREADSIG.SUCCESS:
-				self.textbox_set_line(
-					2,
-					(
-						f"Successfully processed {self.thread_last_processed_files}/"
-						f"{self.thread_last_start_pending_files} files in "
-						f"{round(time() - self.thread_last_start_time, 3)} seconds."
-					)
+			self.textbox_set_line(
+				2,
+				(
+					f"Processed {self.thread_last_processed_files}/"
+					f"{self.thread_last_start_pending_files} files in "
+					f"{round(time() - self.thread_last_start_time, 3)} seconds."
 				)
+			)
 			self.result.state = DIAGSIG.SUCCESS
 			self.canceloperationbutton.pack_forget()
-			if self.pending_files or self.pending_demo_info:
+			if self._should_retry():
 				self.okbutton.pack(side = tk.LEFT, fill = tk.X, expand = 1, padx = (0, 3))
 			self.closebutton.pack(side = tk.LEFT, fill = tk.X, expand = 1)
 			with self.textbox:
@@ -367,7 +371,7 @@ class BulkOperator(BaseDialog):
 			if sig is THREADSIG.FILE_OPERATION_SUCCESS:
 				self.pending_files.remove(name)
 				self.pending_demo_info[name] = self._FULL_DGM.copy()
-			self.listbox.format(("col_file",), (self._listbox_idx_map[name],))
+			self.listbox.format(("col_state",), (self._listbox_idx_map[name],))
 
 		elif sig is THREADSIG.RESULT_INFO_WRITE_RESULTS:
 			mode = args[0]

@@ -801,8 +801,8 @@ class MainApp():
 	def writecfg(self):
 		"""
 		Writes the `Config` in `self.cfg` to self.cfgpath, converted to JSON.
-		On write error, opens the CfgError dialog, blocking until the issue is 
-		ixed.
+		On write error, opens the CfgError dialog, blocking until the issue is
+		fixed.
 		"""
 		write_ok = False
 		while not write_ok:
@@ -832,7 +832,7 @@ class MainApp():
 		while cfg is None:
 			try:
 				cfg = Config.load_and_validate(self.cfgpath)
-			except (OSError, json.decoder.JSONDecodeError, SchemaError, ValueError) as exc:
+			except (OSError, json.decoder.JSONDecodeError, SchemaError) as exc:
 				dialog = CfgError(self.root, cfgpath = self.cfgpath, error = exc, mode = 0)
 				dialog.show()
 				if dialog.result.data == 0: # Retry

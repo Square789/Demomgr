@@ -57,7 +57,6 @@ if os.name == "nt":
 	kernel32.GetLastError.restype = wintypes.DWORD
 
 else:
-	coredll = None
 	kernel32 = None
 
 

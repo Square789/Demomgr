@@ -70,9 +70,12 @@ class RememberListValidator:
 	"""
 	def __init__(self, default, default_types = None) -> None:
 		if default_types is None:
-			default_types = tuple(map(Schema, map(type, default)))
+			default_types = tuple(Schema(type(v)) for v in default)
 		else:
-			default_types = tuple(Schema(type(t)) if t is None else t for t in default_types)
+			default_types = tuple(
+				Schema(type(v)) if s is None else s
+				for v, s in zip(default, default_types)
+			)
 
 		self.default = default
 		self.default_types = default_types
@@ -144,9 +147,6 @@ class Config():
 		Will merge the supplied dict with a copy of the default
 		config and run a Schema validation on the supplied dict, so a
 		SchemaError may be raised.
-		May also raise ValueErrors in case some of the numbers contained
-		in the config can not be translated to their respective enum
-		members.
 
 		Will perform some backwards-compatibility operations on the
 		supplied arguments, notably `hlae_path`, `last_path`, `rcon_pwd`
