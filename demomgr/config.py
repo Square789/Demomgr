@@ -183,8 +183,6 @@ class Config():
 				else CNST.FILE_MANAGER_MODE.USER_DEFINED
 			)
 
-		print("!", cfg["ui_remember"]["bulk_operator"])
-
 		cfg["_comment"] = DEFAULT["_comment"]
 
 		self._cfg = cfg

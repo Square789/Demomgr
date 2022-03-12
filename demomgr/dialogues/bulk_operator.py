@@ -32,10 +32,20 @@ class BulkOperator(BaseDialog):
 		and the filesystem was likely modified in some way.
 		Otherwise, it will be FAILURE.
 	`self.result.data` will be a dict with the following keys:
-		# TODO
+		"processed_demos": A set of all demos that have been successfully
+			processed by the dialog.
+		"failed_info": A dict mapping demo names to sets of
+			`DATA_GRAB_MODE`s. Its keys will be a subset of
+			`"processed_demos"`. Indicates transfer/deletion failure
+			(depending) on `"operation"` for the given modes for the
+			associated demo.
+		"operation": The operation that was chosen by the user and run.
+			by the dialog.
 	Widget state remembering:
 		0: Last selected `BULK_OPERATION`.
 		1: Target path as it is entered for the `MOVE` or `COPY` operation.
+			(If this is not an absolute path or an empty string it will be
+			ignored.)
 	"""
 
 	def __init__(self, parent, demodir, files, cfg, styleobj, remember):
@@ -101,7 +111,7 @@ class BulkOperator(BaseDialog):
 		elif demo_name in self.pending_demo_info:
 			return (
 				self._locked_operation_success_str + "Failed transferring demo info for " +
-				" ".join(_DGM_TXT[mode] for mode in self.pending_demo_info[demo_name])
+				", ".join(_DGM_TXT[mode] for mode in self.pending_demo_info[demo_name])
 			)
 		else:
 			return self._locked_operation_success_str
@@ -347,13 +357,6 @@ class BulkOperator(BaseDialog):
 				self.textbox.delete("spinner", "spinner + 1 chars")
 				self.textbox.insert("spinner", ".")
 
-			print("Thread finished!")
-			pprint = __import__("pprint").pprint
-			print("Pending files:")
-			pprint(self.pending_files)
-			print("\nPending info:")
-			pprint(self.pending_demo_info)
-			print("\n")
 			self.listbox.format(("col_state",))
 
 			self.thread_alive = False
@@ -393,25 +396,28 @@ class BulkOperator(BaseDialog):
 		# Thread is done at this point, which means self.pending_* contains all
 		# non-completed work units.
 
-		processed_files = set(self.files) - self.pending_files
-		# These files have been processed. In the case of DELETE or MOVE they are now
-		# gone. In failure cases, their demo info might remain, but that doesn't matter
-		# too much to the source dir.
-
-		# The only thing the CMD thread can do to demo info from perspective of the source
-		# directory is to have destroyed it along with its demo or left the info as-is,
-		# so no need to transfer the actual info in the result.
-
 		self.result.remember = [
 			(
 				self._locked_operation if self.result.state is DIAGSIG.SUCCESS
-				else self.operation_var.get()
+				else CNST.BULK_OPERATION(self.operation_var.get())
 			),
 			self.target_directory_var.get(),
 		]
+
 		if self.result.state is DIAGSIG.SUCCESS:
+			# These files have been processed. In the case of DELETE or MOVE they are now
+			# gone. In failure cases, their demo info might remain, but that doesn't matter
+			# too much to the source dir.
+			processed_files = set(self.files) - self.pending_files
+
+			# The only thing the CMD thread can do to demo info from perspective of the source
+			# directory is to have destroyed it along with its demo or left the info as-is,
+			# so no need to transfer the actual info in the result.
+			failed_info = self.pending_demo_info
+
 			self.result.data = {
 				"processed_files": processed_files,
+				"failed_info": failed_info,
 				"operation": self._locked_operation,
 			}
 

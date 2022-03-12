@@ -37,8 +37,7 @@ FILTERDICT = {
 	"clientid":          ('"{}" in x["header"]["clientid"]', str, FILTERFLAGS.HEADER),
 	"killstreaks":       ('len(x["killstreaks"]) {sign} {}', int, 0),
 	"bookmarks":         ('len(x["bookmarks"]) {sign} {}', int, 0),
-	"beststreak":        ('max((i[0] for i in x["killstreaks"]), default=-1)' \
-		' {sign} {}', int, 0),
+	"beststreak":        ('max((i[0] for i in x["killstreaks"]), default=-1) {sign} {}', int, 0),
 	"moddate":           ('x["filedata"]["modtime"] {sign} {}', int, FILTERFLAGS.FILESYS),
 	"filesize":          ('x["filedata"]["filesize"] {sign} {}', int, FILTERFLAGS.FILESYS),
 }

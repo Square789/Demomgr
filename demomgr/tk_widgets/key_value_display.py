@@ -250,12 +250,8 @@ class KeyValueDisplay(ttk.Frame):
 				raise ValueError(f"Id \"{id_}\" already in use.")
 		else:
 			id_ = 0
-			id_ok = False
-			while True:
-				if id_ in self._registered_lines:
-					id_ += 1
-				else:
-					break
+			while id_ in self._registered_lines:
+				id_ += 1
 
 		self._registered_lines[id_] = _KVDLine(self, id_, **kwargs)
 		self.length += 1

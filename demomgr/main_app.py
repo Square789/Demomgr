@@ -190,11 +190,11 @@ class MainApp():
 					"weight": round(1.5 * mfl.WEIGHT), "dblclick_cmd": lambda _: self._playdem()},
 				{"name": "Killstreaks", "col_id": "col_ks", "sort": True,
 					"weight": round(0.2 * mfl.WEIGHT),
-					"formatter": lambda i: str(len(getstreakpeaks(i))) if i is not None else "?",
+					"formatter": lambda i: len(getstreakpeaks(i)) if i is not None else "?",
 					"sortkey": lambda i: len(getstreakpeaks(i)) if i is not None else -1},
 				{"name": "Bookmarks", "col_id": "col_bm", "sort": True,
 					"weight": round(0.2 * mfl.WEIGHT),
-					"formatter": lambda i: str(len(i)) if i is not None else "?",
+					"formatter": lambda i: len(i) if i is not None else "?",
 					"sortkey": lambda i: len(i) if i is not None else -1,
 					"dblclick_cmd": lambda _: self._managebookmarks()},
 				{"name": "Creation time", "col_id": "col_ctime", "sort": True,
@@ -461,7 +461,7 @@ class MainApp():
 			remember = self.cfg.ui_remember["bulk_operator"],
 		)
 		dialog.show()
-		if dialog.result.state != DIAGSIG.GLITCHED:
+		if dialog.result.state == DIAGSIG.GLITCHED:
 			return
 
 		self.cfg.ui_remember["bulk_operator"] = dialog.result.remember
@@ -469,12 +469,12 @@ class MainApp():
 		if dialog.result.state != DIAGSIG.SUCCESS:
 			return
 
-		if not self.cfg.lazy_reload:
-			self.reloadgui()
-			return
+		# Processed demos are gone when they were deleted/moved. Update only necessary then.
+		if dialog.result.data["operation"] != CNST.BULK_OPERATION.COPY:
+			if not self.cfg.lazy_reload:
+				self.reloadgui()
+				return
 
-		# Processed demos are gone when they were deleted/moved.
-		if dialog.result.data != CNST.BULK_OPERATION.COPY:
 			to_remove = [file_idx_map[file] for file in dialog.result.data["processed_files"]]
 			self.directory_inf_kvd.set_value(
 				"l_amount",

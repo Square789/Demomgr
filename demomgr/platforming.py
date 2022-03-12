@@ -15,6 +15,8 @@ import demomgr.constants as CNST
 if os.name == "nt":
 	kernel32 = ctypes.windll.Kernel32
 
+	# This should be good:
+	# https://superuser.com/questions/305901/possible-values-of-processor-architecture
 	BITNESS = 64 if "64" in os.environ["PROCESSOR_ARCHITECTURE"] else 32
 	INVALID_HANDLE_VALUE = 2**BITNESS - 1
 
@@ -108,9 +110,9 @@ def get_rightclick_btn():
 def _win_create_file(p):
 	# OPEN_EXISTING is 3
 	# FILE_ATTRIBUTE_NORMAL is 128
-	# FILE_FLAG_BACKUP_SEMANTICS is 0x02000000
+	# FILE_FLAG_BACKUP_SEMANTICS is 0x02000000, required for directories
+	# for some reason. This works, don't question it
 	h = kernel32.CreateFileW(p, 0, 0, None, 3, 128 | 0x0200_0000, None)
-	print(f"{p} opened, {h=}")
 	if h == INVALID_HANDLE_VALUE:
 		raise OSError("CreateFile returned invalid handle.")
 	return h
