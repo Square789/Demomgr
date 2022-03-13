@@ -80,7 +80,7 @@ class BookmarkSetter(BaseDialog):
 		self.protocol("WM_DELETE_WINDOW", self.destroy)
 
 		parent.rowconfigure(0, weight = 1, pad = 5)
-		parent.rowconfigure(1, pad = 5)
+		parent.rowconfigure(2, pad = 5)
 		parent.columnconfigure((0, 1), weight = 1)
 
 		widgetcontainer = ttk.Frame(parent)#, style = "Contained.TFrame")
@@ -135,17 +135,34 @@ class BookmarkSetter(BaseDialog):
 
 		widgetcontainer.grid(row = 0, column = 0, columnspan = 2, sticky = "news")
 
+		self.warning_label = ttk.Label(
+			parent,
+			text = (
+				"Note: Hitting \"Save\" will replace all existing bookmarks for this demo "
+				"with the ones specified in the listbox above."
+			),
+			style = "Info.TLabel",
+			wraplength = 500,
+		)
+		parent.bind(
+			"<Configure>",
+			lambda _: self.warning_label.configure(
+				wraplength = max(250, parent.winfo_width())
+			)
+		)
+		self.warning_label.grid(row = 1, column = 0, columnspan = 2, sticky = "news", pady = 5)
+
 		self.textbox = TtkText(
 			parent, self.styleobj, height = 8, wrap = "none", takefocus = False
 		)
-		self.textbox.grid(row = 1, column = 0, columnspan = 2, sticky = "news", pady = 5)
+		self.textbox.grid(row = 2, column = 0, columnspan = 2, sticky = "news", pady = 5)
 		self.textbox.lower()
 
 		self.savebtn = ttk.Button(parent, text = "Save", command = self._mark)
 		cancelbtn = ttk.Button(parent, text = "Close", command = self.destroy)
 
-		self.savebtn.grid(row = 2, column = 0, padx = (0, 3), sticky = "ew")
-		cancelbtn.grid(row = 2, column = 1, padx = (3, 0), sticky = "ew")
+		self.savebtn.grid(row = 3, column = 0, padx = (0, 3), sticky = "ew")
+		cancelbtn.grid(row = 3, column = 1, padx = (3, 0), sticky = "ew")
 
 		self.listbox.bind("<<MultiframeSelect>>", self._callback_bookmark_selected)
 

@@ -39,21 +39,29 @@ class EventReader():
 	Class designed to read a Source engine demo event log file.
 
 	handle: Must either be a file handle object or a string to a file.
-		If a file handle, must be opened in r, w+, a+ so it can be read.
-		If a file handle, it will not be closed after destruction
-		of the reader.
+		If a file handle, must be opened in r, w+, a+ mode and with
+			utf-8 encoding. It will not be closed after destruction
+			of the reader.
 	sep: Seperator of individual logchunks. (Default '>\\n', str)
 	resethandle: Will reset the file handle's position to 0 upon
 		creation. (Default True, bool)
 	blocksz: Blocksize to read files in. (Default 65536, int)
 
-	May raise: OSError when handle creation fails.
+	May raise:
+		OSError when handle creation fails.
+		UnicodeError when a given handle is not opened in utf-8.
+		UnicodeDecodeError when reading an event file with non-utf-8 data.
 	"""
 	def __init__(self, handle, sep = None, resethandle = None, blocksz = None):
 		self.isownhandle = False
+
 		if isinstance(handle, str):
 			self.isownhandle = True
-			handle = open(handle, "r")
+			handle = open(handle, "r", encoding = "utf-8")
+		else:
+			if handle.encoding.lower() not in ("utf8", "utf-8"):
+				raise UnicodeError("Handle must be opened in utf-8 encoding!")
+
 		self.handle = handle
 		self.cnf = _DEF.copy()
 		self.cnf.update(read_DEF)
@@ -173,7 +181,10 @@ class EventWriter():
 		self.isownhandle = False
 		if isinstance(handle, (str, bytes, int)):
 			self.isownhandle = True
-			handle = open(handle, "a+")
+			handle = open(handle, "a+", encoding = "utf-8")
+		else:
+			if handle.encoding.lower() not in ("utf8", "utf-8"):
+				raise UnicodeError("Handle must be opened in utf-8 encoding!")
 
 		self.handle = handle
 

@@ -100,25 +100,37 @@ class ThreadReadFolder(_StoppableBaseThread):
 			self.queue_out_put(THREADSIG.ABORTED)
 			return
 
-		# Get demo info and split it up.
+		# Get demo info.
 		demo_info = [None] * len(files)
-		for i, info in enumerate(ddm.get_demo_info(files, datamode)):
-			if not isinstance(info, DemoInfo):
-				# TODO: May even be able to propagate exceptions here
+		encountered_exception = None
+		same_exception = True
+		info_read_success_count = 0
+		for i, result in enumerate(ddm.get_demo_info(files, datamode)):
+			if isinstance(result, Exception):
+				if encountered_exception is None:
+					encountered_exception = result
+				else:
+					if same_exception and result != encountered_exception:
+						same_exception = False
 				continue
-			demo_info[i] = info
+			info_read_success_count += 1
+			demo_info[i] = result
 
 		if datamode is CNST.DATA_GRAB_MODE.NONE:
 			res_msg = "Demo information disabled."
 		else:
 			res_msg = (
-				f"Processed data from {len(files)} files in "
-				f"{round(time.time() - starttime, 4)} seconds."
+				f"Processed data from {info_read_success_count}/{len(files)} files in "
+				f"{round(time.time() - starttime, 4)} seconds"
 			)
+			if encountered_exception is not None and same_exception:
+				res_msg += f": {encountered_exception}."
+			else:
+				res_msg += "."
 
 		self.__stop(
 			res_msg,
-			3000,
+			5000,
 			{
 				"col_filename": files, "col_ks": demo_info, "col_bm": demo_info,
 				"col_ctime": dates_created, "col_filesize": sizes

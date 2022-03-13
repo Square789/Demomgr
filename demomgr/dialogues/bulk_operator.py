@@ -111,7 +111,7 @@ class BulkOperator(BaseDialog):
 			return self._locked_operation_failure_str
 		elif demo_name in self.pending_demo_info:
 			return (
-				self._locked_operation_success_str + "Failed transferring demo info for " +
+				self._locked_operation_success_str + " Demo info transfer failure for: " +
 				", ".join(_DGM_TXT[mode] for mode in self.pending_demo_info[demo_name])
 			)
 		else:
@@ -213,7 +213,7 @@ class BulkOperator(BaseDialog):
 			style = "Info.Contained.TLabel",
 			wraplength = 400,
 		)
-		self.bind(
+		self.target_path_frame.bind(
 			"<Configure>",
 			lambda _: self.warning_label.configure(
 				wraplength = max(300, self.target_path_frame.winfo_width())
@@ -361,9 +361,9 @@ class BulkOperator(BaseDialog):
 				self.textbox.delete("spinner", "spinner + 1 chars")
 				self.textbox.insert("spinner", ".")
 
-			self.listbox.format(("col_state",))
-
 			self.thread_alive = False
+
+			self.listbox.format(("col_state",))
 			return THREADGROUPSIG.FINISHED
 
 		elif sig is THREADSIG.FILE_OPERATION_SUCCESS or sig is THREADSIG.FILE_OPERATION_FAILURE:
@@ -376,9 +376,6 @@ class BulkOperator(BaseDialog):
 		elif sig is THREADSIG.RESULT_INFO_WRITE_RESULTS:
 			mode = args[0]
 			for demo_name, write_result in args[1].items():
-				if demo_name in self.pending_files:
-					print(f"Something went wrong: {demo_name} was still pending.")
-					continue
 				if write_result is None:
 					if len(self.pending_demo_info[demo_name]) == 1:
 						self.pending_demo_info.pop(demo_name)
@@ -398,7 +395,7 @@ class BulkOperator(BaseDialog):
 	def destroy(self):
 		self._stopoperation()
 		# Thread is done at this point, which means self.pending_* contains all
-		# non-completed work units.
+		# non-completed work units and will not be modified anymore.
 
 		self.result.remember = [
 			(

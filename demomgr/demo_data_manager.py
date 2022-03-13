@@ -84,7 +84,7 @@ class EventsReader(Reader):
 				pending_names.discard(info.demo_name)
 				if not pending_names:
 					break
-		except OSError as e:
+		except (OSError, UnicodeDecodeError) as e:
 			return [e] * len(names)
 		return [self.chunk_cache.get(name, None) for name in names]
 
@@ -121,10 +121,8 @@ class EventsWriter(Writer):
 			try:
 				cur_info = DemoInfo.from_raw_logchunk(chk)
 			except ValueError:
-				#print(f"_events writer: Dropping faulty logchunk:\n===\n{str(chk)}\n===")
 				continue
 			name = cur_info.demo_name
-			#print(f"_events writer: Read in logchunk for {name}")
 			self._name_to_chunk_idx_map[name] = len(self._demo_info)
 			self._demo_info.append(cur_info)
 			if name in target_names:
@@ -145,10 +143,8 @@ class EventsWriter(Writer):
 
 		for name, info in zip(names, info):
 			if name in self._name_to_chunk_idx_map:
-				#print(f"_events writer: Setting logchunk for demo {name!r}")
 				self._demo_info[self._name_to_chunk_idx_map[name]] = info
 			else:
-				#print(f"_events writer: Appending logchunk for demo {name!r}")
 				self._name_to_chunk_idx_map[name] = len(self._demo_info)
 				self._demo_info.append(info)
 
@@ -182,7 +178,6 @@ class EventsWriter(Writer):
 
 			for info in self._demo_info:
 				if info is not None and not info.is_empty():
-					#print(f"_events writer: Writing logchunk for {info.demo_name}")
 					writer.writechunk(info.to_logchunk())
 			# Writes any pending logchunks from a non-fully-exhausted reader.
 			# This is so stupidly overengineered lmao
@@ -191,9 +186,7 @@ class EventsWriter(Writer):
 					try:
 						info = DemoInfo.from_raw_logchunk(chk)
 					except ValueError:
-						#print(f"_events writer: Dropping faulty logchunk:\n===\n{str(chk)}\n===")
 						continue
-					#print(f"_events writer: Post-reading & writing logchunk for {info.demo_name}")
 					writer.writechunk(info.to_logchunk())
 				self.reader.destroy()
 				self.reader = None
@@ -201,9 +194,8 @@ class EventsWriter(Writer):
 			writer.destroy()
 			writer = None
 
-			#print(f"_events writer: Would copy {fname!r} -> {os.path.join(self.ddm.directory, EVENT_FILE)!r}")
 			shutil.copyfile(fname, os.path.join(self.ddm.directory, EVENT_FILE))
-		except OSError as e:
+		except (OSError, UnicodeEncodeError) as e:
 			write_result = e
 		finally:
 			for name in self._expected_write_result_names:
@@ -213,22 +205,18 @@ class EventsWriter(Writer):
 				try:
 					self.reader.destroy()
 				except OSError as e:
-					#print(f"_events writer: Failure destroying reader:", e)
 					pass
 
 			if writer is not None:
 				try:
 					writer.destroy()
 				except OSError as e:
-					#print(f"_events writer: Failure destroying writer:", e)
 					pass
 
 			if fname is not None:
 				try:
 					os.unlink(fname)
-					pass
 				except OSError:
-					#print(f"_events writer: Failure deleting tempfile {fname!r}")
 					pass
 
 
@@ -236,7 +224,7 @@ class JSONReader(Reader):
 	def _single_get_info(self, name):
 		json_name = os.path.splitext(name)[0] + ".json"
 		try:
-			fh = open(os.path.join(self.ddm.directory, json_name), "r")
+			fh = open(os.path.join(self.ddm.directory, json_name), "r", encoding = "utf-8")
 		except FileNotFoundError:
 			return None
 		except OSError as e:
@@ -262,27 +250,20 @@ class JSONWriter(Writer):
 	def _single_write_info(self, name, info):
 		json_path = os.path.join(self.ddm.directory, os.path.splitext(name)[0] + ".json")
 		if info is not None and not info.is_empty():
-			#print(f"JSON writer: Would write {json_path!r}")
 			try:
-				new = json.dumps(info.to_json())
+				new = json.dumps(info.to_json(), indent = "\t", ensure_ascii = False)
 			except ValueError as e:
-				#print(" ^ Writing failed, bad DemoInfo")
 				return e
 			try:
-				with open(json_path, "w", encoding="utf-8") as f:
+				with open(json_path, "w", encoding = "utf-8") as f:
 					f.write(new)
 			except OSError as e:
 				return e
 		else:
 			try:
 				if os.path.exists(json_path):
-					#print(f"JSON writer: Would delete {json_path!r}")
 					os.unlink(json_path)
-				else:
-					#print(f"JSON writer: Info is empty and json does not exist for {json_path!r}, all good")
-					pass
 			except OSError as e:
-				#print(" ^ Failure")
 				return e
 
 		return None
