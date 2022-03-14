@@ -77,7 +77,7 @@ def main():
 	with (cur_path / "LICENSE").open("r") as license_fp:
 		license = license_fp.read()
 	with (dist_dir / "LICENSE").open("w") as license_fp:
-		license_fp.write(re.sub(r"\(c\) \d+", datetime.now().strftime("(c) %Y"), license))
+		license_fp.write(license)
 
 	regex_license = None
 	regex_license_filename = None
