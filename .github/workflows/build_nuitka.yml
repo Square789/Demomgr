@@ -2,8 +2,6 @@ name: Build nuitka distribution
 
 on:
   push:
-    branches:
-      - 'master'
     tags:
       - 'v*'
 
