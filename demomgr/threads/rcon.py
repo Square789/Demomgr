@@ -1,13 +1,10 @@
 
-import os
 import queue
 import socket
-socket.setdefaulttimeout(10)
 import struct
 
 from demomgr.threads._threadsig import THREADSIG
 from demomgr.threads._base import _StoppableBaseThread
-from demomgr import constants as CNST
 
 AUTH = 3
 AUTH_RESPONSE = 2
@@ -25,45 +22,69 @@ class RCONPacket:
 		self.body = body
 
 	def as_bytes(self):
-		return struct.pack(f"<iii{len(self.body)}scc",
+		return struct.pack(
+			f"<iii{len(self.body)}scc",
 			self.size,
 			self.id,
 			self.type,
 			self.body,
 			b"\x00",
-			b"\x00"
+			b"\x00",
 		)
 
 class RCONThread(_StoppableBaseThread):
 	"""
 	Thread for establishing a RCON connection to a game and sending
 	a command.
+	The thread is designed to run continuously and receive commands
+	as encoded strings through an input queue.
+	If it fails at any point, it will disconnect.
+
+	Sent to the output queue:
+		SUCCESS(0) when the stoprequest is set after the thread has
+				connected to the game.
+
+		FAILURE(0) on any socket operation failure.
+
+		ABORTED(0) when the stoprequest is set before the thread has
+				connected to the game.
+
+		CONNECTED(0) when the thread successfully connects to the game.
+
+		INFO_IDX_PARAM(2) for text to display (#TODO issue #31)
+			- Slot index to display the text on.
+			- Text to display.
 	"""
-	def __init__(self, queue_out, command, password, port):
+	def __init__(self, queue_in, queue_out, password, port):
 		"""
-		Thread takes an output queue and as the following args:
-			command <Str>: Command to send to the game.
+		Thread takes an input queue, an output queue and the following args:
 			password <Str>: Password to authenticate with the game.
 			port <Int>: Port the game will be open under.
 		"""
-		self.command = command
 		self.password = password
 		self.port = port
 
-		super().__init__(None, queue_out)
+		self._socket = None
+
+		super().__init__(queue_in, queue_out)
 
 	def run(self):
 		try:
 			encoded_pwd = self.password.encode("utf-8")
-			encoded_cmd = self.command.encode("utf-8")
 		except UnicodeError:
-			self.queue_out_put(THREADSIG.FAILURE); return
+			self.queue_out_put(THREADSIG.FAILURE)
+			return
 
-		self.queue_out_put(THREADSIG.INFO_IDX_PARAM, 0, "Connecting to TF2...")
+		self.queue_out_put(THREADSIG.INFO_IDX_PARAM, 0, f"Connecting to TF2 (port {self.port})...")
 		try:
 			potential_targets = socket.getaddrinfo(socket.getfqdn(), self.port, socket.AF_INET)
-		except OSError:
-			self.queue_out_put(THREADSIG.INFO_IDX_PARAM, 0, "Obscure error getting machine addr")
+		except OSError as error:
+			self.queue_out_put(
+				THREADSIG.INFO_IDX_PARAM,
+				0,
+				f"Obscure error getting machine address: {error}"
+			)
+			self.queue_out_put(THREADSIG.FAILURE)
 			return
 
 		for idx, value in enumerate(potential_targets):
@@ -72,7 +93,7 @@ class RCONThread(_StoppableBaseThread):
 			self.queue_out_put(
 				THREADSIG.INFO_IDX_PARAM,
 				0,
-				f"Connecting to candidate {idx}/{len(potential_targets) - 1}"
+				f"Connecting to candidate {idx}/{len(potential_targets) - 1} (port {self.port})"
 			)
 
 			try:
@@ -85,20 +106,24 @@ class RCONThread(_StoppableBaseThread):
 					self._socket.close()
 
 			if self.stoprequest.is_set():
-				self.queue_out_put(THREADSIG.ABORTED); return
+				self.queue_out_put(THREADSIG.ABORTED)
+				return
 
 			if error is None:
 				break # Success
 
 		if error is not None:
 			self.queue_out_put(
-				THREADSIG.INFO_IDX_PARAM, 0, f"Failure establishing connection. " \
-					f"Is TF2 running with -usercon and net_start?: {error}"
+				THREADSIG.INFO_IDX_PARAM, 0,
+				f"Failure establishing connection. Is TF2 running with -usercon "
+					f"and net_start?: {error}"
 			)
-			self.queue_out_put(THREADSIG.FAILURE); return
+			self.queue_out_put(THREADSIG.FAILURE)
+			return
 
 		if self.stoprequest.is_set():
-			self.__stopsock(THREADSIG.ABORTED); return
+			self.__stopsock(THREADSIG.ABORTED)
+			return
 
 		self.queue_out_put(THREADSIG.INFO_IDX_PARAM, 0, "Connected to TF2")
 		self.queue_out_put(THREADSIG.INFO_IDX_PARAM, 1, "Authenticating...")
@@ -106,53 +131,68 @@ class RCONThread(_StoppableBaseThread):
 			authpacket = RCONPacket(622521, AUTH, encoded_pwd)
 		except RCONPacketSizeError:
 			self.queue_out_put(THREADSIG.INFO_IDX_PARAM, 1, "Password way too large.")
-			self.__stopsock(THREADSIG.FAILURE); return
+			self.__stopsock(THREADSIG.FAILURE)
+			return
 
 		try:
 			self.send_packet(authpacket)
 		except Exception as e:
 			self.queue_out_put(THREADSIG.INFO_IDX_PARAM, 1, f"Failure sending auth packet: {e}")
-			self.__stopsock(THREADSIG.FAILURE); return
+			self.__stopsock(THREADSIG.FAILURE)
+			return
 
 		if self.stoprequest.is_set():
-			self.queue_out_put(THREADSIG.ABORTED)
-			self.__stopsock(THREADSIG.ABORTED); return
+			self.__stopsock(THREADSIG.ABORTED)
+			return
 
 		try:
 			authresponse = self.read_packet() #SERVERDATA_RESPONSE_VALUE
 			if authresponse.id != 622521:
 				self.queue_out_put(THREADSIG.INFO_IDX_PARAM, 1, "Auth response id mismatch.")
-				self.__stopsock(THREADSIG.FAILURE); return
+				self.__stopsock(THREADSIG.FAILURE)
+				return
 
 			authresponse = self.read_packet() #SERVERDATA_AUTH_RESPONSE
 			if authresponse.id == -1:
 				self.queue_out_put(THREADSIG.INFO_IDX_PARAM, 1, "Bad password.")
-				self.__stopsock(THREADSIG.FAILURE); return
+				self.__stopsock(THREADSIG.FAILURE)
+				return
 
 		except Exception as e:
 			self.queue_out_put(THREADSIG.INFO_IDX_PARAM, 1, f"Error while authenticating: {e}")
-			self.__stopsock(THREADSIG.FAILURE); return
+			self.__stopsock(THREADSIG.FAILURE)
+			return
 
 		if self.stoprequest.is_set():
-			self.queue_out_put(THREADSIG.ABORTED)
-			self.__stopsock(THREADSIG.ABORTED); return
+			self.__stopsock(THREADSIG.ABORTED)
+			return
 
+		self.queue_out_put(THREADSIG.CONNECTED)
 		self.queue_out_put(THREADSIG.INFO_IDX_PARAM, 1, "Successfully authenticated.")
-		self.queue_out_put(THREADSIG.INFO_IDX_PARAM, 2, "Sending command...")
-		try:
-			command_req = RCONPacket(1337, EXECCOMMAND, encoded_cmd)
-			self.send_packet(command_req)
-			command_resp = self.read_packet()
-			if command_resp.id != 1337:
-				self.queue_out_put(THREADSIG.INFO_IDX_PARAM, 2, "Bad command response id.")
-				self.__stopsock(THREADSIG.FAILURE); return
-		except Exception as e:
-			self.queue_out_put(THREADSIG.INFO_IDX_PARAM, 2, f"Error while sending command: {e}")
-			self.__stopsock(THREADSIG.FAILURE); return
 
-		self.queue_out_put(THREADSIG.INFO_IDX_PARAM, 2, "Command sent!")
-		self._socket.close()
-		self.queue_out_put(THREADSIG.SUCCESS)
+		while True:
+			try:
+				command = self.queue_inp.get(True, 0.1)
+			except queue.Empty:
+				if self.stoprequest.is_set():
+					self.__stopsock(THREADSIG.SUCCESS)
+					return
+				continue
+
+			self.queue_out_put(THREADSIG.INFO_IDX_PARAM, 2, "Sending command...")
+			try:
+				self.send_packet(RCONPacket(1337, EXECCOMMAND, command))
+				# NOTE: There may be an infinite wait here where the thread can not be stopped
+				resp = self.read_packet()
+				if resp.id != 1337:
+					self.queue_out_put(THREADSIG.INFO_IDX_PARAM, 2, "Bad command response id.")
+					self.__stopsock(THREADSIG.FAILURE)
+					return
+				self.queue_out_put(THREADSIG.INFO_IDX_PARAM, 2, "Command sent!")
+			except Exception as e:
+				self.queue_out_put(THREADSIG.INFO_IDX_PARAM, 2, f"Error while sending command: {e}")
+				self.__stopsock(THREADSIG.FAILURE)
+				return
 
 	def read_packet(self):
 		"""
@@ -172,5 +212,8 @@ class RCONThread(_StoppableBaseThread):
 		self._socket.sendall(packet.as_bytes())
 
 	def __stopsock(self, signal):
-		self._socket.close()
+		if self._socket is not None:
+			self._socket.close()
+			self._socket = None
+
 		self.queue_out_put(signal)

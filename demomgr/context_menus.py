@@ -8,7 +8,7 @@ import tkinter as tk
 def _generate_readonly_cmd(w):
 	cmd = (
 		("command", {"label": "Copy", "command": lambda: w.event_generate("<<Copy>>")}, 2),
-		("command", {"label": "Select all", "command": lambda: w.event_generate("<<SelectAll>>")})
+		("command", {"label": "Select all", "command": lambda: w.event_generate("<<SelectAll>>")}),
 	)
 	return cmd
 
@@ -50,15 +50,15 @@ def multiframelist_cb(event, mfl, demo_ops):
 	Arguments:
 	event: The tkinter event that triggered the callback.
 	mfl: The MultiframeList that got clicked.
-	demo_ops: A tuple of tuples where for every contained tuple:
-		[0] is the label for the menu entry and [2] is the command
-		associated with that entry.
+	demo_ops: The demo operations just like in `MainApp.__init__`.
 	"""
-	w = event.widget
-	x, y = mfl.get_last_click()
-	add_elems = [("command", {"label": f"{s0}...", "command": cmd}) for s0, _, cmd in demo_ops]
+	add_elems = [
+		("command", {"label": s, "command": cmd})
+		for s, cmd, _, fit_for_sel in demo_ops
+		if fit_for_sel(len(mfl.selection))
+	]
 	men = PopupMenu(mfl, add_elems)
-	men.post(x, y)
+	men.post(*mfl.get_last_click())
 
 def entry_cb(event):
 	"""

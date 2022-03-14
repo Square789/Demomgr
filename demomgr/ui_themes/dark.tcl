@@ -9,7 +9,7 @@ ttk::style theme create demomgr_dark -settings \
 		-highlightbackground #656565 -highlightcolor #656565 \
 		-activestyle none -borderwidth 2 -relief flat -selectbackground #D0D0D0 \
 		-selectforeground #000000 -selectborderwidth 0
-	ttk::style configure XActive.MultiframeList.Listbox -selectbackground #FFFFFF
+	ttk::style configure MultiframeList.ActiveCell -selectbackground #FFFFFF -background #707070
 	ttk::style configure MultiframeListReorderInd.TFrame -background #EEEEEE
 	ttk::style configure MultiframeListResizeInd.TFrame -background #EEEEEE
 	ttk::style configure TEntry \
@@ -158,8 +158,10 @@ ttk::style theme create demomgr_dark -settings \
 			Labelframe.l_border -sticky swn -side left
 		}
 	}
+
 	ttk::style map TButton -foreground [
 			list active #FFFFFF !disabled #DDDDDD disabled #999999
 		]
 	ttk::style map TEntry -foreground [list readonly #999999]
+	ttk::style map TRadiobutton -foreground [list disabled #999999]
 }

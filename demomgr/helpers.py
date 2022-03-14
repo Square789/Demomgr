@@ -13,18 +13,6 @@ _CONVPREF = (
 )
 _CONVPREF_CENTER = 8
 
-class CfgReducing:
-	REQUIRED_CFG_KEYS = ()
-
-	@classmethod
-	def reduce_cfg(class_, cfg):
-		"""
-		Reduces input cfg only to the values required for this thread/dialog.
-		(Class attribute `REQUIRED_CFG_KEYS`)
-		Will not create copies or perform error checks, so make sure only
-		immutables are used and cfg is actually complete.
-		"""
-		return {k: cfg[k] for k in class_.REQUIRED_CFG_KEYS}
 
 def build_date_formatter(cfg):
 	"""
@@ -33,7 +21,7 @@ def build_date_formatter(cfg):
 	dict, value not bound to cfg as long as it's immutable.
 	"""
 	# i sure hope that docstring is correct
-	dfmt = cfg["date_format"]
+	dfmt = cfg.date_format
 	return lambda ts: datetime.datetime.fromtimestamp(ts).strftime(dfmt)
 
 def convertunit(inp, ext = "B"):
@@ -68,64 +56,55 @@ def deepupdate_dict(target, update):
 			target[k] = v
 	return target
 
-def readbinStr(handle, leng = 260):
+def readbin_str(handle, leng = 260):
 	"""Reads file handle by leng bytes and attempts to decode to utf-8."""
 	rawbin = handle.read(leng)
 	bin = rawbin.strip(b"\x00")
 	return bin.decode("utf-8")
 
-def readbinInt(handle, leng = 4):
+def readbin_int(handle, leng = 4):
 	rawbin = handle.read(leng)
 	return struct.unpack("i", rawbin)[0]
 
-def readbinFlt(handle):
+def readbin_flt(handle):
 	rawbin = handle.read(4)
 	return struct.unpack("f", rawbin)[0]
 
 # Code happily duplicated from https://developer.valvesoftware.com/wiki/DEM_Format
 def readdemoheader(path):
 	"""
-	Reads the header information of a demo. May raise exceptions on
-	denied read access or malformed demos.
+	Reads the header information of a demo.
+	May raise:
+		- OSError on denied read access or other file failures.
+		- ValueError on malformed demos.
 	"""
-	demhdr = CNST.FALLBACK_HEADER.copy()
-
-	h = open(path, "rb")
-	if readbinStr(h, 8) == "HL2DEMO":
-		demhdr["dem_prot"] = readbinInt(h)
-		demhdr["net_prot"] = readbinInt(h)
-		demhdr["hostname"] = readbinStr(h)
-		demhdr["clientid"] = readbinStr(h)
-		demhdr["map_name"] = readbinStr(h)
-		demhdr["game_dir"] = readbinStr(h)
-		demhdr["playtime"] = readbinFlt(h)
-		demhdr["tick_num"] = readbinInt(h)
-		demhdr["framenum"] = readbinInt(h)
-		demhdr["tickrate"] = int(demhdr["tick_num"] / demhdr["playtime"]) if \
-			demhdr["playtime"] != 0.0 else -1
-	h.close()
+	demhdr = {}
+	with open(path, "rb") as h:
+		if readbin_str(h, 8) != "HL2DEMO":
+			raise ValueError("Malformed demo, expected `HL2DEMO` header")
+		try:
+			demhdr["dem_prot"] = readbin_int(h)
+			demhdr["net_prot"] = readbin_int(h)
+			demhdr["hostname"] = readbin_str(h)
+			demhdr["clientid"] = readbin_str(h)
+			demhdr["map_name"] = readbin_str(h)
+			demhdr["game_dir"] = readbin_str(h)
+			demhdr["playtime"] = readbin_flt(h)
+			demhdr["tick_num"] = readbin_int(h)
+			demhdr["framenum"] = readbin_int(h)
+			demhdr["tickrate"] = int(demhdr["tick_num"] / demhdr["playtime"]) if \
+				demhdr["playtime"] != 0.0 else -1
+		except struct.error as exc:
+			raise ValueError() from exc
 
 	return demhdr
 
-def none_len_formatter(pair):
-	"""If input is None, returns "?", otherwise the length of input as string."""
-	if pair is None:
-		return "?"
-	return str(len(pair))
-
-def none_len_sortkey(pair):
-	"""If input is None, returns -1, otherwise the length of input."""
-	if pair is None:
-		return -1
-	return len(pair)
-
 def getstreakpeaks(killstreaks):
 	"""
-	Takes a list of tuples where: element 0 is a number and 1 is a time
-	tick (which is ignored), then only returns the tuples that make up the
-	peak of their sequence.
-	For example: (1,2,3,4,5,6,1,2,1,2,3,4) -> (6,2,4) [Only element 0 of
-	the tuples displayed].
+	Takes a list of DemoEvents, then returns a list of only the tuples
+	whose values make up the peak of their sequence.
+	For example if values of DemoEvents were: (1,2,3,4,5,6,1,2,1,2,3,4),
+	the function would deliver the DemoEvents for (6,2,4).
 	This function does not perform any sorting, input is expected to already
 	be in a correct order.
 	"""
@@ -134,32 +113,15 @@ def getstreakpeaks(killstreaks):
 	if not killstreaks:
 		return streakpeaks
 
-	prv = (-1, -1)
-	for streaktup in killstreaks:
-		if streaktup[0] <= prv[0]:
+	prv = None
+	for event in killstreaks:
+		if prv is not None and event.value <= prv.value:
 			streakpeaks.append(prv)
-		prv = streaktup
+		prv = event
 	# Get last streak, won't attach (-1, -1) since killstreaks is at least 1 element long
 	streakpeaks.append(prv)
 
 	return streakpeaks
-
-def assign_demo_info(files, demo_info):
-	"""
-	Creates a list where each DemoInfo object in demo_info is sitting next
-	to its file. If a file does not have a relevant entry in demo_info,
-	it will have None matched up instead.
-
-	files : List of file names ["abc.dem", "def.dem", ...]
-	demo_info : List of DemoInfo instances.
-	"""
-	assigned_dat = [None for _ in files]
-	for i, file in enumerate(files):
-		for j in demo_info:
-			if j.demo_name == file:
-				assigned_dat[i] = j
-				break
-	return assigned_dat
 
 def frmd_label(
 		parent, text,
@@ -197,7 +159,6 @@ def int_validator(inp, ifallowed):
 		return int(inp) >= 0
 	except ValueError:
 		return False
-	return True
 
 def name_validator(ifallowed):
 	"""

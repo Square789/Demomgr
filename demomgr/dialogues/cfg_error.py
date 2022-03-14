@@ -4,6 +4,7 @@ import tkinter.ttk as ttk
 import os
 import json
 
+from demomgr.config import Config
 from demomgr.dialogues._base import BaseDialog
 from demomgr import constants as CNST
 
@@ -31,20 +32,24 @@ class CfgError(BaseDialog):
 	def body(self, parent):
 		self.protocol("WM_DELETE_WINDOW", self._quit)
 
-		msg = "The configuration file could not be {}, meaning it was{} made inaccessible{}.\n" \
-			"Demomgr can not continue but you can select from the options below.\n\n" \
-			"Retry: Try performing the action again\nReplace: Write the default config to the " \
-			"config path, then retry.\nQuit: Quit Demomgr\n\n{}: {}".format(
+		msg = (
+			"The configuration file could not be {}, meaning it was{} made inaccessible{}.\n"
+			"Demomgr can not continue but you can select from the options below.\n\n"
+			"Retry: Try performing the action again\nReplace: Write the default config to the "
+			"config path, then retry.\nQuit: Quit Demomgr\n\n{}: {}"
+		).format(
 				("read from" if self.mode == 0 else "written to"),
-				(" either corrupted, deleted," if self.mode == 0 else ""),
+				(" either corrupted, deleted" if self.mode == 0 else ""),
 				(" or has bad values" if self.mode == 0 else ""),
 				type(self.error).__name__,
-				self.error
+				self.error,
 			)
-		slickframe = ttk.Frame(parent, relief = tk.SUNKEN, border = 5,
-			style = "Contained.TFrame")
+		slickframe = ttk.Frame(
+			parent, relief = tk.SUNKEN, border = 5,style = "Contained.TFrame"
+		)
 		msg_label = ttk.Label(
-			slickframe, font = ("TkDefaultFont", 10), wrap = 400, text = msg, style = "Contained.TLabel"
+			slickframe, font = ("TkDefaultFont", 10), wrap = 400, text = msg,
+			style = "Contained.TLabel"
 		)
 		self.inf_updating = ttk.Label(
 			slickframe, font = ("TkDefaultFont", 10), wrap = 400, style = "Contained.TLabel",
@@ -71,14 +76,13 @@ class CfgError(BaseDialog):
 		self.destroy()
 
 	def _replacecfg(self):
-		cfgtowrite = CNST.DEFAULT_CFG
 		try:
+			self.cfg = Config.get_default()
 			self.err_rewrite_fail.pack_forget()
 			self.inf_updating.pack(side = tk.TOP, expand = 1, fill = tk.BOTH)
-			os.makedirs(CNST.CFG_FOLDER, exist_ok = True)
+			os.makedirs(os.path.dirname(self.cfgpath), exist_ok = True)
 			with open(self.cfgpath, "w") as handle:
-				handle.write(json.dumps(cfgtowrite, indent = 4))
-			self.cfg = CNST.DEFAULT_CFG
+				handle.write(self.cfg.to_json())
 		except Exception as exception:
 			self.inf_updating.pack_forget()
 			self.err_rewrite_fail.config(text = f"Rewrite failed: {exception}")

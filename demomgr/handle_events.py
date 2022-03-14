@@ -1,6 +1,7 @@
 """
 Classes designed to ease up the handling of a _events.txt file as written
 by the source engine.
+2022 update: This code is like 2 years old and could use a serious make-over.
 """
 
 _DEF = {"sep": ">\n"}
@@ -38,27 +39,35 @@ class EventReader():
 	Class designed to read a Source engine demo event log file.
 
 	handle: Must either be a file handle object or a string to a file.
-		If a file handle, must be opened in r, w+, a+ so it can be read.
-		If a file handle, it will not be closed after destruction
-		of the reader.
+		If a file handle, must be opened in r, w+, a+ mode and with
+			utf-8 encoding. It will not be closed after destruction
+			of the reader.
 	sep: Seperator of individual logchunks. (Default '>\\n', str)
 	resethandle: Will reset the file handle's position to 0 upon
 		creation. (Default True, bool)
 	blocksz: Blocksize to read files in. (Default 65536, int)
+
+	May raise:
+		OSError when handle creation fails.
+		UnicodeError when a given handle is not opened in utf-8.
+		UnicodeDecodeError when reading an event file with non-utf-8 data.
 	"""
 	def __init__(self, handle, sep = None, resethandle = None, blocksz = None):
 		self.isownhandle = False
+
 		if isinstance(handle, str):
 			self.isownhandle = True
-			handle = open(handle, "r")
+			handle = open(handle, "r", encoding = "utf-8")
+		else:
+			if handle.encoding.lower() not in ("utf8", "utf-8"):
+				raise UnicodeError("Handle must be opened in utf-8 encoding!")
+
 		self.handle = handle
 		self.cnf = _DEF.copy()
 		self.cnf.update(read_DEF)
-		for t in ((sep, "sep"), (resethandle, "resethandle"),
-				(blocksz, "blocksz")):
-			if t[0] is None:
-				continue
-			self.cnf[t[1]] = t[0]
+		for v, n in ((sep, "sep"), (resethandle, "resethandle"), (blocksz, "blocksz")):
+			if v is not None:
+				self.cnf[n] = v
 
 		self.filename = self.handle.name
 
@@ -73,7 +82,6 @@ class EventReader():
 		return self
 
 	def __iter__(self):
-		self.reset()
 		return self
 
 	def __exit__(self, *_):
@@ -81,12 +89,9 @@ class EventReader():
 
 	def __next__(self):
 		chk = self.getchunks(1)[0]
-		if chk.content.isspace() or chk.content == "":
+		if not chk or chk.content.isspace():
 			raise StopIteration
 		return chk
-
-	def close(self):
-		self.destroy()
 
 	def destroy(self):
 		self.handle.close()
@@ -124,18 +129,12 @@ class EventReader():
 		raw = ""
 		rawread = ""
 		logchunks = []
-		done = False
-		if done:
-			return
 		rawread = self.handle.read(self.cnf["blocksz"])
-		if rawread == "": #we can be sure the file is over.
-			done = True
 		raw = self.lastchunk + rawread
 		logchunks = raw.split(self.cnf["sep"])
 		if (self.handle.tell() - 1) <= self.cnf["blocksz"]: # This was the first read
-			if len(logchunks) != 0:
-				if logchunks[0] == "":
-					logchunks.pop(0)
+			if logchunks and logchunks[0] == "":
+				logchunks.pop(0)
 		if len(logchunks) == 0:
 			self.chunkbuffer.append(RawLogchunk("", True, self.handle.name))
 			return
@@ -144,7 +143,7 @@ class EventReader():
 			if rawread == "":
 				self.lastchunk = ""
 			else:
-				self.lastchunk = logchunks.pop(0)#Big logchunk
+				self.lastchunk = logchunks.pop(0) # Big logchunk
 		else:
 			self.lastchunk = logchunks.pop(-1)
 		self.chunkbuffer.extend(
@@ -155,7 +154,8 @@ class EventWriter():
 	"""
 	Class designed to write to a Source engine demo event log file.
 
-	handle: Must either be a file handle object or a string to a file.
+	handle: Must either a file handle object or one of the types accepted
+		by `open`.
 		If a file handle, must be opened in a+ mode.
 		If a file handle, it will not be closed after destruction
 		of the writer.
@@ -168,21 +168,23 @@ class EventWriter():
 		written. If true, does not write the chunk, but continues without
 		raising an exception. (Default False, bool)
 	"""
-	def __init__(self, handle, sep = None, clearfile = None, forceflush = None,
-			empty_ok = None):
+	def __init__(self, handle, sep = None, clearfile = None, forceflush = None, empty_ok = None):
 		self.cnf = _DEF.copy()
 		self.cnf.update(write_DEF)
-		for t in (
+		for v, n in (
 			(sep, "sep"), (clearfile, "clearfile"),
 			(forceflush, "forceflush"), (empty_ok, "empty_ok")
 		):
-			if t[0] is None:
-				continue
-			self.cnf[t[1]] = t[0]
+			if v is not None:
+				self.cnf[n] = v
+
 		self.isownhandle = False
-		if isinstance(handle, str):
+		if isinstance(handle, (str, bytes, int)):
 			self.isownhandle = True
-			handle = open(handle, "a+")
+			handle = open(handle, "a+", encoding = "utf-8")
+		else:
+			if handle.encoding.lower() not in ("utf8", "utf-8"):
+				raise UnicodeError("Handle must be opened in utf-8 encoding!")
 
 		self.handle = handle
 
@@ -195,12 +197,12 @@ class EventWriter():
 			self.handle.seek(0)
 			self.handle.truncate(0)
 
-		self.handle.seek(0, 2) #Move to end of file
+		self.handle.seek(0, 2) # Move to end of file
 
 	def __enter__(self):
 		return self
 
-	def __exit__(self, *_):#NOTE: maybe handle exceptions dunno
+	def __exit__(self, *_): # NOTE: maybe handle exceptions dunno
 		self.destroy()
 
 	def writechunk(self, in_chk):
@@ -212,8 +214,8 @@ class EventWriter():
 				return
 			else:
 				raise ValueError("Empty logchunks can not be written.")
-		#If start of file, don't write >\n, else do.
-		#Always write \n when done
+		# If start of file, don't write >\n, else do.
+		# Always write \n when done
 		if self.handle.tell() == 0:
 			pass
 		else:
@@ -227,10 +229,6 @@ class EventWriter():
 		"""Accepts a list of Strings or Logchunks and writes them to file."""
 		for i in in_chks:
 			self.writechunk(i)
-
-	def close(self):
-		"""Alias for self.destroy()"""
-		self.destroy()
 
 	def destroy(self):
 		"""Closes handle if it was created inside of the EventWriter."""

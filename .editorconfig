@@ -1,0 +1,8 @@
+
+root = true
+
+# pep 8 more like pep go home ha #
+[*]
+indent_style = tab
+indent_size = 4
+insert_final_newline = true

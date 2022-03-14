@@ -2,7 +2,6 @@ import os
 import time
 import queue
 
-import demomgr.constants as CNST
 from demomgr.filterlogic import process_filterstring, FILTERFLAGS
 from demomgr.helpers import readdemoheader
 from demomgr.threads.read_folder import ThreadReadFolder
@@ -14,14 +13,12 @@ class ThreadFilter(_StoppableBaseThread):
 	Thread to filter a directory of demos.
 	"""
 
-	REQUIRED_CFG_KEYS = ThreadReadFolder.REQUIRED_CFG_KEYS
-
 	def __init__(self, queue_out, filterstring, curdir, cfg, silent = False):
 		"""
 		Thread requires output queue and the following args:
 			filterstring <Str>: Raw user input from the entry field
 			curdir <Str>: Absolute path to current directory
-			cfg <Dict>: Program configuration, reduced to cls.REQUIRED_CFG_KEYS
+			cfg <Dict>: Program configuration
 			silent <Bool>: If True, thread will not drop progress messages
 		"""
 		self.filterstring = filterstring
@@ -41,10 +38,12 @@ class ThreadFilter(_StoppableBaseThread):
 			self.queue_out_put(
 				THREADSIG.INFO_STATUSBAR, (f"Error parsing filter request: {error}", 4000)
 			)
-			self.queue_out_put(THREADSIG.FAILURE); return
+			self.queue_out_put(THREADSIG.FAILURE)
+			return
 
 		if self.stoprequest.is_set():
-			self.queue_out_put(THREADSIG.ABORTED); return
+			self.queue_out_put(THREADSIG.ABORTED)
+			return
 
 		if not self.silent:
 			self.queue_out_put(
@@ -59,27 +58,31 @@ class ThreadFilter(_StoppableBaseThread):
 		# NOTE: Can't really wait for join to this thread here.
 		self.datafetcherthread.join(None, nostop = True)
 		if self.stoprequest.is_set():
-			self.queue_out_put(THREADSIG.ABORTED); return
+			self.queue_out_put(THREADSIG.ABORTED)
+			return
 
 		demo_data = None
 		while True:
 			try:
 				queueobj = self.datafetcherqueue.get_nowait()
-				if queueobj[0] == THREADSIG.RESULT_DEMODATA:
+				if queueobj[0] is THREADSIG.RESULT_DEMODATA:
 					demo_data = queueobj[1]
-				elif queueobj[0] < 0x100: # Finish signal
-					if queueobj[0] == THREADSIG.FAILURE:
-						self.queue_out_put(
-							THREADSIG.INFO_STATUSBAR,
-							("Demo fetching thread failed unexpectedly during filtering.", 4000)
-						)
-						self.queue_out_put(THREADSIG.FAILURE); return
-					break
+				elif queueobj[0].is_finish_signal():
+					if queueobj[0] is THREADSIG.SUCCESS:
+						break
+					self.queue_out_put(
+						THREADSIG.INFO_STATUSBAR,
+						("Demo fetching thread failed during filtering.", 4000)
+					)
+					self.queue_out_put(THREADSIG.FAILURE)
+					return
 			except queue.Empty:
 				break
 		if self.stoprequest.is_set():
-			self.queue_out_put(THREADSIG.ABORTED); return
+			self.queue_out_put(THREADSIG.ABORTED)
+			return
 
+		errors = 0
 		filtered_demo_data = {
 			"col_filename": [], "col_ks": [], "col_bm": [], "col_ctime": [], "col_filesize": []
 		}
@@ -103,8 +106,9 @@ class ThreadFilter(_StoppableBaseThread):
 			if flags & FILTERFLAGS.HEADER:
 				try:
 					curdataset["header"] = readdemoheader(os.path.join(self.curdir, j))
-				except (FileNotFoundError, PermissionError, OSError):
-					break
+				except (OSError, ValueError):
+					errors += 1
+					continue
 
 			if all(lambda_(curdataset) for lambda_ in filters):
 				filtered_demo_data["col_filename"].append(j)
@@ -114,11 +118,12 @@ class ThreadFilter(_StoppableBaseThread):
 				filtered_demo_data["col_filesize"].append(demo_data["col_filesize"][i])
 
 			if self.stoprequest.is_set():
-				self.queue_out_put(THREADSIG.ABORTED); return
+				self.queue_out_put(THREADSIG.ABORTED)
+				return
 
-		self.queue_out_put(
-			THREADSIG.INFO_STATUSBAR,
-			(f"Filtered {file_amnt} demos in {round(time.time() - starttime, 3)} seconds.", 3000)
-		)
+		res_msg = f"Filtered {file_amnt} demos in {round(time.time() - starttime, 3)} seconds."
+		if errors > 0:
+			res_msg += f" {errors} of those excluded due to errors."
+		self.queue_out_put(THREADSIG.INFO_STATUSBAR, (res_msg, 3000))
 		self.queue_out_put(THREADSIG.RESULT_DEMODATA, filtered_demo_data)
 		self.queue_out_put(THREADSIG.SUCCESS)

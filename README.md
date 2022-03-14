@@ -2,20 +2,22 @@
 Demomgr is a python program designed to keep track of, cleanup and play demo files from the Source video game Team Fortress 2, released by Valve Corporation in 2007.
 
 > ![Main program window](https://github.com/Square789/Demomgr/blob/master/img0.PNG)  
-> _Main program view, directory filtered to only display demos with a killstreak >= 10 not taking place on training or mvm maps, sorted by creation time._
+> _Main program view, directory filtered to only demos taking place on payload maps, sorted by creation time._
+
 ### Current features:
 * List Demos, their filesize, creation date and the amount of Killstreaks/Bookmarks
+  * Sort them by these criteria
 * Read Killstreak/Bookmark information from both .json files and the \_events.txt file
 * View and edit bookmark information of individual demos
 * View header information of individual demos
-* Sort and filter demos by multiple criteria
-* Cleanup entire folders by multiple criteria
-  * Removes unneccessary entries from \_events.txt and also deletes useless .json files
+* Filter and select demos by multiple criteria
+* Cleanup folders by filter criteria
+* Copy/Move demos and their info to other directories
 * Launch TF2 with a playdemo command attached
   * Optionally with HLAE
 * Play a demo into an already running instance of TF2 using [RCON](https://developer.valvesoftware.com/wiki/Source_RCON_Protocol)
 
-### Start Instructions:
+### Installation Instructions (Pure python):
 If you don't have python, get it from [the official website](https://www.python.org).
 
 Demomgr is in python's package index (PyPI), you can install it using `pip install demomgr`.
@@ -26,8 +28,14 @@ If that does not work out for you, try `py -m demomgr`, or in a very extravagant
 python script that runs  
 `from demomgr.main_app import MainApp; MainApp()`.
 
-After accepting the disclaimer (I have no idea how to set up tests for deletion/file management logic), you will be presented an empty UI. In order to view your demos,
-click "Add demo path" and select the directory containing your demos.  
+### Installation instructions (exe):
+There is an experimental [nuitka](https://nuitka.net/) build of Demomgr available in the "Releases" section, only for 64bit Windows.  
+Extract it to a good place for programs to be and run the contained `demomgr.exe`.
+
+### Getting started:
+After accepting the disclaimer (Look, I have no idea how to set up tests for deletion/file management logic
+intertwined with a UI, and even though I spend hours testing proper functionality there is a risk of something sneaking by),
+you will be presented an empty UI. In order to view your demos, click "Add demo path" and select the directory containing your demos.  
 You can switch between directories using the selection box at the top of the window.  
 
 ### Filter instructions:
@@ -61,4 +69,5 @@ Possible parameters are:
  * String: `"foo"`, `'b\u0061r'`
  * String tuple: `("foo", 'b\u0061r', "b\u0061z", )`
  * Range: `1..2`, `10..`, `..50`  
- 
+
+Thanks, and have fun.

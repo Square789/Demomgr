@@ -5,19 +5,19 @@ If an info container would end up completely empty (neither killstreaks
 nor bookmarks), it is ignored / not written.
 """
 
+from datetime import datetime
+import os
 import tkinter as tk
 import tkinter.ttk as ttk
 
-import os
-
 import multiframe_list as mfl
+from demomgr.demo_info import DemoEvent
 
 from demomgr.dialogues._base import BaseDialog
 from demomgr.dialogues._diagresult import DIAGSIG
 
 from demomgr.helpers import frmd_label, int_validator, name_validator
 from demomgr import constants as CNST
-from demomgr import handle_events as handle_ev
 from demomgr.threadgroup import ThreadGroup, THREADGROUPSIG
 from demomgr.threads import THREADSIG, ThreadMarkDemo
 from demomgr.tk_widgets import TtkText
@@ -28,35 +28,35 @@ class BookmarkSetter(BaseDialog):
 	information into a demo's json file or _events.txt entry.
 
 	After the dialog is closed:
-	If the thread succeeded at least once, `self.result.state` is SUCCESS,
-	the new bookmark tuple can be found in `self.result.data["bookmarks"]`
-	in the usual primitive format. These are not guaranteed to be the bookmarks
-	on disk, but the ones entered in the UI by the user.
-	`self.result.data["containers"]` will be a 2-value tuple of booleans denoting
-	the state of information containers, True if a container now exists, False if
-	it doesn't and None if something went wrong, in which case the container's
-	existence is unchanged. Containers are 0: _events.txt; 1: json file
-	If the thread failed or wasn't even started, `self.result.data` will be
-	an empty dict.
-
-	Widget state remembering:
-	0: json checkbox (bool)
-	1: _events.txt checkbox (bool)
+		If the thread succeeded at least once, `self.result.state`
+			is SUCCESS and the new bookmarks can be found in
+			`self.result.data["bookmarks"]` in the usual primitive
+			format. They are the ones a successful marking thread was
+			most recently started with but not guaranteed to be the ones
+			on disk. Check the `"containers"` key to verify that the
+			bookmarks were successfully written to a specific container.
+			`self.result.data["containers"]` will be a sequence of booleans
+			denoting the state of information containers, `True` if a
+			container now exists, `False` if it doesn't and `None` if
+			something went wrong, in which case the container's
+			existence and contents are unchanged.
+			Containers are 0: _events.txt; 1: json file
+		If the thread only failed or wasn't even started,
+		`self.result.data` will be an empty dict.
 	"""
+	# this docstring and class hurts my head, is needlessly overcomplicated and
+	# i hope i don't have to deal with it again
 
-	REMEMBER_DEFAULT = [False, False]
-
-	def __init__(self, parent, targetdemo, bm_dat, styleobj, evtblocksz, remember):
+	def __init__(self, parent, targetdemo, bm_dat, styleobj, cfg):
 		"""
 		parent: Parent widget, should be a `Tk` or `Toplevel` instance.
 		targetdemo: Full path to the demo that should be marked.
-		bm_dat: Bookmarks for the specified demo in the usual info format
-			(((killstreak_peak, tick), ...), ((bookmark_name, tick), ...))
+		bm_dat: Bookmarks for the specified demo as a list of DemoEvents.
+			May also be None, which is treated as an empty list.
 		styleobj: Instance of `tkinter.ttk.Style`
-		evtblocksz: Size of blocks to read _events.txt in.
-		remember: List of arbitrary values. See class docstring for details.
+		cfg: Program configuration.
 		"""
-		super().__init__(parent, "Insert bookmark...")
+		super().__init__(parent, "Bookmark Setter")
 
 		self.result.data = {}
 
@@ -64,35 +64,38 @@ class BookmarkSetter(BaseDialog):
 		self.demo_dir = os.path.dirname(targetdemo)
 		self.bm_dat = bm_dat
 		self.styleobj = styleobj
-		self.evtblocksz = evtblocksz
+		self.cfg = cfg
 
-		u_r = self.validate_and_update_remember(remember)
-		self.jsonmark_var = tk.BooleanVar()
-		self.eventsmark_var = tk.BooleanVar()
-		self.jsonmark_var.set(u_r[0]); self.eventsmark_var.set(u_r[1])
+		# Bookmarks that should be written by the thread
+		self.thread_target_bookmarks = None
+		# Container state maintained while thread is running; dropped
+		# if thread fails
+		self.thread_container_state = None
 
 		self.threadgroup = ThreadGroup(ThreadMarkDemo, parent)
-		self.threadgroup.decorate_and_patch(self, self._mark_after_callback)
+		self.threadgroup.build_cb_method(self._mark_after_callback)
 
 	def body(self, parent):
 		"""UI setup, listbox filling."""
 		self.protocol("WM_DELETE_WINDOW", self.destroy)
 
 		parent.rowconfigure(0, weight = 1, pad = 5)
-		parent.rowconfigure(1, pad = 5)
+		parent.rowconfigure(2, pad = 5)
 		parent.columnconfigure((0, 1), weight = 1)
 
 		widgetcontainer = ttk.Frame(parent)#, style = "Contained.TFrame")
-		self.bind("<<MultiframeSelect>>", self._callback_bookmark_selected)
 		widgetcontainer.columnconfigure(0, weight = 4)
-		widgetcontainer.columnconfigure(1, weight = 1)
-		widgetcontainer.columnconfigure(2, weight = 1)
+		widgetcontainer.columnconfigure((1, 2), weight = 1)
 		widgetcontainer.rowconfigure(3, weight = 1)
 
-		self.listbox = mfl.MultiframeList(widgetcontainer, inicolumns = (
-			{"name": "Name", "col_id": "col_name"},
-			{"name": "Tick", "col_id": "col_tick"},
-		))
+		self.listbox = mfl.MultiframeList(
+			widgetcontainer,
+			inicolumns = (
+				{"name": "Name", "col_id": "col_name"},
+				{"name": "Tick", "col_id": "col_tick"},
+			),
+			selection_type = mfl.SELECTION_TYPE.SINGLE,
+		)
 		self.listbox.grid(row = 0, column = 0, rowspan = 4, sticky = "news")
 		insert_opt_lblfrm = ttk.Labelframe(
 			widgetcontainer, labelwidget = frmd_label(widgetcontainer, "Bookmark data:")
@@ -130,39 +133,41 @@ class BookmarkSetter(BaseDialog):
 		add_bm_btn.grid(row = 1, column = 1, sticky = "ew", padx = (5, 0), pady = 5)
 		rem_bm_btn.grid(row = 1, column = 2, sticky = "ew", padx = (5, 0), pady = 5)
 
-		save_loc_lblfrm = ttk.Labelframe(
-			widgetcontainer, labelwidget = frmd_label(widgetcontainer, "Save changes to:")
-		)
-		json_checkbox = ttk.Checkbutton(
-			save_loc_lblfrm, text = ".json",
-			variable = self.jsonmark_var, style = "Contained.TCheckbutton"
-		)
-		events_checkbox = ttk.Checkbutton(
-			save_loc_lblfrm, text = CNST.EVENT_FILE, variable = self.eventsmark_var,
-			style = "Contained.TCheckbutton"
-			)
-		json_checkbox.grid(sticky = "w", ipadx = 2, padx = 5, pady = 5)
-		events_checkbox.grid(sticky = "w", ipadx = 2, padx = 5, pady = 5)
-		save_loc_lblfrm.grid(
-			row = 2, column = 1, sticky = "ew", padx = (5, 0), columnspan = 2
-		)
-
 		widgetcontainer.grid(row = 0, column = 0, columnspan = 2, sticky = "news")
+
+		self.warning_label = ttk.Label(
+			parent,
+			text = (
+				"Note: Hitting \"Save\" will replace all existing bookmarks for this demo "
+				"with the ones specified in the listbox above."
+			),
+			style = "Info.TLabel",
+			wraplength = 500,
+		)
+		parent.bind(
+			"<Configure>",
+			lambda _: self.warning_label.configure(
+				wraplength = max(250, parent.winfo_width())
+			)
+		)
+		self.warning_label.grid(row = 1, column = 0, columnspan = 2, sticky = "news", pady = 5)
 
 		self.textbox = TtkText(
 			parent, self.styleobj, height = 8, wrap = "none", takefocus = False
 		)
-		self.textbox.grid(row = 1, column = 0, columnspan = 2, sticky = "news", pady = 5)
+		self.textbox.grid(row = 2, column = 0, columnspan = 2, sticky = "news", pady = 5)
 		self.textbox.lower()
 
 		self.savebtn = ttk.Button(parent, text = "Save", command = self._mark)
 		cancelbtn = ttk.Button(parent, text = "Close", command = self.destroy)
 
-		self.savebtn.grid(row = 2, column = 0, padx = (0, 3), sticky = "ew")
-		cancelbtn.grid(row = 2, column = 1, padx = (3, 0), sticky = "ew")
+		self.savebtn.grid(row = 3, column = 0, padx = (0, 3), sticky = "ew")
+		cancelbtn.grid(row = 3, column = 1, padx = (3, 0), sticky = "ew")
+
+		self.listbox.bind("<<MultiframeSelect>>", self._callback_bookmark_selected)
 
 		self._fill_gui()
-		self._log(f"Marking {os.path.split(self.targetdemo)[1]}\n")
+		self._log(f"\nMarking {os.path.split(self.targetdemo)[1]}")
 
 	def _add_bookmark(self):
 		name = self.name_entry.get()
@@ -178,23 +183,23 @@ class BookmarkSetter(BaseDialog):
 		Apply user-entered name and tick to the mfl entry and reinsert it
 		into the list at correct position.
 		"""
-		index = self.listbox.get_selected_cell()[1]
-		if index is None:
+		if not self.listbox.selection:
 			self._log("No bookmark selected to change.")
 			return
+		index = self.listbox.get_selection()
 		new_name, new_tick = self.name_entry.get(), self.tick_entry.get()
 		new_tick = int(new_tick) if new_tick else 0
-		self.listbox.remove_row(index)
+		self.listbox.remove_rows(index)
 		new_idx = self._find_insertion_index(int(new_tick))
 		self.listbox.insert_row({"col_name": new_name, "col_tick": new_tick}, new_idx)
-		self.listbox.set_selected_cell(0, new_idx)
+		self.listbox.set_selection((new_idx,))
 
 	def _callback_bookmark_selected(self, *_):
 		self.name_entry.delete(0, tk.END)
 		self.tick_entry.delete(0, tk.END)
-		idx = self.listbox.get_selected_cell()[1]
-		if idx is None:
+		if not self.listbox.selection:
 			return
+		idx = self.listbox.get_selection()
 		data, col_idx = self.listbox.get_rows(idx)
 		new_name, new_tick = data[0][col_idx["col_name"]], data[0][col_idx["col_tick"]]
 		self.name_entry.insert(0, new_name)
@@ -219,59 +224,66 @@ class BookmarkSetter(BaseDialog):
 		"""Called by body, loads bookmarks into the listbox."""
 		if self.bm_dat is None:
 			return
-		for n, t in self.bm_dat:
+		for n, t, _ in self.bm_dat:
 			self.listbox.insert_row({"col_name": n, "col_tick": t})
 
-	def _log(self, tolog):
-		"""Inserts "\n" + tolog into self.textbox."""
+	def _log(self, to_log, newline = True):
+		"""
+		Inserts `to_log` + `"\n"` into self.textbox, or just `to_log`
+		if `newline` is False.
+		"""
+		suffix = "\n" if newline else ""
 		with self.textbox:
-			self.textbox.insert(tk.END, "\n" + tolog)
+			self.textbox.insert(tk.END, to_log + suffix)
 			if self.textbox.yview()[1] < 1.0:
 				self.textbox.delete("1.0", "2.0")
 				self.textbox.yview_moveto(1.0)
 
 	def _mark(self):
-		mark_json = self.jsonmark_var.get()
-		mark_evts = self.eventsmark_var.get()
-
-		raw_bookmarks = tuple(zip(
-			self.listbox.get_column("col_name"),
-			self.listbox.get_column("col_tick"),
-		))
+		date = datetime.now().strftime("%Y/%m/%d %H:%M")
+		self.thread_target_bookmarks = [
+			DemoEvent(n, t, date) for n, t in zip(
+				self.listbox.get_column("col_name"),
+				map(int, self.listbox.get_column("col_tick")),
+			)
+		]
+		self.thread_container_state = [None, None]
 
 		self.savebtn.configure(text = "Cancel", command = self._cancel_mark)
 		self.threadgroup.start_thread(
-			mark_json = mark_json,
-			mark_events = mark_evts,
-			bookmarks = raw_bookmarks,
+			bookmarks = self.thread_target_bookmarks,
 			targetdemo = self.targetdemo,
-			evtblocksz = self.evtblocksz,
+			cfg = self.cfg,
 		)
 
-	def _mark_after_callback(self, queue_elem):
-		if queue_elem[0] < 0x100: # Finish
+	def _mark_after_callback(self, sig, *args):
+		if sig.is_finish_signal():
 			self.savebtn.configure(text = "Save", command = self._mark)
-			if queue_elem[0] == THREADSIG.SUCCESS:
+			if sig is THREADSIG.SUCCESS:
 				self.result.state = DIAGSIG.SUCCESS
-				self.result.data["bookmarks"] = tuple(zip(
-					self.listbox.get_column("col_name"),
-					map(int, self.listbox.get_column("col_tick"))
-				))
+				self.result.data["bookmarks"] = self.thread_target_bookmarks
+				self.result.data["containers"] = self.thread_container_state
 			return THREADGROUPSIG.FINISHED
-		elif queue_elem[0] == THREADSIG.INFO_INFORMATION_CONTAINERS:
-			self.result.data["containers"] = queue_elem[1]
-		elif queue_elem[0] == THREADSIG.INFO_CONSOLE:
-			self._log(queue_elem[1])
-			return THREADGROUPSIG.CONTINUE
+
+		elif sig is THREADSIG.BOOKMARK_CONTAINER_UPDATE_START:
+			self._log(f"Updating {args[0].get_display_name()}...", False)
+
+		elif sig is THREADSIG.BOOKMARK_CONTAINER_UPDATE_SUCCESS:
+			mode, exists = args
+			self.thread_container_state[mode.value - 1] = exists
+			self._log(f"Success!")
+
+		elif sig is THREADSIG.BOOKMARK_CONTAINER_UPDATE_FAILURE:
+			self._log(f"Failure: {args[1]}.")
+
+		return THREADGROUPSIG.CONTINUE
 
 	def _rem_bookmark(self):
-		index = self.listbox.get_selected_cell()[1]
-		if index is None:
+		if self.listbox.selection:
+			self.listbox.remove_rows(self.listbox.get_selection())
+		else:
 			self._log("No bookmark to remove selected.")
-			return
-		self.listbox.remove_row(index)
 
 	def destroy(self):
 		self._cancel_mark()
-		self.result.remember = [self.jsonmark_var.get(), self.eventsmark_var.get()]
 		super().destroy()

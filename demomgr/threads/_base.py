@@ -1,8 +1,6 @@
 import threading
 
-from demomgr.helpers import CfgReducing
-
-class _StoppableBaseThread(threading.Thread, CfgReducing):
+class _StoppableBaseThread(threading.Thread):
 	"""
 	This thread has a killflag (stoprequest <threading.Event>),
 	and expects a queue_in and queue_out attribute in the constructor.
@@ -26,9 +24,10 @@ class _StoppableBaseThread(threading.Thread, CfgReducing):
 			self.stoprequest.set()
 		super().join(timeout)
 
-	def queue_out_put(self, *args):
+	def queue_out_put(self, sig, *args):
 		"""
-		Writes every argument to the output queue as a tuple.
+		Writes a signal and its potential arguments to the output
+		queue as a tuple.
 		"""
 		if self.queue_out is not None:
-			self.queue_out.put(args)
+			self.queue_out.put((sig, ) + args)
