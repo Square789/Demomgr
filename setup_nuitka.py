@@ -1,9 +1,7 @@
-from datetime import datetime
 from itertools import product
 import os
 from pathlib import Path
 import pkg_resources
-import re
 import shutil
 import subprocess
 

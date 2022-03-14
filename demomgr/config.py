@@ -58,11 +58,11 @@ class EnumTransformer:
 class RememberListValidator:
 	"""
 	RememberListValidators validate the types of submitted values
-	against the types in the given default types, then apply a
-	forward-compatible update scheme of update_with into a copy
-	of the default values, returning it.
+	against the schema validatables in the given default types,
+	then apply a forward-compatible update scheme of incoming values
+	into a copy of the default values, returning it.
 	If the validation fails, an unchanged copy of the default is
-	returned, all errors ignored.
+	returned, all errors suppressed.
 
 		i. e.: `DEF: [], UPD: [1, 2]` -> `[1, 2]`;
 		`DEF: [False, 5], UPD: [True]` -> `[True, 5]`
@@ -210,7 +210,6 @@ class Config():
 	def __getattr__(self, attr):
 		if self._cfg is None or attr not in self._cfg:
 			raise AttributeError(f"{type(self).__name__!r} has no attribute {attr!r}")
-
 		return self._cfg[attr]
 
 	def __setattr__(self, attr, value):

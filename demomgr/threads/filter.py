@@ -1,6 +1,7 @@
 import os
 import time
 import queue
+from demomgr.demo_info import DemoInfo
 
 from demomgr.filterlogic import process_filterstring, FILTERFLAGS
 from demomgr.helpers import readdemoheader
@@ -84,19 +85,21 @@ class ThreadFilter(_StoppableBaseThread):
 
 		errors = 0
 		filtered_demo_data = {
-			"col_filename": [], "col_ks": [], "col_bm": [], "col_ctime": [], "col_filesize": []
+			"col_filename": [], "col_demo_info": [], "col_ctime": [], "col_filesize": []
 		}
 		file_amnt = len(demo_data["col_filename"])
-		for i, j in enumerate(demo_data["col_filename"]): # Filter
+		for i, demo_name in enumerate(demo_data["col_filename"]):
 			if not self.silent:
 				self.queue_out_put(
 					THREADSIG.INFO_STATUSBAR, (f"Filtering demos; {i+1} / {file_amnt}", )
 				)
 
 			curdataset = {
-				"name": j,
-				"killstreaks": () if demo_data["col_ks"][i] is None else demo_data["col_ks"][i],
-				"bookmarks": () if demo_data["col_bm"][i] is None else demo_data["col_bm"][i],
+				"name": demo_name,
+				"demo_info": (
+					DemoInfo(demo_name, [], []) if demo_data["col_demo_info"][i] is None
+					else demo_data["col_demo_info"][i]
+				),
 				"header": None,
 				"filedata": {
 					"filesize": demo_data["col_filesize"][i],
@@ -105,17 +108,16 @@ class ThreadFilter(_StoppableBaseThread):
 			}
 			if flags & FILTERFLAGS.HEADER:
 				try:
-					curdataset["header"] = readdemoheader(os.path.join(self.curdir, j))
+					curdataset["header"] = readdemoheader(os.path.join(self.curdir, demo_name))
 				except (OSError, ValueError):
 					errors += 1
 					continue
 
 			if all(lambda_(curdataset) for lambda_ in filters):
-				filtered_demo_data["col_filename"].append(j)
-				filtered_demo_data["col_ks"      ].append(demo_data["col_ks"][i])
-				filtered_demo_data["col_bm"      ].append(demo_data["col_bm"][i])
-				filtered_demo_data["col_ctime"   ].append(demo_data["col_ctime"][i])
-				filtered_demo_data["col_filesize"].append(demo_data["col_filesize"][i])
+				filtered_demo_data["col_filename" ].append(demo_name)
+				filtered_demo_data["col_demo_info"].append(demo_data["col_demo_info"][i])
+				filtered_demo_data["col_ctime"    ].append(demo_data["col_ctime"][i])
+				filtered_demo_data["col_filesize" ].append(demo_data["col_filesize"][i])
 
 			if self.stoprequest.is_set():
 				self.queue_out_put(THREADSIG.ABORTED)

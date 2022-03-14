@@ -340,14 +340,14 @@ class DemoDataManager():
 		return self.writers[mode]
 
 	def _merge_write_results(self, mode, results):
+		if mode not in self._write_results:
+			self._write_results[mode] = {}
 		for name, result in results.items():
 			self._write_results[mode][name] = result
 
 	def _fetch_write_results(self, mode):
 		if mode not in self.writers:
 			return
-		if mode not in self._write_results:
-			self._write_results[mode] = {}
 		self._merge_write_results(mode, self.writers[mode].get_write_results())
 
 	def get_write_results(self):

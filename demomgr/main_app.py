@@ -666,12 +666,12 @@ class MainApp():
 		elif sig is THREADSIG.INFO_STATUSBAR:
 			self.setstatusbar(*args)
 		elif sig is THREADSIG.RESULT_DEMODATA:
+			data = args[0]
 			self.directory_inf_kvd.set_value(
 				"l_amount",
-				len(args[0]["col_filesize"]) if "col_filesize" in args[0] else 0,
+				len(data["col_filesize"]) if "col_filesize" in args[0] else 0,
 			)
-			self.listbox.set_data(args[0])
-			self.listbox.format()
+			self._display_demo_data(data)
 		return THREADGROUPSIG.CONTINUE
 
 	def _finalization_fetchdata(self, *_):
@@ -764,9 +764,19 @@ class MainApp():
 			self.setstatusbar(*args[0])
 			return THREADGROUPSIG.CONTINUE
 		elif sig is THREADSIG.RESULT_DEMODATA:
-			self.listbox.set_data(args[0])
-			self.listbox.format()
+			self._display_demo_data(args[0])
 			return THREADGROUPSIG.CONTINUE
+
+	def _display_demo_data(self, data):
+		"""
+		Sets the main listbox to display demo data as delivered by the
+		ReadFolder and Filter thread. Mutates `data` before feeding it
+		to the listbox.
+		"""
+		di = data.pop("col_demo_info")
+		data["col_bm"] = data["col_ks"] = di
+		self.listbox.set_data(data)
+		self.listbox.format()
 
 	def _spinboxsel(self, *_):
 		"""

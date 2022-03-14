@@ -11,14 +11,14 @@ from demomgr import constants as CNST
 
 class ThreadReadFolder(_StoppableBaseThread):
 	"""
-	Thread to read a directory containing demos and return a list of names,
+	Thread to read a directory containing demos and return a dict of names,
 	creation dates, demo information and filesizes.
 
 	Sent to the output queue:
 		RESULT_DEMODATA(1) for a set of demo data, the thread's main
 				reason for existence.
-			- Demo data as a dict that can directly be fed into the
-				main window's MultiframeList. May be empty on
+			- Demo data as a dict that requires little work to be fed
+				into the main window's MultiframeList. May be empty on
 				failure.
 
 		INFO_STATUSBAR(2) for displaying info on a statusbar
@@ -132,7 +132,7 @@ class ThreadReadFolder(_StoppableBaseThread):
 			res_msg,
 			5000,
 			{
-				"col_filename": files, "col_ks": demo_info, "col_bm": demo_info,
+				"col_filename": files, "col_demo_info": demo_info,
 				"col_ctime": dates_created, "col_filesize": sizes
 			},
 			THREADSIG.SUCCESS,
