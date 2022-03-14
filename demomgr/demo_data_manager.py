@@ -135,7 +135,7 @@ class EventsWriter(Writer):
 		self._expected_write_result_names.update(names)
 		try:
 			self._exhaust_reader(set(names))
-		except OSError as e:
+		except (OSError, UnicodeDecodeError) as e:
 			# Disgusting case where reader failed, possibly in the middle of being
 			# exhausted. Not continuing since a risk of losing event info that is
 			# not being modified exists.
@@ -195,7 +195,7 @@ class EventsWriter(Writer):
 			writer = None
 
 			shutil.copyfile(fname, os.path.join(self.ddm.directory, EVENT_FILE))
-		except (OSError, UnicodeEncodeError) as e:
+		except (OSError, UnicodeDecodeError, UnicodeEncodeError) as e:
 			write_result = e
 		finally:
 			for name in self._expected_write_result_names:
