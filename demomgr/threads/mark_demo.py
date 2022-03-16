@@ -44,6 +44,7 @@ class ThreadMarkDemo(_StoppableBaseThread):
 		super().__init__(None, queue_out)
 
 	def run(self):
+		finish_sig = THREADSIG.SUCCESS
 		ddm = DemoDataManager(os.path.dirname(self.targetdemo), self.cfg)
 		demo_name = os.path.basename(self.targetdemo)
 
@@ -77,7 +78,8 @@ class ThreadMarkDemo(_StoppableBaseThread):
 				)
 
 			if self.stoprequest.is_set():
-				self.queue_out_put(THREADSIG.ABORTED)
-				return
+				finish_sig = THREADSIG.ABORTED
+				break
 
-		self.queue_out_put(THREADSIG.SUCCESS)
+		ddm.destroy()
+		self.queue_out_put(finish_sig)

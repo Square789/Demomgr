@@ -36,6 +36,8 @@ class DemoInfoProcessor():
 		This method may raise `OSError`s, in which case it is
 		considered faulty and will be removed from DDMs.
 		"""
+		if self.is_acquired:
+			raise RuntimeError("Acquired processor was acquired again!")
 		self.is_acquired = True
 
 	def release(self):
@@ -45,6 +47,8 @@ class DemoInfoProcessor():
 		(in case of a writer) report exceptions by writing them into
 		`self._write_results` or ignoring them otherwise.
 		"""
+		if not self.is_acquired:
+			raise RuntimeError("Non-acquired processor was released!")
 		self.is_acquired = False
 
 
@@ -73,6 +77,9 @@ class EventsReader(Reader):
 		self.reader = None
 
 	def get_info(self, names):
+		if self.reader is None:
+			return [None] * len(names)
+
 		pending_names = set(names)
 		try:
 			for chk in self.reader:
@@ -90,14 +97,17 @@ class EventsReader(Reader):
 
 	def acquire(self):
 		super().acquire()
-		self.reader = he.EventReader(
-			os.path.join(self.ddm.directory, EVENT_FILE),
-			blocksz = self.ddm.cfg.events_blocksize,
-		)
+		events_file = os.path.join(self.ddm.directory, EVENT_FILE)
+		if not os.path.exists(events_file):
+			self.reader = None
+		else:
+			self.reader = he.EventReader(events_file, blocksz = self.ddm.cfg.events_blocksize)
 		self.chunk_cache = {}
 
 	def release(self):
 		super().release()
+		if self.reader is None:
+			return
 		try:
 			self.reader.destroy()
 		except OSError:
@@ -206,6 +216,8 @@ class EventsWriter(Writer):
 					self.reader.destroy()
 				except OSError as e:
 					pass
+				finally:
+					self.reader = None
 
 			if writer is not None:
 				try:

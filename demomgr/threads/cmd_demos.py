@@ -199,6 +199,9 @@ class CMDDemosThread(_StoppableBaseThread):
 				write_results,
 			)
 
+		src_ddm.destroy()
+		dest_ddm.destroy()
+
 	def copy_info(self, fmm):
 		src_ddm = DemoDataManager(self.source_dir, self.cfg)
 		dest_ddm = DemoDataManager(self.target_dir, self.cfg)
@@ -211,6 +214,9 @@ class CMDDemosThread(_StoppableBaseThread):
 				dest_ddm.get_write_results()[mode],
 			)
 
+		src_ddm.destroy()
+		dest_ddm.destroy()
+
 	def delete_info(self, fmm):
 		ddm = DemoDataManager(self.source_dir, self.cfg)
 
@@ -222,3 +228,5 @@ class CMDDemosThread(_StoppableBaseThread):
 				mode,
 				ddm.get_write_results()[mode],
 			)
+
+		ddm.destroy()

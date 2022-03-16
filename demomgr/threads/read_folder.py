@@ -116,6 +116,8 @@ class ThreadReadFolder(_StoppableBaseThread):
 			info_read_success_count += 1
 			demo_info[i] = result
 
+		ddm.destroy()
+
 		if datamode is CNST.DATA_GRAB_MODE.NONE:
 			res_msg = "Demo information disabled."
 		else:
