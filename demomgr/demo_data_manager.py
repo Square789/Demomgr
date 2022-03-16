@@ -269,7 +269,7 @@ class JSONWriter(Writer):
 			try:
 				with open(json_path, "w", encoding = "utf-8") as f:
 					f.write(new)
-			except OSError as e:
+			except (OSError, UnicodeEncodeError) as e:
 				return e
 		else:
 			try:

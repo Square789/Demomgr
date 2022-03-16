@@ -55,7 +55,7 @@ You can currently filter the directory you are in by the following keys:
  * bookmark_contains : _Substring of any of a demo's bookmarks._ (String)
  * hostname : _Substring of the server name a demo took place on._ (String) (Usually a IPv4)
  * clientid : _Substring of the Steam community name of the player._ (String)
- * moddate : _Modified at this date._ (Range/Integer) (Direct UNIX Timestamp)
+ * moddate : _A demo's last modification time._ (Range/Integer) (Direct UNIX Timestamp)
  * filesize : _Filesize in bytes._ (Range/Integer)
 
 Possible parameters are:

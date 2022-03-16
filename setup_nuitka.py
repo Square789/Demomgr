@@ -1,6 +1,7 @@
 from itertools import product
 import os
 from pathlib import Path
+import sys
 import pkg_resources
 import shutil
 import subprocess
@@ -14,7 +15,6 @@ COMPILER_USE_DEFAULT = os.getenv("NUITKA_COMPILER_USE_DEFAULT") is not None
 PROBABLY_UNUSED_FILES = (
 	"_asyncio.pyd",
 	"_bz2.pyd",
-	"_ctypes.pyd",
 	"_decimal.pyd",
 	"_elementtree.pyd",
 	"_hashlib.pyd",
@@ -38,6 +38,29 @@ PROBABLY_UNUSED_DIRS = (
 	"lib2to3",
 )
 
+def copy_license(package_name, target_dir, license_suffix, license_names = None):
+	license_text = None
+	filename = None
+	module = pkg_resources.get_distribution(package_name)
+	names = (
+		map("".join, product(("LICENSE", "LICENCE"), ("", ".txt")))
+		if license_names is None else license_names
+	)
+	for _name in names:
+		try:
+			# Look, I know this var would persist after the loop anyways,
+			# but it's mega clunky
+			filename = _name
+			license_text = module.get_metadata(filename)
+			break
+		except FileNotFoundError:
+			pass
+	else:
+		raise FileNotFoundError(f"Could not find license for module {package_name!r}")
+	with (target_dir / (filename + license_suffix)).open("w") as license_fp:
+		license_fp.write(license_text)
+
+
 cur_path = Path.cwd()
 build_dir = cur_path / "nuitka_build"
 dist_dir = build_dir / "demomgr.dist"
@@ -48,7 +71,7 @@ def main():
 	if build_dir.exists():
 		shutil.rmtree(build_dir)
 
-	options = ["python", "-m", "nuitka"]
+	options = [sys.executable, "-m", "nuitka"]
 	if ASSUME_YES:
 		options.append("--assume-yes-for-downloads")
 	if COMPILER_USE_DEFAULT is None:
@@ -85,26 +108,16 @@ def main():
 			continue
 		shutil.rmtree(str(to_delete))
 
+	# Copy licenses
 	with (cur_path / "LICENSE").open("r") as license_fp:
 		license = license_fp.read()
 	with (dist_dir / "LICENSE").open("w") as license_fp:
 		license_fp.write(license)
 
-	regex_license = None
-	regex_license_filename = None
-	regex_module = pkg_resources.get_distribution("regex")
-	for (name, ext) in product(("LICENSE", "LICENCE"), ("", ".txt")):
-		try:
-			regex_license_filename = name + ext
-			regex_license = regex_module.get_metadata(regex_license_filename)
-			break
-		except FileNotFoundError:
-			pass
-	else:
-		raise FileNotFoundError("could not find license for regex module")
+	copy_license("regex", regex_dist_dir, "")
+	copy_license("vdf", dist_dir, "-ValvePython_vdf")
+	copy_license("schema", dist_dir, "-keleshev_schema", ("LICENSE-MIT",))
 
-	with (regex_dist_dir / regex_license_filename).open("w") as license_fp:
-		license_fp.write(regex_license)
 
 if __name__ == "__main__":
 	main()
