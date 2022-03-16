@@ -45,29 +45,29 @@ The filter criteria must be entered as follows:
 **Do not use the same filtering key (Even if negated) in a filter request, as one will replace the other.**  
 **You can enter multiple criteria by seperating them with **`,`**.**
 
-Example: `!map:(mvm_,plr_,tr_), killstreaks:2.., beststreak:5.. `  
-This will display all demos where: The user has gotten at least two killstreaks, at least one of those streaks was 5 or more
-and the game does not take place on maps containing the substrings `mvm_`, `plr_` or `tr_`.  
-
 You can currently filter the directory you are in by the following keys:
- * map : _Name of the map the demo is playing on. (String)_
- * name : _Filename of the demo. (String)_
- * killstreaks : (Inclusive) _Minimum amount of present killstreaks._ (Range/Integer)
- * bookmarks : (Inclusive) _Minimum amount of bookmarks recorded._ (Range/Integer)
- * beststreak : (Inclusive) _Minimum value of the best streak recorded in demo_ (Range/Integer)
+ * map : _Substring of the map name a demo is playing on._ (String)
+ * name : _Substring of a demo's filename._ (String)
+ * killstreaks : _Amount of a demo's killstreaks._ (Range/Integer)
+ * bookmarks : _Amount of bookmarks recorded._ (Range/Integer)
+ * beststreak : _Value of the best streak recorded in a demo._ (Range/Integer)
    * May produce erratic results at values out of normal ranges
- * bookmark_contains : _Bookmarks containing this String (String)_
- * hostname : _Name of the server the demo took place on. (String) (Usually in IPv4 format)_
- * clientid : _Steam community name of the player. (String)_
- * moddate : _Modified at this date. (UNIX Timestamp)_ (Range/Integer)
- * filesize : _Filesize in bytes_ (Integer)
+ * bookmark_contains : _Substring of any of a demo's bookmarks._ (String)
+ * hostname : _Substring of the server name a demo took place on._ (String) (Usually a IPv4)
+ * clientid : _Substring of the Steam community name of the player._ (String)
+ * moddate : _Modified at this date._ (Range/Integer) (Direct UNIX Timestamp)
+ * filesize : _Filesize in bytes._ (Range/Integer)
 
 Possible parameters are:
  * Quoteless string: `foo`
-   * Quoteless strings may consist out of A-Z, a-z, \_, -
+   * Quoteless strings may consist out of `A-Z`, `a-z`, `_`, `-`
  * Quoteless string tuple: `(foo, bar, baz)`
  * String: `"foo"`, `'b\u0061r'`
  * String tuple: `("foo", 'b\u0061r', "b\u0061z", )`
  * Range: `1..2`, `10..`, `..50`  
+
+Example: `!map:(mvm_,plr_,tr_), killstreaks:2.., beststreak:5..`  
+This will display all demos where: The user has gotten at least two killstreaks, at least one of those streaks was 5 or more
+and the game does not take place on maps containing the substrings `mvm_`, `plr_` or `tr_`.  
 
 Thanks, and have fun.

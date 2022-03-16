@@ -31,7 +31,7 @@ class FILTERFLAGS:
 
 FILTERDICT = {
 	"name":              ('"{}" in x["name"]', str, 0),
-	"bookmark_contains": ('any("{}" in b for b in x["demo_info"].bookmarks)', str, 0),
+	"bookmark_contains": ('any("{}" in b.value for b in x["demo_info"].bookmarks)', str, 0),
 	"map":               ('"{}" in x["header"]["map_name"]', str, FILTERFLAGS.HEADER),
 	"hostname":          ('"{}" in x["header"]["hostname"]', str, FILTERFLAGS.HEADER),
 	"clientid":          ('"{}" in x["header"]["clientid"]', str, FILTERFLAGS.HEADER),
