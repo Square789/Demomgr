@@ -81,6 +81,7 @@ def main():
 		"--follow-imports",
 		"--plugin-enable=tk-inter",
 		f"--output-dir={build_dir}",
+		"--remove-output",
 		run_py,
 	))
 

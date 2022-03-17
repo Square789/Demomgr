@@ -29,7 +29,7 @@ python script that runs
 `from demomgr.main_app import MainApp; MainApp()`.
 
 ### Installation instructions (exe):
-There is an experimental [nuitka](https://nuitka.net/) build of Demomgr available in the "Releases" section, only for 64bit Windows.  
+There is an experimental [nuitka](https://nuitka.net/) build of Demomgr available in the "Releases" section for Windows.  
 Extract it to a good place for programs to be and run the contained `demomgr.exe`.
 
 ### Getting started:

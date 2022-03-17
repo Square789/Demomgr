@@ -23,7 +23,7 @@ from demomgr import platforming
 from demomgr.threadgroup import ThreadGroup, THREADGROUPSIG
 from demomgr.threads import THREADSIG, ThreadFilter, ThreadReadFolder, ReadDemoMetaThread
 
-__version__ = "1.9.0"
+__version__ = "1.9.1"
 __author__ = "Square789"
 
 class DemoOp():
@@ -200,7 +200,7 @@ class MainApp():
 					"dblclick_cmd": lambda _: self._managebookmarks()},
 				{"name": "Creation time", "col_id": "col_ctime", "sort": True,
 					"weight": round(0.9 * mfl.WEIGHT),
-					"formatter": build_date_formatter(self.cfg)},
+					"formatter": build_date_formatter(self.cfg.date_format)},
 				{"name": "Size", "col_id": "col_filesize", "sort": True,
 					"weight": round(0.42 * mfl.WEIGHT), "formatter": convertunit}
 			),
@@ -373,7 +373,7 @@ class MainApp():
 		# what a hardcoded piece of garbage, there must be better ways
 		if self.cfg.date_format != dialog.result.data["date_format"]:
 			self.listbox.config_column(
-				"col_ctime", formatter = build_date_formatter(dialog.result.data)
+				"col_ctime", formatter = build_date_formatter(dialog.result.data["date_format"])
 			)
 		self.cfg.update(**dialog.result.data)
 		self.reloadgui()

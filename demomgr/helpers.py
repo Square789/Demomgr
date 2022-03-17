@@ -14,15 +14,12 @@ _CONVPREF = (
 _CONVPREF_CENTER = 8
 
 
-def build_date_formatter(cfg):
+def build_date_formatter(fmt):
 	"""
 	Creates a date formatter method that takes an UNIX timestamp and
-	converts it to what's dictated by "date_fmt" in the supplied cfg
-	dict, value not bound to cfg as long as it's immutable.
+	converts it to what's dictated by the given `fmt`.
 	"""
-	# i sure hope that docstring is correct
-	dfmt = cfg.date_format
-	return lambda ts: datetime.datetime.fromtimestamp(ts).strftime(dfmt)
+	return lambda ts: datetime.datetime.fromtimestamp(ts).strftime(fmt)
 
 def convertunit(inp, ext = "B"):
 	"""
