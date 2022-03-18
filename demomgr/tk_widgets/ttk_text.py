@@ -28,7 +28,6 @@ class TtkText(tk.Text):
 		"relief": "sunken",
 		"selectbackground": "#3366FF",
 		"selectforeground": "#FFFFFF",
-		"wrap": "word",
 	}
 
 	def __init__(self, parent, styleobj, *args, **kwargs):

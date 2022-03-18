@@ -23,7 +23,7 @@ from demomgr import platforming
 from demomgr.threadgroup import ThreadGroup, THREADGROUPSIG
 from demomgr.threads import THREADSIG, ThreadFilter, ThreadReadFolder, ReadDemoMetaThread
 
-__version__ = "1.9.1"
+__version__ = "1.9.2"
 __author__ = "Square789"
 
 class DemoOp():

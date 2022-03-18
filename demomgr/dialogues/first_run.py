@@ -28,18 +28,12 @@ class FirstRun(BaseDialog):
 		master.rowconfigure(0, weight = 1)
 
 		scrlbar_v = ttk.Scrollbar(master, orient = tk.VERTICAL)
-		scrlbar_h = ttk.Scrollbar(master, orient = tk.HORIZONTAL)
-		txtbox = TtkText(
-			master, ttk.Style(), wrap = tk.WORD, yscrollcommand = scrlbar_v.set,
-			xscrollcommand = scrlbar_h.set
-		)
+		txtbox = TtkText(master, ttk.Style(), wrap = tk.WORD, yscrollcommand = scrlbar_v.set)
 		scrlbar_v.config(command = txtbox.yview)
-		scrlbar_h.config(command = txtbox.xview)
 		txtbox.insert(tk.END, CNST.WELCOME)
 		txtbox.config(state = tk.DISABLED)
-		txtbox.grid(column = 0, row = 0, sticky = "news")
-		scrlbar_v.grid(column = 1, row = 0, sticky = "sn")
-		scrlbar_h.grid(column = 0, row = 1, pady = (0, 3), sticky = "ew")
+		txtbox.grid(column = 0, row = 0, sticky = "news", pady = (0, 5))
+		scrlbar_v.grid(column = 1, row = 0, sticky = "sn", pady = (0, 5))
 
 		btnframe = ttk.Frame(master)
 		btnframe.columnconfigure((0, 1), weight = 1)

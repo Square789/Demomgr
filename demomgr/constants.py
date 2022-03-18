@@ -33,7 +33,8 @@ WELCOME = (
 	"created.\n\nThis program is able to delete files if you tell it to.\n"
 	"I can't guarantee that Demomgr is 100% safe or reliable and will not take any "
 	"responsibility for lost data, damaged drives and/or destroyed hopes and dreams.\n"
-	"This program is licensed via the MIT License."
+	"(Look, I use it personally, it's probably fine.)\n\n"
+	"This program is licensed via the BSD 3-Clause License."
 )
 EVENT_FILE = "_events.txt"
 DATE_FORMATS = (

@@ -149,9 +149,6 @@ class Play(BaseDialog):
 	def body(self, master):
 		"""UI"""
 		self.protocol("WM_DELETE_WINDOW", self.done)
-
-		master.grid_columnconfigure((0, 1), weight = 1)
-
 		rcon_labelframe = ttk.LabelFrame(
 			master, padding = (10, 0, 10, 10), labelwidget = frmd_label(master, "RCON")
 		)
