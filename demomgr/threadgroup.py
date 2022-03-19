@@ -6,7 +6,6 @@ to simplify threading and tkinter.
 
 from enum import IntEnum
 import queue
-import types
 
 import demomgr.constants as CNST
 from demomgr.threads._base import _StoppableBaseThread

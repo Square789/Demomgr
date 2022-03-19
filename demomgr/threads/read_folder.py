@@ -18,7 +18,7 @@ class ThreadReadFolder(_StoppableBaseThread):
 		RESULT_DEMODATA(1) for a set of demo data, the thread's main
 				reason for existence.
 			- Demo data as a dict that requires little work to be fed
-				into the main window's MultiframeList. May be empty on
+				into the main window's MultiframeList. May be `None` on
 				failure.
 
 		INFO_STATUSBAR(2) for displaying info on a statusbar
@@ -56,7 +56,7 @@ class ThreadReadFolder(_StoppableBaseThread):
 		return it in a format that can be directly fed into listbox.
 		"""
 		if self.targetdir is None:
-			self.__stop(None, None, {}, THREADSIG.FAILURE)
+			self.__stop(None, None, None, THREADSIG.FAILURE)
 			return
 
 		self.queue_out_put(
@@ -76,12 +76,12 @@ class ThreadReadFolder(_StoppableBaseThread):
 			self.__stop(
 				f"ERROR: Current directory {self.targetdir!r} does not exist.",
 				None,
-				{},
+				None,
 				THREADSIG.FAILURE,
 			)
 			return
 		except OSError as exc:
-			self.__stop(f"Error reading directory: {exc}.", None, {}, THREADSIG.FAILURE)
+			self.__stop(f"Error reading directory: {exc}.", None, None, THREADSIG.FAILURE)
 			return
 
 		# Grab demo information

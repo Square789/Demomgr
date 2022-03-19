@@ -238,13 +238,13 @@ class Play(BaseDialog):
 			tick_options_frame, style = "Contained.TButton", text = "[RCON] Go to tick",
 			state = tk.DISABLED, command = self._rcon_send_gototick
 		)
-
 		self.warning_not_in_tf_dir.label = ttk.Label(
-			play_labelframe, style = "Warning.Contained.TLabel",
-			text = "Demo can not be played as it is not in TF2's filesystem."
+			bookmark_region, style = "Warning.Contained.TLabel",
+			text = "Demo can not be played as it is\nnot in TF2's filesystem.",
+			justify = tk.CENTER, anchor = tk.CENTER,
 		)
 		launch_button = ttk.Button(
-			play_labelframe, style = "Contained.TButton", text = "Launch TF2",
+			bookmark_region, style = "Contained.TButton", text = "Launch TF2",
 			command = self._launch
 		)
 
@@ -304,11 +304,10 @@ class Play(BaseDialog):
 
 		bookmark_region.grid_columnconfigure(0, weight = 1)
 		bookmark_region.grid_rowconfigure(0, weight = 1)
-		self.tick_mfl.grid(row = 0, column = 0, padx = (0, 5), sticky = "nesw")
+		self.tick_mfl.grid(row = 0, column = 0, rowspan = 3, padx = (0, 5), sticky = "nesw")
+		self.warning_not_in_tf_dir.set_grid_options(row = 1, column = 1, sticky = "ew")
+		launch_button.grid(row = 2, column = 1, ipadx = 40)
 		bookmark_region.grid(row = 2, column = 0, pady = (0, 5), sticky = "nesw")
-
-		self.warning_not_in_tf_dir.set_grid_options(row = 3, column = 0, sticky = "ew")
-		launch_button.grid(row = 4, column = 0, ipadx = 40)
 
 		play_labelframe.grid(row = 1, column = 0, sticky = "nesw")
 

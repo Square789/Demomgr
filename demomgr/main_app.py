@@ -667,11 +667,9 @@ class MainApp():
 			self.setstatusbar(*args)
 		elif sig is THREADSIG.RESULT_DEMODATA:
 			data = args[0]
-			self.directory_inf_kvd.set_value(
-				"l_amount",
-				len(data["col_filesize"]) if "col_filesize" in args[0] else 0,
-			)
-			self._display_demo_data(data)
+			if data is not None:
+				self.directory_inf_kvd.set_value("l_amount", len(data["col_filename"]))
+				self._display_demo_data(data)
 		return THREADGROUPSIG.CONTINUE
 
 	def _finalization_fetchdata(self, *_):
