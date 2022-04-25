@@ -5,6 +5,8 @@ they will open context menus on the widgets.
 
 import tkinter as tk
 
+from demomgr.platforming import get_rightclick_btn
+
 def _generate_readonly_cmd(w):
 	cmd = (
 		("command", {"label": "Copy", "command": lambda: w.event_generate("<<Copy>>")}, 2),
@@ -20,8 +22,20 @@ def _generate_normal_cmd(w):
 	)
 	return cmd
 
+
+_existing_menu = None
+
+def _remove_existing_menu():
+	global _existing_menu
+
+	if _existing_menu is not None:
+		_existing_menu.unpost()
+		_existing_menu = None
+
+
 class PopupMenu(tk.Menu):
 	"""Base popup menu."""
+
 	def __init__(self, parent, elems, *args, **kw):
 		"""
 		Passes all arguments to a tk.Menu, except for:
@@ -42,6 +56,18 @@ class PopupMenu(tk.Menu):
 			else:
 				self.add(elem[0], **elem[1])
 
+		def f(e, self=self):
+			self.unpost()
+
+		self.bind("<Escape>", f)
+
+	def post(self, x, y):
+		global _existing_menu
+
+		_remove_existing_menu()
+		super().post(x, y)
+		_existing_menu = self
+
 def multiframelist_cb(event, mfl, demo_ops):
 	"""
 	Very specific and hardcoded callback that opens a popup menu on a
@@ -59,6 +85,7 @@ def multiframelist_cb(event, mfl, demo_ops):
 	]
 	men = PopupMenu(mfl, add_elems)
 	men.post(*mfl.get_last_click())
+	men.focus()
 
 def entry_cb(event):
 	"""
@@ -81,3 +108,26 @@ def entry_cb(event):
 
 	men = PopupMenu(w, add_elems)
 	men.post(x, y)
+	men.focus()
+
+def _f(e):
+	_remove_existing_menu()
+
+def decorate_root_window(win):
+	"""
+	On linux (in some environments anyways), menus remain and
+	apparently have to be unposted manually, because why make things
+	easy when you can add more pain?
+
+	This function registers a bunch of event callbacks to top-level
+	windows that will fire on clicks in appropiate regions and then
+	close possibly opened context menus.
+	"""
+	win.bind(f"<Button>", _f)
+	win.bind(f"<KeyPress>", _f)
+	win.bind(f"<Unmap>", _f)
+	# win.bind(f"<Configure>", lambda e: print("Configure ", e))
+	# win.bind(f"<Deactivate>", lambda e: print("Deactivate", e))
+	# win.bind(f"<Unmap>", lambda e: print("Unmap     ", e))
+	# win.bind(f"<Visibility>", lambda e: print("Visibility", e))
+	# win.bind(f"<Expose>", lambda e: print("Expose     ", e))

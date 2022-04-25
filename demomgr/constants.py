@@ -47,20 +47,25 @@ EVENTFILE_FILENAMEFORMAT = "(?<= \\(\").+(?=\" at)" #regex
 EVENTFILE_BOOKMARK = "Bookmark"
 EVENTFILE_KILLSTREAK = "Killstreak"
 STATUSBARDEFAULT = "Ready."
-TF2_EXE_PATH = "steamapps/common/team fortress 2/hl2.exe"
-TF2_HEAD_PATH = "steamapps/common/team fortress 2/tf/"
+TF2_HEAD_PATH = "steamapps/common/Team Fortress 2/tf/"
+TF2_EXE_TAIL_PATH = "hl2.exe"
 TF2_LAUNCHARGS = ["-steam", "-game", "tf"]
+TF2_GAME_ID = "440"
+APPLAUNCH_ARGS = ["-applaunch", TF2_GAME_ID]
 HLAE_EXE = "hlae.exe"
 HLAE_HOOK_DLL = "AfxHookSource.dll"
 HLAE_LAUNCHARGS0 = ["-customLoader", "-noGui", "-autoStart", "-hookDllPath"]
 HLAE_LAUNCHARGS1 = ["-programPath"]
 HLAE_LAUNCHARGS2 = ["-cmdLine"]
 HLAE_ADD_TF2_ARGS = ["-insecure", "+sv_lan", "1"]
+LIBRARYFOLDER_VDF = "steamapps/libraryfolders.vdf"
 STEAM_CFG_PATH0 = "userdata/"
 STEAM_CFG_PATH1 = "config/localconfig.vdf"
+STEAM_EXE = "steam.exe"
+STEAM_SH = "steam.sh"
 REPLACEMENT_CHAR = "\uFFFD"
 STEAM_CFG_LAUNCH_OPTIONS = (
-	"UserLocalConfigStore", "Software", "Valve", "Steam", "Apps", "440", "LaunchOptions",
+	"UserLocalConfigStore", "Software", "Valve", "Steam", "Apps", TF2_GAME_ID, "LaunchOptions",
 )
 STEAM_CFG_USER_NAME = ("UserLocalConfigStore", "friends", "PersonaName")
 # Setting this to lower values might lock the UI, use with care.

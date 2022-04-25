@@ -10,13 +10,14 @@ from multiframe_list import MultiframeList
 from multiframe_list.multiframe_list import SELECTION_TYPE
 import vdf
 
+from demomgr import constants as CNST
 from demomgr.dialogues._base import BaseDialog
 from demomgr.dialogues._diagresult import DIAGSIG
-from demomgr import constants as CNST
-from demomgr.tk_widgets import PasswordButton, TtkText
 from demomgr.helpers import frmd_label, tk_secure_str, int_validator
+from demomgr.platforming import get_steam_exe
 from demomgr.threadgroup import ThreadGroup, THREADGROUPSIG
 from demomgr.threads import THREADSIG, RCONThread
+from demomgr.tk_widgets import PasswordButton, TtkText
 
 def follow_vdf_keys(vdf_data, keys, key_case_sensitive = True):
 	"""
@@ -40,7 +41,7 @@ def follow_vdf_keys(vdf_data, keys, key_case_sensitive = True):
 			lwr = key.lower()
 			for test_key in vdf_data:
 				if test_key.lower() == lwr:
-					vdf_data = vdf_data[key.lower()]
+					vdf_data = vdf_data[test_key]
 					break
 			else:
 				return None
@@ -139,6 +140,25 @@ class Play(BaseDialog):
 		self.rcon_threadgroup.build_cb_method(self._rcon_after_callback)
 		self.animate_spinner = False
 		self.rcon_in_queue = queue.Queue()
+
+		self._tf2_head_path = vdf_data = None
+		if self.cfg.steam_path is not None:
+			try:
+				with open(
+					os.path.join(self.cfg.steam_path, CNST.LIBRARYFOLDER_VDF),
+					"r",
+					encoding = "utf-8"
+				) as f:
+					vdf_data = vdf.load(f)
+				libfolders = follow_vdf_keys(vdf_data, ("libraryfolders",), False)
+				if libfolders is not None and isinstance(libfolders, dict):
+					for v in libfolders.values():
+						if isinstance(v, dict) and CNST.TF2_GAME_ID in v["apps"]:
+							self._tf2_head_path = os.path.join(v["path"], CNST.TF2_HEAD_PATH)
+							break
+			except (OSError, SyntaxError, TypeError, KeyError):
+				# Might as well catch everything tbh
+				pass
 
 		self.error_steamdir_invalid = ErrorLabel()
 		self.warning_not_in_tf_dir = ErrorLabel()
@@ -390,7 +410,7 @@ class Play(BaseDialog):
 		self.users_str = [user.get_display_str() for user in self.users]
 		self.user_select_combobox.config(values = self.users_str)
 
-		tgt = self.users[0].dir_name if self.users else ""
+		tgt = self.users_str[0] if self.users_str else ""
 		if set_if_present is not None:
 			for display_str, user in zip(self.users_str, self.users):
 				if set_if_present == user.dir_name:
@@ -421,9 +441,7 @@ class Play(BaseDialog):
 	def _update_launch_commands_var(self):
 		self.launch_commands.clear()
 		try:
-			shortdemopath = os.path.relpath(
-				self.demopath, os.path.join(self.cfg.steam_path, CNST.TF2_HEAD_PATH)
-			)
+			shortdemopath = os.path.relpath(self.demopath, self._tf2_head_path)
 			if ".." in os.path.normpath(shortdemopath).split(os.sep):
 				raise ValueError("Can't exit game directory")
 			self.launch_commands.append(f"playdemo {shortdemopath}")
@@ -526,27 +544,34 @@ class Play(BaseDialog):
 				)
 				return
 
+		if self._tf2_head_path is None:
+			tk_msg.showerror("Demomgr - Error", "Could not locate TF2.", parent = self)
+			return
+
 		user_args = self.launch_options_var.get().split()
-		tf2_launch_args = (
-			CNST.TF2_LAUNCHARGS +
-			user_args +
-			["+" + cmd for cmd in self.launch_commands]
-		)
+		additional_launch_args = ["+" + cmd for cmd in self.launch_commands]
 		if self.usehlae_var.get():
-			tf2_launch_args.extend(CNST.HLAE_ADD_TF2_ARGS)
-			executable = os.path.join(self.cfg.hlae_path, CNST.HLAE_EXE)
 			launch_args = CNST.HLAE_LAUNCHARGS0.copy() # hookdll required
 			launch_args.append(os.path.join(self.cfg.hlae_path, CNST.HLAE_HOOK_DLL))
 			# hl2 exe path required
 			launch_args.extend(CNST.HLAE_LAUNCHARGS1)
-			launch_args.append(os.path.join(self.cfg.steam_path, CNST.TF2_EXE_PATH))
+			launch_args.append(os.path.join(self._tf2_head_path, CNST.TF2_EXE_TAIL_PATH))
 			launch_args.extend(CNST.HLAE_LAUNCHARGS2)
 			# has to be supplied as string
-			launch_args.append(" ".join(tf2_launch_args))
+			launch_args.append(" ".join(
+				CNST.TF2_LAUNCHARGS +
+				user_args +
+				additional_launch_args +
+				CNST.HLAE_ADD_TF2_ARGS
+			))
+			final_launchoptions = [os.path.join(self.cfg.hlae_path, CNST.HLAE_EXE)] + launch_args
 		else:
-			executable = os.path.join(self.cfg.steam_path, CNST.TF2_EXE_PATH)
-			launch_args = tf2_launch_args
-		final_launchoptions = [executable] + launch_args
+			final_launchoptions = (
+				[os.path.join(self.cfg.steam_path, get_steam_exe())] +
+				CNST.APPLAUNCH_ARGS +
+				additional_launch_args
+			)
+		# print(final_launchoptions)
 
 		try:
 			subprocess.Popen(final_launchoptions)

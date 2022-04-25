@@ -17,7 +17,7 @@ from demomgr.demo_info import DemoInfo
 from demomgr.dialogues import *
 from demomgr.explorer import open_explorer
 from demomgr.tk_widgets import KeyValueDisplay, HeadedFrame
-from demomgr.helpers import build_date_formatter, convertunit, getstreakpeaks
+from demomgr.helpers import build_date_formatter, convertunit
 from demomgr.style_helper import StyleHelper
 from demomgr import platforming
 from demomgr.threadgroup import ThreadGroup, THREADGROUPSIG
@@ -126,6 +126,7 @@ class MainApp():
 			self.cfg.first_run = False
 
 		self._setupgui()
+		context_menus.decorate_root_window(self.root)
 
 		ctxmen_name = platforming.get_contextmenu_btn()
 		for class_tag in ("TEntry", "TCombobox"):

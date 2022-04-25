@@ -1,6 +1,7 @@
 import tkinter as tk
 import tkinter.ttk as ttk
 
+from demomgr import context_menus
 from demomgr.dialogues._diagresult import DIAGSIG, DiagResult
 
 class BaseDialog(tk.Toplevel):
@@ -45,6 +46,8 @@ class BaseDialog(tk.Toplevel):
 
 		if title is not None:
 			self.title(title)
+
+		context_menus.decorate_root_window(self)
 
 	def show(self):
 		"""

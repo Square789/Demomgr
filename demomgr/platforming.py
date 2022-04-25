@@ -99,12 +99,22 @@ def get_rightclick_btn():
 	"""
 	system = platform.system().lower()
 	if system == "linux":
-		return "2"
-	elif system  == "darwin":
+		return "3"
+	elif system == "darwin":
 		return "2"
 	elif system == "windows":
 		return "3"
 	return "3" # best guess
+
+def get_steam_exe():
+	"""
+	Returns the steam executable name.
+	"""
+	system = platform.system().lower()
+	if system == "windows":
+		return CNST.STEAM_EXE
+	else:
+		return CNST.STEAM_SH
 
 def _win_create_file(p):
 	# OPEN_EXISTING is 3
