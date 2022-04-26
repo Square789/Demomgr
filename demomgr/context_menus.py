@@ -5,7 +5,6 @@ they will open context menus on the widgets.
 
 import tkinter as tk
 
-from demomgr.platforming import get_rightclick_btn
 
 def _generate_readonly_cmd(w):
 	cmd = (
@@ -29,12 +28,20 @@ def _remove_existing_menu():
 	global _existing_menu
 
 	if _existing_menu is not None:
-		_existing_menu.unpost()
+		# It's possible for the existing menu to be destroyed when its
+		# root widgets are, e.g. when it was created in a dialog and the dialog
+		# is closed. Just eat the error up then, seems fine.
+		try:
+			_existing_menu.unpost()
+			_existing_menu.destroy()
+		except tk.TclError as e:
+			print("destruction error:", e)
+			pass
 		_existing_menu = None
 
 
 class PopupMenu(tk.Menu):
-	"""Base popup menu."""
+	"""Base popup menu. Will immediatedly focus itself when posted."""
 
 	def __init__(self, parent, elems, *args, **kw):
 		"""
@@ -110,7 +117,7 @@ def entry_cb(event):
 	men.post(x, y)
 	men.focus()
 
-def _f(e):
+def _remove_existing_menu_swallow_event(e):
 	_remove_existing_menu()
 
 def decorate_root_window(win):
@@ -123,9 +130,9 @@ def decorate_root_window(win):
 	windows that will fire on clicks in appropiate regions and then
 	close possibly opened context menus.
 	"""
-	win.bind(f"<Button>", _f)
-	win.bind(f"<KeyPress>", _f)
-	win.bind(f"<Unmap>", _f)
+	win.bind(f"<Button>", _remove_existing_menu_swallow_event)
+	win.bind(f"<KeyPress>", _remove_existing_menu_swallow_event)
+	win.bind(f"<Unmap>", _remove_existing_menu_swallow_event)
 	# win.bind(f"<Configure>", lambda e: print("Configure ", e))
 	# win.bind(f"<Deactivate>", lambda e: print("Deactivate", e))
 	# win.bind(f"<Unmap>", lambda e: print("Unmap     ", e))

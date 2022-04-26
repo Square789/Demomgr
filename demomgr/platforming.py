@@ -12,7 +12,9 @@ import platform
 
 import demomgr.constants as CNST
 
-if os.name == "nt":
+_system = platform.system().lower()
+
+if _system == "windows":
 	kernel32 = ctypes.windll.Kernel32
 
 	# This should be good:
@@ -61,7 +63,7 @@ else:
 
 
 def get_cfg_storage_path():
-	if os.name == "nt": # Windows
+	if _system == "windows":
 		appdata_path = Path(os.environ["APPDATA"])
 		if (
 			str(appdata_path.parent.name).lower() == "appdata" and
@@ -78,9 +80,9 @@ def get_contextmenu_btn():
 	Returns the name of the contextmenu button, dependent on the system.
 	May return None, in which case it's probably best to create no binding.
 	"""
-	if os.name == "nt":
+	if _system == "windows":
 		return "App"
-	elif os.name == "posix":
+	elif _system == "linux":
 		return "Menu"
 	return None
 
@@ -89,20 +91,18 @@ def should_use_windows_explorer():
 	Returns whether the windows explorer should be used aka the system
 	is windows.
 	"""
-	system = platform.system().lower()
-	return system == "windows"
+	return _system == "windows"
 
 def get_rightclick_btn():
 	"""
 	Returns the identifier for the right mouse button used by tkinter
 	as a string.
 	"""
-	system = platform.system().lower()
-	if system == "linux":
+	if _system == "linux":
 		return "3"
-	elif system == "darwin":
+	elif _system == "darwin":
 		return "2"
-	elif system == "windows":
+	elif _system == "windows":
 		return "3"
 	return "3" # best guess
 
@@ -110,8 +110,7 @@ def get_steam_exe():
 	"""
 	Returns the steam executable name.
 	"""
-	system = platform.system().lower()
-	if system == "windows":
+	if _system == "windows":
 		return CNST.STEAM_EXE
 	else:
 		return CNST.STEAM_SH
@@ -138,7 +137,7 @@ def is_same_path(a, b):
 	"""
 	a = os.path.abspath(os.path.normcase(os.path.normpath(a)))
 	b = os.path.abspath(os.path.normcase(os.path.normpath(b)))
-	if os.name == "nt":
+	if _system == "windows":
 		# Using this answer:
 		# https://stackoverflow.com/questions/562701/
 		# 	best-way-to-determine-if-two-path-reference-to-same-file-in-windows

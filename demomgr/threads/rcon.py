@@ -11,6 +11,8 @@ AUTH_RESPONSE = 2
 EXECCOMMAND = 2
 RESPONSE_VALUE = 0
 
+MAKE_SURE = "Is TF2 running with -usercon and net_start?"
+
 class RCONPacketSizeError(ValueError):
 	pass
 
@@ -115,8 +117,7 @@ class RCONThread(_StoppableBaseThread):
 		if error is not None:
 			self.queue_out_put(
 				THREADSIG.INFO_IDX_PARAM, 0,
-				f"Failure establishing connection. Is TF2 running with -usercon "
-					f"and net_start?: {error}"
+				f"Failure establishing connection. {MAKE_SURE}: {error}"
 			)
 			self.queue_out_put(THREADSIG.FAILURE)
 			return
@@ -137,7 +138,11 @@ class RCONThread(_StoppableBaseThread):
 		try:
 			self.send_packet(authpacket)
 		except Exception as e:
-			self.queue_out_put(THREADSIG.INFO_IDX_PARAM, 1, f"Failure sending auth packet: {e}")
+			self.queue_out_put(
+				THREADSIG.INFO_IDX_PARAM,
+				1,
+				f"Failure sending auth packet. {MAKE_SURE}: {e}"
+			)
 			self.__stopsock(THREADSIG.FAILURE)
 			return
 
@@ -159,7 +164,11 @@ class RCONThread(_StoppableBaseThread):
 				return
 
 		except Exception as e:
-			self.queue_out_put(THREADSIG.INFO_IDX_PARAM, 1, f"Error while authenticating: {e}")
+			self.queue_out_put(
+				THREADSIG.INFO_IDX_PARAM,
+				1,
+				f"Error while authenticating. {MAKE_SURE}: {e}"
+			)
 			self.__stopsock(THREADSIG.FAILURE)
 			return
 

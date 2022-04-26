@@ -5,7 +5,6 @@ import tkinter as tk
 import tkinter.ttk as ttk
 import tkinter.filedialog as tk_fid
 import tkinter.messagebox as tk_msg
-from _tkinter import TclError
 
 import multiframe_list.multiframe_list as mfl
 from schema import SchemaError
@@ -342,7 +341,7 @@ class MainApp():
 		for c in list(self.root.children.values()):
 			try:
 				c.destroy()
-			except TclError:
+			except tk.TclError:
 				pass
 		self.root.tk.call('destroy', self.root._w)
 		tk.Misc.destroy(self.root)
@@ -351,7 +350,7 @@ class MainApp():
 		# Above section copied from tkinter's __init__.py
 		try:
 			self.root.destroy()
-		except TclError:
+		except tk.TclError:
 			pass
 		self.root.quit()
 
@@ -567,7 +566,7 @@ class MainApp():
 			imgdir = os.path.join(os.path.dirname(__file__), CNST.THEME_SUBDIR, theme_tuple[2])
 			stylehelper.load_image_dir(imagedir = imgdir, filetypes = ("png", ), imgvarname = "IMG")
 			stylehelper.load_theme(theme_path, theme_tuple[1])
-		except TclError as error:
+		except tk.TclError as error:
 			tk_msg.showerror("Demomgr - Error", f"A Tcl error occurred:\n{error}")
 		except OSError as error:
 			tk_msg.showerror(

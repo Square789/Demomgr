@@ -99,8 +99,9 @@ class Play(BaseDialog):
 
 	Widget state remembering:
 		0: HLAE launch checkbox state (bool)
-		1: Gototick in launch commands checkbox state (bool)
-		2: Selected userprofile (str) (ignored when not existing)
+		1: Gototick in play commands checkbox state (bool)
+		2: Selected userprofile's directory name (str)
+			(ignored when not existing)
 	"""
 
 	def __init__(self, parent, demo_dir, info, cfg, style, remember):
@@ -228,7 +229,7 @@ class Play(BaseDialog):
 			state = "readonly"
 		)
 		self.rcon_send_commands_button = ttk.Button(
-			arg_region, style = "Contained.TButton", text = "[RCON] Send launch commands",
+			arg_region, style = "Contained.TButton", text = "[RCON] Send play commands",
 			state = tk.DISABLED, command = self._rcon_send_commands
 		)
 
@@ -246,7 +247,7 @@ class Play(BaseDialog):
 		tick_options_frame = ttk.Frame(bookmark_region, style = "Contained.TFrame")
 		self.gototick_launchcmd_checkbox = ttk.Checkbutton(
 			tick_options_frame, style = "Contained.TCheckbutton",
-			text = "Go to tick in launch commands?", command = self._update_launch_commands_var,
+			text = "Go to tick in play commands?", command = self._update_launch_commands_var,
 			variable = self.gototick_launchcmd_var
 		)
 		int_val_id = master.register(int_validator)
