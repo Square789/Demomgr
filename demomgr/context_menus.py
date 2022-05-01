@@ -35,7 +35,6 @@ def _remove_existing_menu():
 			_existing_menu.unpost()
 			_existing_menu.destroy()
 		except tk.TclError as e:
-			print("destruction error:", e)
 			pass
 		_existing_menu = None
 
@@ -133,8 +132,3 @@ def decorate_root_window(win):
 	win.bind(f"<Button>", _remove_existing_menu_swallow_event)
 	win.bind(f"<KeyPress>", _remove_existing_menu_swallow_event)
 	win.bind(f"<Unmap>", _remove_existing_menu_swallow_event)
-	# win.bind(f"<Configure>", lambda e: print("Configure ", e))
-	# win.bind(f"<Deactivate>", lambda e: print("Deactivate", e))
-	# win.bind(f"<Unmap>", lambda e: print("Unmap     ", e))
-	# win.bind(f"<Visibility>", lambda e: print("Visibility", e))
-	# win.bind(f"<Expose>", lambda e: print("Expose     ", e))

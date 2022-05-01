@@ -38,6 +38,7 @@ ttk::style theme create demomgr_dark -settings \
 
 	ttk::style element create Labelframe.border image $IMG(dark-highlight.png) \
 		-border 1 -sticky news
+
 	ttk::style element create Button.button image [
 			list    $IMG(button.png) \
 			pressed $IMG(button_pressed.png) \
@@ -45,20 +46,42 @@ ttk::style theme create demomgr_dark -settings \
 			focus   $IMG(button_focus.png) \
 		] \
 		-sticky news -border 7 -padding 6
+
 	ttk::style element create Entry.field image [
-			list  $IMG(entry.png) \
-			focus $IMG(entry-f.png) \
+			list              $IMG(entry.png) \
+			{focus !readonly} $IMG(entry-f.png) \
+			{readonly !focus} $IMG(entry-r.png) \
+			{readonly focus} $IMG(entry-rf.png) \
 		] \
 		-sticky news -border 6 -padding 5
+
 	ttk::style element create Combobox.field image [
 			list            $IMG(combobox.png) \
 			{focus !active} $IMG(combobox-f.png) \
 		] \
-		-border {4 6 24 15} -padding {6 6 5} -sticky news
+		-border {4 4 16 4} -padding {6 6 5} -sticky news
 	ttk::style element create Combobox.downarrow image $IMG(combobox-darr.png) \
 		-sticky e -border {15 0 0 0}
+
+	ttk::style element create Spinbox.field image [
+			list            $IMG(combobox.png) \
+			{focus !active} $IMG(combobox-f.png) \
+		] \
+		-border {4 4 16 4} -sticky news
+#	ttk:style element create Spinbox.uparrow image [
+#			list
+#		]
+#	ttk:style element create Spinbox.downarrow image [
+#			list
+#		]
+#	ttk:style element create Spinbox.button image [
+#			list
+#		]
+	
+
 	ttk::style element create Horizontal.Scrollbar.trough image $IMG(scr-h-trough.png) \
 		-sticky nsew -border {3 0}
+
 	ttk::style element create Horizontal.Scrollbar.thumb image [
 			list                        $IMG(scr-h-thumb.png)   \
 			{active !pressed !disabled} $IMG(scr-h-thumb-a.png) \
@@ -66,9 +89,11 @@ ttk::style theme create demomgr_dark -settings \
 			disabled                    $IMG(scr-h-thumb-d.png) \
 		] \
 		-sticky ew -border {4 0}
+
 	ttk::style element create Horizontal.Scrollbar.grip image $IMG(scr-h-grip.png)
 	ttk::style element create Vertical.Scrollbar.trough image $IMG(scr-v-trough.png) \
 		-sticky snew -border {0 3}
+
 	ttk::style element create Vertical.Scrollbar.thumb image [
 			list                        $IMG(scr-v-thumb.png)   \
 			{active !pressed !disabled} $IMG(scr-v-thumb-a.png) \
@@ -76,6 +101,7 @@ ttk::style theme create demomgr_dark -settings \
 			disabled                    $IMG(scr-v-thumb-d.png) \
 		] \
 		-sticky nsew -border {0 4} -padding {0 3}
+
 	ttk::style element create Vertical.Scrollbar.grip image $IMG(scr-v-grip.png)
 
 	ttk::style element create Vertical.Scrollbar.uparrow image [
@@ -122,6 +148,7 @@ ttk::style theme create demomgr_dark -settings \
 			Button.label -sticky sn -side top -expand true
 		}
 	}
+
 	ttk::style layout Vertical.TScrollbar {
 		Vertical.Scrollbar.uparrow -side top -sticky ""
 		Vertical.Scrollbar.downarrow -side bottom -sticky ""
@@ -131,6 +158,7 @@ ttk::style theme create demomgr_dark -settings \
 			}
 		}
 	}
+
 	ttk::style layout Horizontal.TScrollbar {
 		Horizontal.Scrollbar.leftarrow -side left -sticky ""
 		Horizontal.Scrollbar.rightarrow -side right -sticky ""
@@ -140,16 +168,19 @@ ttk::style theme create demomgr_dark -settings \
 			}
 		}
 	}
+
 	ttk::style layout TCheckbutton {
 		Checkbutton.padding -sticky nswe -children {
 			Checkbutton.indicator -side left -sticky w
 			Checkbutton.label -side right -sticky e
 		}
 	}
+
 	ttk::style layout TRadiobutton {
 		Radiobutton.indicator -side left -sticky w
 		Radiobutton.label -side right -sticky e
 	}
+
 	ttk::style layout TLabelframe {
 		Labelframe.border -sticky news -children {
 			Labelframe.t_border -sticky enw -side top
@@ -162,6 +193,8 @@ ttk::style theme create demomgr_dark -settings \
 	ttk::style map TButton -foreground [
 			list active #FFFFFF !disabled #DDDDDD disabled #999999
 		]
-	ttk::style map TEntry -foreground [list readonly #999999]
+
+	ttk::style map TEntry -foreground [list readonly #C0C0C0]
+
 	ttk::style map TRadiobutton -foreground [list disabled #999999]
 }

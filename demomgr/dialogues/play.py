@@ -52,12 +52,17 @@ def follow_vdf_keys(vdf_data, keys, key_case_sensitive = True):
 class User():
 	__slots__ = ("dir_name", "name", "launch_opt")
 
-	def __init__(self, dir_name, name = None, launch_opt = None):
+	def __init__(self, dir_name = None, name = None, launch_opt = None):
 		self.dir_name = dir_name
 		self.name = name
 		self.launch_opt = launch_opt
 
+	def is_fake(self):
+		return self.dir_name is None
+
 	def get_display_str(self):
+		if self.is_fake():
+			return "No one"
 		return self.dir_name + (f" - {self.name}" if self.name is not None else '')
 
 class ErrorLabel():
@@ -124,11 +129,12 @@ class Play(BaseDialog):
 		self.user_select_var = tk.StringVar()
 		self.gototick_launchcmd_var = tk.BooleanVar()
 		self.usehlae_var = tk.BooleanVar()
-		self.launch_options_var = tk.StringVar()
-		self.launch_commands_var = tk.StringVar()
+		self.user_launch_options_var = tk.StringVar()
+		self.custom_launch_options_var = tk.StringVar()
+		self.play_commands_var = tk.StringVar()
 
-		self.launch_commands = []
-		self.users = []
+		self.demo_commands = []
+		self.users = [User()]
 
 		self.spinner = cycle(
 			chain(*(
@@ -197,7 +203,7 @@ class Play(BaseDialog):
 		)
 		launch_config_frame = ttk.Frame(play_labelframe, style = "Contained.TFrame")
 		user_select_label = ttk.Label(
-			launch_config_frame, text = "User profile to get launch options from:",
+			launch_config_frame, text = "Use launch options of:",
 			style = "Contained.TLabel"
 		)
 		self.error_steamdir_invalid.label = ttk.Label(
@@ -221,11 +227,23 @@ class Play(BaseDialog):
 		)
 
 		arg_region = ttk.Frame(play_labelframe, style = "Contained.TFrame")
-		launch_options_entry = ttk.Entry(
-			arg_region, style = "Contained.TEntry", textvariable = self.launch_options_var
+		user_launch_options_entry = ttk.Entry(
+			arg_region, style = "Contained.TEntry", textvariable = self.user_launch_options_var,
+			state = "readonly"
 		)
-		launch_commands_entry = ttk.Entry(
-			arg_region, style = "Contained.TEntry", textvariable = self.launch_commands_var,
+		user_launch_options_ignored_label = ttk.Label(
+			arg_region, style = "Contained.TLabel",
+			text = (
+				"Note: The options immediatedly below are ignored when launching via steam.\n"
+				"Steam will always force the currently logged in user's launch options in\n"
+				"addition to the ones in the last two fields."
+			)
+		)
+		custom_launch_options_entry = ttk.Entry(
+			arg_region, style = "Contained.TEntry", textvariable = self.custom_launch_options_var
+		)
+		play_commands_entry = ttk.Entry(
+			arg_region, style = "Contained.TEntry", textvariable = self.play_commands_var,
 			state = "readonly"
 		)
 		self.rcon_send_commands_button = ttk.Button(
@@ -258,6 +276,11 @@ class Play(BaseDialog):
 		self.rcon_send_gototick_button = ttk.Button(
 			tick_options_frame, style = "Contained.TButton", text = "[RCON] Go to tick",
 			state = tk.DISABLED, command = self._rcon_send_gototick
+		)
+		tick_offset_frame = ttk.Frame(bookmark_region, style = "Contained.TFrame")
+		tick_offset_spinner = ttk.Spinbox(tick_offset_frame, increment = 50)
+		tick_offset_label = ttk.Label(
+			tick_offset_frame, style = "Contained.TLabel", text = "Tick offset"
 		)
 		self.warning_not_in_tf_dir.label = ttk.Label(
 			bookmark_region, style = "Warning.Contained.TLabel",
@@ -305,16 +328,18 @@ class Play(BaseDialog):
 		use_hlae_checkbox.grid(row = 3, column = 0, ipadx = 2, sticky = "w")
 		launch_config_frame.grid(row = 0, column = 0, pady = (0, 5), sticky = "nesw")
 
-		# Launch arg region
+		# Launch options region
 		arg_region.grid_columnconfigure(0, weight = 1)
-		launch_options_entry.grid(row = 1, column = 0, pady = (0, 5), sticky = "ew")
-		launch_commands_entry.grid(row = 2, column = 0, pady = (0, 5), sticky = "ew")
+		user_launch_options_ignored_label.grid(row = 1, column = 0, columnspan = 2, sticky = "ew")
+		user_launch_options_entry.grid(row = 2, column = 0, columnspan = 2, pady = (0, 5), sticky = "ew")
+		custom_launch_options_entry.grid(row = 3, column = 0, columnspan = 2, pady = (0, 5), sticky = "ew")
+		play_commands_entry.grid(row = 4, column = 0, pady = (0, 5), sticky = "ew")
 		self.rcon_send_commands_button.grid(
-			row = 2, column = 1, padx = (5, 0), pady = (0, 5), sticky = "e"
+			row = 4, column = 1, padx = (5, 0), pady = (0, 5), sticky = "e"
 		)
 		arg_region.grid(row = 1, column = 0, sticky = "nesw")
 
-		# Event tick region
+		# Event tick entry
 		tick_options_frame.grid_columnconfigure(0, weight = 1)
 		self.gototick_launchcmd_checkbox.grid(
 			row = 0, column = 0, columnspan = 2, pady = (0, 5), ipadx = 2, sticky = "w"
@@ -323,8 +348,14 @@ class Play(BaseDialog):
 		self.rcon_send_gototick_button.grid(row = 1, column = 1)
 		tick_options_frame.grid(row = 0, column = 1)
 
+		# Event tick offset
+		tick_offset_frame.grid_columnconfigure(0, weight = 1)
+		tick_offset_label.grid(row = 0, column = 0)
+		tick_offset_spinner.grid(row = 0, column = 1)
+		tick_offset_frame.grid(row = 1, column = 1)
+
 		bookmark_region.grid_columnconfigure(0, weight = 1)
-		bookmark_region.grid_rowconfigure(0, weight = 1)
+		bookmark_region.grid_rowconfigure((0, 1), weight = 1)
 		self.tick_mfl.grid(row = 0, column = 0, rowspan = 3, padx = (0, 5), sticky = "nesw")
 		self.warning_not_in_tf_dir.set_grid_options(row = 1, column = 1, sticky = "ew")
 		launch_button.grid(row = 2, column = 1, ipadx = 40)
@@ -356,11 +387,12 @@ class Play(BaseDialog):
 		self.tick_mfl.set_data(data)
 		self.tick_mfl.format()
 
-		self.user_select_var.trace("w", self.on_user_select)
 		self._ini_load_users(self.remember[2])
+		self.user_select_var.trace("w", self.on_user_select)
 
 		self.usehlae_var.set(self.remember[0])
 		self.gototick_launchcmd_var.set(self.remember[1])
+		self.custom_launch_options_var.set(self.remember[3])
 
 		del self.remember
 
@@ -407,45 +439,38 @@ class Play(BaseDialog):
 		else:
 			self.error_steamdir_invalid.set(False)
 			self.users = [User(x, *self.get_user_data(x)) for x in raw_list]
+			self.users.append(User())
 
-		self.users_str = [user.get_display_str() for user in self.users]
-		self.user_select_combobox.config(values = self.users_str)
+		self.user_select_combobox.config(values = [user.get_display_str() for user in self.users])
 
-		tgt = self.users_str[0] if self.users_str else ""
+		tgt = self.users[-1].get_display_str()
 		if set_if_present is not None:
-			for display_str, user in zip(self.users_str, self.users):
+			for user in self.users:
 				if set_if_present == user.dir_name:
-					tgt = display_str
+					tgt = user.get_display_str()
 					break
 
+		# Needs to be done manually here as the trace on user_select_var is
+		# not set up yet. If I did that, for some reason the first call always
+		# fails, even when the values are configured beforehand.
 		self.user_select_var.set(tgt)
+		self.on_user_select()
 
 	def on_user_select(self, *_):
 		"""
 		Callback to retrieve launch options and update error labels.
 		"""
-		try:
-			# For some reason, self.user_select_combobox.current()
-			# returns -1 if called right at the start here despite
-			# all values being present. Hacky alternative through
-			# python
-			user_idx = self.users_str.index(self.user_select_var.get())
-		except ValueError:
-			# Should only happen when the directory is empty/bad or
-			# someone messed with the config.
-			return
-
-		user = self.users[user_idx]
-		self.launch_options_var.set(user.launch_opt or "")
-		self.info_launch_options_not_found.set(user.launch_opt is None)
+		user = self.users[self.user_select_combobox.current()]
+		self.user_launch_options_var.set(user.launch_opt or "")
+		self.info_launch_options_not_found.set((user.launch_opt is None) and (not user.is_fake()))
 
 	def _update_launch_commands_var(self):
-		self.launch_commands.clear()
+		self.demo_commands.clear()
 		try:
 			shortdemopath = os.path.relpath(self.demopath, self._tf2_head_path)
 			if ".." in os.path.normpath(shortdemopath).split(os.sep):
 				raise ValueError("Can't exit game directory")
-			self.launch_commands.append(f"playdemo {shortdemopath}")
+			self.demo_commands.extend(("+playdemo", shortdemopath))
 		except (TypeError, ValueError):
 			# TypeError for when steam_path is None.
 			self.warning_not_in_tf_dir.set(True)
@@ -454,10 +479,11 @@ class Play(BaseDialog):
 		if self.tick_mfl.selection:
 			tick = self.tick_mfl.get_cell("col_tick", self.tick_mfl.get_selection())
 		if self.gototick_launchcmd_var.get():
-			self.launch_commands.append(f"demo_gototick {str(tick)}")
+			self.demo_commands.extend(("+demo_gototick", str(tick)))
 		self.tick_entry.delete(0, tk.END)
 		self.tick_entry.insert(0, str(tick))
-		self.launch_commands_var.set(" ".join("+" + cmd for cmd in self.launch_commands))
+		# self.play_commands_var.set(" ".join("+" + cmd for cmd in self.demo_commands))
+		self.play_commands_var.set(" ".join(self.demo_commands))
 
 	def _rcon_txt_set_line(self, n, content):
 		"""
@@ -523,7 +549,7 @@ class Play(BaseDialog):
 			self.rcon_text.replace("spinner", "spinner + 1 chars", ".")
 
 	def _rcon_send_commands(self):
-		for cmd in self.launch_commands:
+		for cmd in self.demo_commands:
 			self.rcon_in_queue.put(cmd.encode("utf-8"))
 
 	def _rcon_send_gototick(self):
@@ -549,8 +575,10 @@ class Play(BaseDialog):
 			tk_msg.showerror("Demomgr - Error", "Could not locate TF2.", parent = self)
 			return
 
-		user_args = self.launch_options_var.get().split()
-		additional_launch_args = ["+" + cmd for cmd in self.launch_commands]
+		steam_user_args = self.user_launch_options_var.get().split()
+		custom_args = self.custom_launch_options_var.get().split()
+		demo_args = self.demo_commands
+		# additional_launch_args = ["+" + cmd for cmd in self.demo_commands]
 		if self.usehlae_var.get():
 			launch_args = CNST.HLAE_LAUNCHARGS0.copy() # hookdll required
 			launch_args.append(os.path.join(self.cfg.hlae_path, CNST.HLAE_HOOK_DLL))
@@ -561,8 +589,9 @@ class Play(BaseDialog):
 			# has to be supplied as string
 			launch_args.append(" ".join(
 				CNST.TF2_LAUNCHARGS +
-				user_args +
-				additional_launch_args +
+				steam_user_args +
+				custom_args +
+				demo_args +
 				CNST.HLAE_ADD_TF2_ARGS
 			))
 			final_launchoptions = [os.path.join(self.cfg.hlae_path, CNST.HLAE_EXE)] + launch_args
@@ -570,13 +599,13 @@ class Play(BaseDialog):
 			final_launchoptions = (
 				[os.path.join(self.cfg.steam_path, get_steam_exe())] +
 				CNST.APPLAUNCH_ARGS +
-				additional_launch_args
+				custom_args +
+				demo_args
 			)
 		# print(final_launchoptions)
 
 		try:
 			subprocess.Popen(final_launchoptions)
-			# -steam param may cause conflicts when steam is not open but what do I know?
 		except FileNotFoundError:
 			tk_msg.showerror("Demomgr - Error", "Executable not found.", parent = self)
 		except OSError as error:
@@ -590,11 +619,11 @@ class Play(BaseDialog):
 		self._rcon_cancel()
 		self.result.state = DIAGSIG.SUCCESS
 
-		user_idx = self.user_select_combobox.current()
 		self.result.remember = [
 			self.usehlae_var.get(),
 			self.gototick_launchcmd_var.get(),
-			self.users[user_idx].dir_name if user_idx != -1 else None
+			self.users[self.user_select_combobox.current()].dir_name,
+			self.custom_launch_options_var.get(),
 		]
 
 		self.destroy()

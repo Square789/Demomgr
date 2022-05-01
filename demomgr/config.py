@@ -121,7 +121,7 @@ _SCHEMA = Schema(
 		"rcon_pwd": Or(None, str),
 		"steam_path": Or(None, str),
 		"ui_remember": {
-			"launch_tf2": RememberListValidator([False, True, ""]),
+			"launch_tf2": RememberListValidator([False, True, "", ""]),
 			"settings": RememberListValidator([0]),
 			"bulk_operator": RememberListValidator(
 				[CNST.BULK_OPERATION.DELETE, ""],

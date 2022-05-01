@@ -46,9 +46,11 @@ def deepupdate_dict(target, update):
 	"""
 	for k, v in update.items():
 		if isinstance(v, list):
-			target[k] = target.get(k, []) + v
+			target_obj = target.get(k, [])
+			target[k] = (target_obj + v) if isinstance(target_obj, list) else v
 		elif isinstance(v, dict):
-			target[k] = deepupdate_dict(target.get(k, {}), v)
+			target_obj = target.get(k, {})
+			target[k] = deepupdate_dict(target_obj, v) if isinstance(target_obj, dict) else v
 		else:
 			target[k] = v
 	return target
