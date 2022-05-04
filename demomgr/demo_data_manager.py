@@ -2,22 +2,12 @@
 from enum import IntEnum
 import json
 import os
-import re
 import shutil
 import tempfile
 
 from demomgr.constants import DATA_GRAB_MODE, EVENT_FILE
 from demomgr.demo_info import DemoInfo
 import demomgr.handle_events as he
-
-
-RE_DEM_NAME = re.compile(
-	r'\[\d{4}/\d\d/\d\d \d\d:\d\d\] (?:Killstreak|Bookmark) .* \("([^"]*)" at \d*\)$'
-)
-RE_TICK = re.compile(
-	r'\[\d{4}/\d\d/\d\d \d\d:\d\d\] (?:Killstreak|Bookmark) .* \("[^"]*" at (\d*)\)'
-)
-RE_LOGLINE_IS_BOOKMARK = re.compile(r"\[\d\d\d\d/\d\d/\d\d \d\d:\d\d\] Bookmark ")
 
 
 class PROCESSOR_TYPE(IntEnum):

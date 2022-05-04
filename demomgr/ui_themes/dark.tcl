@@ -1,9 +1,13 @@
 ttk::style theme create demomgr_dark -settings \
 {
 	ttk::style configure . -background #555555
+
 	ttk::style configure TFrame -foreground #EEEEEE -borderwidth 5
+
 	ttk::style configure TLabel -foreground #ECECEC
+
 	ttk::style configure Button.label -foreground #ECECEC
+
 	ttk::style configure MultiframeList.Listbox \
 		-foreground #EEEEEE -background #333333 -active none -highlightthickness 1 \
 		-highlightbackground #656565 -highlightcolor #656565 \
@@ -12,29 +16,41 @@ ttk::style theme create demomgr_dark -settings \
 	ttk::style configure MultiframeList.ActiveCell -selectbackground #FFFFFF -background #707070
 	ttk::style configure MultiframeListReorderInd.TFrame -background #EEEEEE
 	ttk::style configure MultiframeListResizeInd.TFrame -background #EEEEEE
+
 	ttk::style configure TEntry \
 		-foreground #EEEEEE -selectbackground #EEEEEE -selectforeground #000000
 	ttk::style configure TCombobox \
 		-foreground #EEEEEE -selectbackground #EEEEEE -selectforeground #000000
+	ttk::style configure TSpinbox \
+		-foreground #EEEEEE -selectbackground #EEEEEE -selectforeground #000000
+	
 	ttk::style configure TtkHook.Text \
 		-foreground #EEEEEE -background #333333 -relief flat -wrap none
 	# For some reason -2 is necessary
 	ttk::style configure TtkHook.Canvas \
 		-foreground #EEEEEE -background #333333 -relief flat -borderwidth -2
+
+	ttk::style configure Contained.TFrame -background #414141
+	ttk::style configure Contained.TLabel -background #414141
 	ttk::style configure Contained.TButton -background #414141
 	ttk::style configure Contained.TLabelframe -background #414141
 	ttk::style configure Contained.TCheckbutton -background #414141 -foreground #EEEEEE
 	ttk::style configure Contained.TRadiobutton \
 		-background #414141 -foreground #EEEEEE -justify left
+
 	ttk::style configure Border.TFrame -background #1D1D1D
-	ttk::style configure Contained.TFrame -background #414141
-	ttk::style configure Contained.TLabel -background #414141
 	ttk::style configure Framed.Contained.TFrame -borderwidth 0 -background #1E1E1E
 	ttk::style configure Labelframe.TLabel -borderwidth 0
 	ttk::style configure Error.Contained.TLabel -foreground #DD0000
 	ttk::style configure Warning.Contained.TLabel -foreground #FC7E00
 	ttk::style configure Info.Contained.TLabel -foreground #DDDDDD
 	ttk::style configure Centered.TButton -anchor center
+
+	# border and padding values:
+	# {left,       top,        right, bottom}
+	# {left,       top|bottom, right}
+	# {left|right, top|bottom}
+	# {left|right|top|bottom}
 
 	ttk::style element create Labelframe.border image $IMG(dark-highlight.png) \
 		-border 1 -sticky news
@@ -57,27 +73,36 @@ ttk::style theme create demomgr_dark -settings \
 
 	ttk::style element create Combobox.field image [
 			list            $IMG(combobox.png) \
-			{focus !active} $IMG(combobox-f.png) \
+			focus           $IMG(combobox-f.png) \
 		] \
-		-border {4 4 16 4} -padding {6 6 5} -sticky news
+		-border {4 4 18 4} -padding {6 6 5} -sticky news
 	ttk::style element create Combobox.downarrow image $IMG(combobox-darr.png) \
 		-sticky e -border {15 0 0 0}
 
 	ttk::style element create Spinbox.field image [
-			list            $IMG(combobox.png) \
-			{focus !active} $IMG(combobox-f.png) \
+			list            $IMG(entry.png) \
+			{focus !active} $IMG(entry-f.png) \
 		] \
-		-border {4 4 16 4} -sticky news
-#	ttk:style element create Spinbox.uparrow image [
+		-border 6 -sticky news
+	ttk::style element create Spinbox.arrow_frame image [
+			list            $IMG(combobox_attachment.png) \
+		] \
+		-border 1 -sticky news -padding {1 2 2 2} -width 3 -height 3
+	ttk::style element create Spinbox.uparrow image [
+			list    $IMG(spinbox-pp.png) \
+			pressed $IMG(spinbox-pp-p.png) \
+			active  $IMG(spinbox-pp-a.png) \
+		] \
+		-border 2 -sticky news
+	ttk::style element create Spinbox.downarrow image [
+			list    $IMG(spinbox-mm.png) \
+			pressed $IMG(spinbox-mm-p.png) \
+			active  $IMG(spinbox-mm-a.png) \
+		] \
+		-border 2 -sticky news
+#	ttk::style element create Spinbox.button image [
 #			list
 #		]
-#	ttk:style element create Spinbox.downarrow image [
-#			list
-#		]
-#	ttk:style element create Spinbox.button image [
-#			list
-#		]
-	
 
 	ttk::style element create Horizontal.Scrollbar.trough image $IMG(scr-h-trough.png) \
 		-sticky nsew -border {3 0}
@@ -149,6 +174,18 @@ ttk::style theme create demomgr_dark -settings \
 		}
 	}
 
+	ttk::style layout TSpinbox {
+		Spinbox.arrow_frame -side right -sticky ens -children {
+			Spinbox.uparrow   -side top
+			Spinbox.downarrow -side bottom
+		}
+		Spinbox.field -sticky nsew -children {
+			Spinbox.padding -expand true -sticky nswe -children {
+				Spinbox.textarea -sticky nswe
+			}
+		}
+	}
+
 	ttk::style layout Vertical.TScrollbar {
 		Vertical.Scrollbar.uparrow -side top -sticky ""
 		Vertical.Scrollbar.downarrow -side bottom -sticky ""
@@ -195,6 +232,8 @@ ttk::style theme create demomgr_dark -settings \
 		]
 
 	ttk::style map TEntry -foreground [list readonly #C0C0C0]
+
+	ttk::style map TSpinbox -foreground [list readonly #C0C0C0]
 
 	ttk::style map TRadiobutton -foreground [list disabled #999999]
 }

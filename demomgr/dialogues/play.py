@@ -1,6 +1,7 @@
 from itertools import chain, cycle, repeat
 import os
 import queue
+from stringprep import in_table_c11
 import subprocess
 import tkinter as tk
 import tkinter.ttk as ttk
@@ -132,8 +133,12 @@ class Play(BaseDialog):
 		self.user_launch_options_var = tk.StringVar()
 		self.custom_launch_options_var = tk.StringVar()
 		self.play_commands_var = tk.StringVar()
+		self.tick_offset_var = tk.IntVar()
 
-		self.demo_commands = []
+		self.true_tick = 0
+
+		self.demo_play_cmd = None
+		self.demo_gototick_cmd = None
 		self.users = [User()]
 
 		self.spinner = cycle(
@@ -170,6 +175,18 @@ class Play(BaseDialog):
 		self.error_steamdir_invalid = ErrorLabel()
 		self.warning_not_in_tf_dir = ErrorLabel()
 		self.info_launch_options_not_found = ErrorLabel()
+		# I am not sure whether this error is correct.
+		# It's possible I'm too incompetent to plug in the correct launch arg into
+		# tf2, but any kind of escaping i've tried causes tf2 to always cut the
+		# file name arg up at the first space.
+		self.warning_space_in_demo_name = ErrorLabel() # TODO make this show up
+		# TODO make the tick/tick offset elements work nicely as outlined in that throwaway note file
+		# TODO fix the launch argument/rcon playdemo weirdness
+		# TODO push 1.10.0 cause new play dialog and interface is just too nice
+		# TODO make cool frag video and link back to demomgr
+		# TODO step 5: 2 unique visitors
+		# TODO step 6: ???
+		# TODO step 7: profit
 
 		self.rcon_password_var.set(self.cfg.rcon_pwd or "")
 
@@ -262,11 +279,11 @@ class Play(BaseDialog):
 			selection_type = SELECTION_TYPE.SINGLE,
 			resizable = True,
 		)
-		tick_options_frame = ttk.Frame(bookmark_region, style = "Contained.TFrame")
+		tick_frame = ttk.Frame(bookmark_region, style = "Contained.TFrame")
+		tick_options_frame = ttk.Frame(tick_frame, style = "Contained.TFrame")
 		self.gototick_launchcmd_checkbox = ttk.Checkbutton(
 			tick_options_frame, style = "Contained.TCheckbutton",
-			text = "Go to tick in play commands?", command = self._update_launch_commands_var,
-			variable = self.gototick_launchcmd_var
+			text = "Go to tick in play commands?", variable = self.gototick_launchcmd_var
 		)
 		int_val_id = master.register(int_validator)
 		self.tick_entry = ttk.Entry(
@@ -277,8 +294,12 @@ class Play(BaseDialog):
 			tick_options_frame, style = "Contained.TButton", text = "[RCON] Go to tick",
 			state = tk.DISABLED, command = self._rcon_send_gototick
 		)
-		tick_offset_frame = ttk.Frame(bookmark_region, style = "Contained.TFrame")
-		tick_offset_spinner = ttk.Spinbox(tick_offset_frame, increment = 50)
+		tick_offset_frame = ttk.Frame(tick_frame, style = "Contained.TFrame")
+		tick_offset_spinner = ttk.Spinbox(
+			tick_offset_frame, width = 10, textvariable = self.tick_offset_var,
+			from_ = 0, increment = 20, to = 5000, wrap = True,
+			validate = "key", validatecommand = (int_val_id, "%S", "%P")
+		)
 		tick_offset_label = ttk.Label(
 			tick_offset_frame, style = "Contained.TLabel", text = "Tick offset"
 		)
@@ -344,18 +365,22 @@ class Play(BaseDialog):
 		self.gototick_launchcmd_checkbox.grid(
 			row = 0, column = 0, columnspan = 2, pady = (0, 5), ipadx = 2, sticky = "w"
 		)
-		self.tick_entry.grid(row = 1, column = 0, padx = (0, 5))
-		self.rcon_send_gototick_button.grid(row = 1, column = 1)
-		tick_options_frame.grid(row = 0, column = 1)
+		self.tick_entry.grid(row = 1, column = 0, padx = (0, 5), sticky = "ew")
+		self.rcon_send_gototick_button.grid(row = 1, column = 1, sticky = "ew")
+		tick_options_frame.grid(row = 0, sticky = "ew", pady = (0, 5))
 
 		# Event tick offset
-		tick_offset_frame.grid_columnconfigure(0, weight = 1)
+		tick_offset_frame.grid_columnconfigure(1, weight = 1)
 		tick_offset_label.grid(row = 0, column = 0)
-		tick_offset_spinner.grid(row = 0, column = 1)
-		tick_offset_frame.grid(row = 1, column = 1)
+		tick_offset_spinner.grid(row = 0, column = 1, sticky = "ew")
+		tick_offset_frame.grid(row = 1, sticky = "ew")
+
+		# Higher tick frame
+		tick_frame.grid_columnconfigure(0, weight = 1)
+		tick_frame.grid(row = 0, column = 1, sticky = "ew")
 
 		bookmark_region.grid_columnconfigure(0, weight = 1)
-		bookmark_region.grid_rowconfigure((0, 1), weight = 1)
+		bookmark_region.grid_rowconfigure(0, weight = 1)
 		self.tick_mfl.grid(row = 0, column = 0, rowspan = 3, padx = (0, 5), sticky = "nesw")
 		self.warning_not_in_tf_dir.set_grid_options(row = 1, column = 1, sticky = "ew")
 		launch_button.grid(row = 2, column = 1, ipadx = 40)
@@ -364,7 +389,7 @@ class Play(BaseDialog):
 		play_labelframe.grid(row = 1, column = 0, sticky = "nesw")
 
 		pwd_entry_show_toggle.bind_to_entry(rcon_password_entry)
-		self.tick_mfl.bind("<<MultiframeSelect>>", lambda _: self._update_launch_commands_var())
+		self.tick_mfl.bind("<<MultiframeSelect>>", lambda _: self._update_demo_commands())
 
 		self.rcon_text.insert(tk.END, "Status: Disconnected [.]\n\n\n")
 		self.rcon_text.mark_set("status0", "1.8")
@@ -375,6 +400,7 @@ class Play(BaseDialog):
 		self.rcon_text.mark_gravity("spinner", tk.LEFT)
 		self.rcon_text.configure(xscrollcommand = rcon_text_scrollbar.set, state = tk.DISABLED)
 
+		# Populate the event mfl here
 		events = []
 		events += [("Killstreak", t, v) for v, t, _ in self.info.killstreak_peaks]
 		events += [("Bookmark", t, v) for v, t, _ in self.info.bookmarks]
@@ -387,16 +413,20 @@ class Play(BaseDialog):
 		self.tick_mfl.set_data(data)
 		self.tick_mfl.format()
 
+		self.usehlae_var.set(self.remember[0])
+
+		self.gototick_launchcmd_var.trace("w", self._on_gototick_checkbox)
+		self.gototick_launchcmd_var.set(self.remember[1])
+
 		self._ini_load_users(self.remember[2])
 		self.user_select_var.trace("w", self.on_user_select)
 
-		self.usehlae_var.set(self.remember[0])
-		self.gototick_launchcmd_var.set(self.remember[1])
 		self.custom_launch_options_var.set(self.remember[3])
 
 		del self.remember
 
-		self._update_launch_commands_var()
+		self._set_play_command()
+		self._update_demo_commands()
 
 	def get_user_data(self, user_dir):
 		"""
@@ -464,26 +494,58 @@ class Play(BaseDialog):
 		self.user_launch_options_var.set(user.launch_opt or "")
 		self.info_launch_options_not_found.set((user.launch_opt is None) and (not user.is_fake()))
 
-	def _update_launch_commands_var(self):
-		self.demo_commands.clear()
+	def on_tick_offset_change(self):
+		print("offset modified")
+
+	def recalculate_ticks(self):
+		pass
+
+	def get_demo_commands(self, escape_play = False):
+		play_cmd = self.demo_play_cmd
+		if play_cmd is not None and escape_play:
+			# The placement of "" here may seem insanely careless, but TF2's console in
+			# general behaves weirdly with quotes and seems to treat everything between the
+			# first and last quote as a complete string?
+			# Demos with `"` in their filename are unplayable even from within TF2, so don't
+			# name them that lol
+			# Without this, demos with a space in their filename are not playable via RCON.
+			play_cmd = ("playdemo", '"' + play_cmd[1] + '"')
+
+		return tuple(
+			c for c in (play_cmd, self.demo_gototick_cmd)
+			if c is not None
+		)
+
+	def _set_play_command(self):
+		self.demo_play_cmd = None
 		try:
 			shortdemopath = os.path.relpath(self.demopath, self._tf2_head_path)
 			if ".." in os.path.normpath(shortdemopath).split(os.sep):
 				raise ValueError("Can't exit game directory")
-			self.demo_commands.extend(("+playdemo", shortdemopath))
+			self.demo_play_cmd = ("playdemo", shortdemopath)
 		except (TypeError, ValueError):
-			# TypeError for when steam_path is None.
+			# TypeError occurrs when steam_path is None.
 			self.warning_not_in_tf_dir.set(True)
 
+	def _update_demo_commands(self):
 		tick = 0
 		if self.tick_mfl.selection:
 			tick = self.tick_mfl.get_cell("col_tick", self.tick_mfl.get_selection())
-		if self.gototick_launchcmd_var.get():
-			self.demo_commands.extend(("+demo_gototick", str(tick)))
+		tick = max(0, tick - self.tick_offset_var.get())
+
 		self.tick_entry.delete(0, tk.END)
 		self.tick_entry.insert(0, str(tick))
-		# self.play_commands_var.set(" ".join("+" + cmd for cmd in self.demo_commands))
-		self.play_commands_var.set(" ".join(self.demo_commands))
+		self._update_demo_commands_var()
+
+	def _on_gototick_checkbox(self, *_):
+		if self.gototick_launchcmd_var.get():
+			self.demo_gototick_cmd = ("demo_gototick", self.tick_entry.get() or "0")
+		else:
+			self.demo_gototick_cmd = None
+		self._update_demo_commands_var()
+
+	def _update_demo_commands_var(self):
+		self.play_commands_var.set(" ".join('+' + " ".join(c) for c in self.get_demo_commands()))
 
 	def _rcon_txt_set_line(self, n, content):
 		"""
@@ -549,14 +611,16 @@ class Play(BaseDialog):
 			self.rcon_text.replace("spinner", "spinner + 1 chars", ".")
 
 	def _rcon_send_commands(self):
-		for cmd in self.demo_commands:
-			self.rcon_in_queue.put(cmd.encode("utf-8"))
+		for cmd in self.get_demo_commands(escape_play = True):
+			print(" ".join(cmd))
+			self.rcon_in_queue.put(" ".join(cmd).encode("utf-8"))
 
 	def _rcon_send_gototick(self):
-		if self.tick_entry.get() == "":
+		entry_contents = self.tick_entry.get()
+		if entry_contents == "":
 			return
-		cmd = f"demo_gototick {self.tick_entry.get()}".encode("utf-8")
-		self.rcon_in_queue.put(cmd)
+		# Otherwise, entry_contents must be a number (if the validation function didn't fail)
+		self.rcon_in_queue.put(f"demo_gototick {entry_contents}".encode("utf-8"))
 
 	def _launch(self):
 		for cond, name in (
@@ -577,8 +641,10 @@ class Play(BaseDialog):
 
 		steam_user_args = self.user_launch_options_var.get().split()
 		custom_args = self.custom_launch_options_var.get().split()
-		demo_args = self.demo_commands
-		# additional_launch_args = ["+" + cmd for cmd in self.demo_commands]
+		demo_args = []
+		for cmd_name, *cmd_args in self.get_demo_commands():
+			demo_args.append('+' + cmd_name)
+			demo_args.extend(cmd_args)
 		if self.usehlae_var.get():
 			launch_args = CNST.HLAE_LAUNCHARGS0.copy() # hookdll required
 			launch_args.append(os.path.join(self.cfg.hlae_path, CNST.HLAE_HOOK_DLL))
@@ -602,7 +668,7 @@ class Play(BaseDialog):
 				custom_args +
 				demo_args
 			)
-		# print(final_launchoptions)
+		print(final_launchoptions)
 
 		try:
 			subprocess.Popen(final_launchoptions)

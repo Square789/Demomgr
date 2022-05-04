@@ -8,8 +8,10 @@ import re
 
 from demomgr.helpers import getstreakpeaks
 
-RE_LINE = re.compile(r'\[(\d{4}/\d\d/\d\d \d\d:\d\d)\] (Killstreak|Bookmark)'
-	r' (.*) \("([^"]*)" at (\d+)\)')
+RE_LINE = re.compile(
+	r'\[(\d{4}/\d\d/\d\d \d\d:\d\d)\] (Killstreak|Bookmark)'
+	r' (.*) \("(.*)" at (\d+)\)'
+)
 
 class GROUP:
 	DATE = 1
