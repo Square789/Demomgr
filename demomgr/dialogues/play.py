@@ -133,7 +133,8 @@ class Play(BaseDialog):
 		self.user_launch_options_var = tk.StringVar()
 		self.custom_launch_options_var = tk.StringVar()
 		self.play_commands_var = tk.StringVar()
-		self.tick_offset_var = tk.IntVar()
+		self.tick_var = tk.StringVar()
+		self.tick_offset_var = tk.StringVar()
 
 		self.true_tick = 0
 
@@ -180,9 +181,9 @@ class Play(BaseDialog):
 		# tf2, but any kind of escaping i've tried causes tf2 to always cut the
 		# file name arg up at the first space.
 		self.warning_space_in_demo_name = ErrorLabel() # TODO make this show up
-		# TODO make the tick/tick offset elements work nicely as outlined in that throwaway note file
-		# TODO fix the launch argument/rcon playdemo weirdness
-		# TODO push 1.10.0 cause new play dialog and interface is just too nice
+		# DONE make the tick/tick offset elements work nicely as outlined in that throwaway note file
+		# DONE fix the launch argument/rcon playdemo weirdness
+		# DONE push 1.10.0 cause new play dialog and interface is just too nice
 		# TODO make cool frag video and link back to demomgr
 		# TODO step 5: 2 unique visitors
 		# TODO step 6: ???
@@ -193,6 +194,7 @@ class Play(BaseDialog):
 	def body(self, master):
 		"""UI"""
 		self.protocol("WM_DELETE_WINDOW", self.done)
+
 		rcon_labelframe = ttk.LabelFrame(
 			master, padding = (10, 0, 10, 10), labelwidget = frmd_label(master, "RCON")
 		)
@@ -226,9 +228,9 @@ class Play(BaseDialog):
 		self.error_steamdir_invalid.label = ttk.Label(
 			launch_config_frame, style = "Error.Contained.TLabel",
 			text = (
-				"Failed listing users, Steam directory is malformed. \n"
-				"Make sure you selected the root directory ending in \"Steam\" "
-				"in the Settings > Paths section."
+				"Failed listing users, Steam directory is malformed.\n"
+				"Make sure you selected the root directory ending in \"Steam\" in the "
+				"Settings > Paths section."
 			)
 		)
 		self.info_launch_options_not_found.label = ttk.Label(
@@ -267,6 +269,11 @@ class Play(BaseDialog):
 			arg_region, style = "Contained.TButton", text = "[RCON] Send play commands",
 			state = tk.DISABLED, command = self._rcon_send_commands
 		)
+		self.warning_space_in_demo_name.label = ttk.Label(
+			arg_region, style = "Warning.Contained.TLabel", text = (
+				"Demo is unplayable via TF2 launch arguments as its name contains a space."
+			)
+		)
 
 		bookmark_region = ttk.Frame(play_labelframe, style = "Contained.TFrame")
 		self.tick_mfl = MultiframeList(
@@ -287,7 +294,7 @@ class Play(BaseDialog):
 		)
 		int_val_id = master.register(int_validator)
 		self.tick_entry = ttk.Entry(
-			tick_options_frame, style = "Contained.TEntry",
+			tick_options_frame, style = "Contained.TEntry", textvariable = self.tick_var,
 			validate = "key", validatecommand = (int_val_id, "%S", "%P")
 		)
 		self.rcon_send_gototick_button = ttk.Button(
@@ -301,7 +308,7 @@ class Play(BaseDialog):
 			validate = "key", validatecommand = (int_val_id, "%S", "%P")
 		)
 		tick_offset_label = ttk.Label(
-			tick_offset_frame, style = "Contained.TLabel", text = "Tick offset"
+			tick_offset_frame, style = "Contained.TLabel", text = "Tick offset:"
 		)
 		self.warning_not_in_tf_dir.label = ttk.Label(
 			bookmark_region, style = "Warning.Contained.TLabel",
@@ -354,7 +361,8 @@ class Play(BaseDialog):
 		user_launch_options_ignored_label.grid(row = 1, column = 0, columnspan = 2, sticky = "ew")
 		user_launch_options_entry.grid(row = 2, column = 0, columnspan = 2, pady = (0, 5), sticky = "ew")
 		custom_launch_options_entry.grid(row = 3, column = 0, columnspan = 2, pady = (0, 5), sticky = "ew")
-		play_commands_entry.grid(row = 4, column = 0, pady = (0, 5), sticky = "ew")
+		play_commands_entry.grid(row = 4, column = 0, sticky = "ew")
+		self.warning_space_in_demo_name.set_grid_options(row = 5, column = 0, sticky = "ew", pady = (0, 5))
 		self.rcon_send_commands_button.grid(
 			row = 4, column = 1, padx = (5, 0), pady = (0, 5), sticky = "e"
 		)
@@ -389,7 +397,7 @@ class Play(BaseDialog):
 		play_labelframe.grid(row = 1, column = 0, sticky = "nesw")
 
 		pwd_entry_show_toggle.bind_to_entry(rcon_password_entry)
-		self.tick_mfl.bind("<<MultiframeSelect>>", lambda _: self._update_demo_commands())
+		self.tick_mfl.bind("<<MultiframeSelect>>", lambda _: self._on_mfl_selection())
 
 		self.rcon_text.insert(tk.END, "Status: Disconnected [.]\n\n\n")
 		self.rcon_text.mark_set("status0", "1.8")
@@ -415,7 +423,7 @@ class Play(BaseDialog):
 
 		self.usehlae_var.set(self.remember[0])
 
-		self.gototick_launchcmd_var.trace("w", self._on_gototick_checkbox)
+		self.gototick_launchcmd_var.trace("w", self._update_gototick_command_and_demo_commands_var)
 		self.gototick_launchcmd_var.set(self.remember[1])
 
 		self._ini_load_users(self.remember[2])
@@ -423,10 +431,16 @@ class Play(BaseDialog):
 
 		self.custom_launch_options_var.set(self.remember[3])
 
+		self.tick_offset_var.set(max(0, self.remember[4]))
+		self.tick_offset_var.trace("w", self._on_tick_offset_change)
+
+		self.tick_var.trace("w", self._on_tick_entry_change)
+
 		del self.remember
 
 		self._set_play_command()
-		self._update_demo_commands()
+		self._set_gototick_command()
+		self._update_demo_commands_var()
 
 	def get_user_data(self, user_dir):
 		"""
@@ -494,11 +508,35 @@ class Play(BaseDialog):
 		self.user_launch_options_var.set(user.launch_opt or "")
 		self.info_launch_options_not_found.set((user.launch_opt is None) and (not user.is_fake()))
 
-	def on_tick_offset_change(self):
-		print("offset modified")
+	def _on_tick_offset_change(self, *_):
+		self._update_tick_entry()
+		self._update_gototick_command_and_demo_commands_var()
 
-	def recalculate_ticks(self):
-		pass
+	def _on_tick_entry_change(self, *_):
+		self.true_tick = int(self.tick_var.get() or 0) + int(self.tick_offset_var.get() or 0)
+		self._update_gototick_command_and_demo_commands_var()
+
+	def _on_mfl_selection(self):
+		tt = 0
+		if self.tick_mfl.selection:
+			tt = self.tick_mfl.get_cell("col_tick", self.tick_mfl.get_selection())
+		self.true_tick = tt
+
+		self._update_tick_entry()
+		self._update_demo_commands_var()
+
+	def _update_gototick_command_and_demo_commands_var(self, *_):
+		self._set_gototick_command()
+		self._update_demo_commands_var()
+
+	def _update_tick_entry(self):
+		"""
+		Sets the tick entry to `max(0, true_tick - self.tick_offset_var.get())`
+		"""
+		self.tick_var.set(str(max(
+			0,
+			self.true_tick - int(self.tick_offset_var.get() or 0)),
+		))
 
 	def get_demo_commands(self, escape_play = False):
 		play_cmd = self.demo_play_cmd
@@ -522,30 +560,24 @@ class Play(BaseDialog):
 			shortdemopath = os.path.relpath(self.demopath, self._tf2_head_path)
 			if ".." in os.path.normpath(shortdemopath).split(os.sep):
 				raise ValueError("Can't exit game directory")
+			# Should i handle other space characters here? Who knows!
+			# Though if someone somehow puts \n into their demo's filename, they're asking for it.
+			if " " in shortdemopath:
+				self.warning_space_in_demo_name.set(True)
 			self.demo_play_cmd = ("playdemo", shortdemopath)
 		except (TypeError, ValueError):
 			# TypeError occurrs when steam_path is None.
 			self.warning_not_in_tf_dir.set(True)
 
-	def _update_demo_commands(self):
-		tick = 0
-		if self.tick_mfl.selection:
-			tick = self.tick_mfl.get_cell("col_tick", self.tick_mfl.get_selection())
-		tick = max(0, tick - self.tick_offset_var.get())
-
-		self.tick_entry.delete(0, tk.END)
-		self.tick_entry.insert(0, str(tick))
-		self._update_demo_commands_var()
-
-	def _on_gototick_checkbox(self, *_):
+	def _set_gototick_command(self):
+		self.demo_gototick_cmd = None
 		if self.gototick_launchcmd_var.get():
-			self.demo_gototick_cmd = ("demo_gototick", self.tick_entry.get() or "0")
-		else:
-			self.demo_gototick_cmd = None
-		self._update_demo_commands_var()
+			self.demo_gototick_cmd = ("demo_gototick", self.tick_var.get() or "0")
 
 	def _update_demo_commands_var(self):
-		self.play_commands_var.set(" ".join('+' + " ".join(c) for c in self.get_demo_commands()))
+		"""Updates the contents of the third launch args entry."""
+		commands = self.get_demo_commands(escape_play = True)
+		self.play_commands_var.set("; ".join(" ".join(c) for c in commands))
 
 	def _rcon_txt_set_line(self, n, content):
 		"""
@@ -612,11 +644,10 @@ class Play(BaseDialog):
 
 	def _rcon_send_commands(self):
 		for cmd in self.get_demo_commands(escape_play = True):
-			print(" ".join(cmd))
 			self.rcon_in_queue.put(" ".join(cmd).encode("utf-8"))
 
 	def _rcon_send_gototick(self):
-		entry_contents = self.tick_entry.get()
+		entry_contents = self.tick_var.get()
 		if entry_contents == "":
 			return
 		# Otherwise, entry_contents must be a number (if the validation function didn't fail)
@@ -668,10 +699,10 @@ class Play(BaseDialog):
 				custom_args +
 				demo_args
 			)
-		print(final_launchoptions)
 
 		try:
-			subprocess.Popen(final_launchoptions)
+			# subprocess.Popen(final_launchoptions)
+			print(final_launchoptions)
 		except FileNotFoundError:
 			tk_msg.showerror("Demomgr - Error", "Executable not found.", parent = self)
 		except OSError as error:
@@ -690,6 +721,7 @@ class Play(BaseDialog):
 			self.gototick_launchcmd_var.get(),
 			self.users[self.user_select_combobox.current()].dir_name,
 			self.custom_launch_options_var.get(),
+			int(self.tick_offset_var.get() or 0),
 		]
 
 		self.destroy()

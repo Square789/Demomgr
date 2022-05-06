@@ -24,9 +24,6 @@ PROBABLY_UNUSED_FILES = (
 	"_lzma.pyd",
 	"_sqlite3.pyd",
 	"_ssl.pyd",
-	# This one is used but also available in System32; seems to fluctuate and requires
-	# an exact version, keeping it
-	### "comctl32.dll",
 	"libcrypto-1_1.dll",
 	"libffi-7.dll",
 	"libssl-1_1.dll",

@@ -124,15 +124,20 @@ class Settings(BaseDialog):
 			suboptions_pane, padding = 8, labelwidget = frmd_label(suboptions_pane, "Paths")
 		)
 		path_labelframe.grid_columnconfigure(1, weight = 1)
-		for i, (name, tk_var) in enumerate((
-			("Steam:", self.steampath_var),
-			("HLAE:", self.hlaepath_var),
-			("File manager:", self.file_manager_path_var),
+		for i, (name, tk_var, dir_only) in enumerate((
+			("Steam:", self.steampath_var, True),
+			("HLAE:", self.hlaepath_var, True),
+			("File manager:", self.file_manager_path_var, False),
 		)):
 			desc_label = ttk.Label(path_labelframe, style = "Contained.TLabel", text = name)
 			path_entry = ttk.Entry(path_labelframe, state = "readonly", textvariable = tk_var)
-			def _tmp_handler(self = self, var = tk_var): # that's a no from me dawg
-				return self._sel_dir(var)
+			if dir_only:
+				# ugly parameter binding
+				def _tmp_handler(var = tk_var):
+					return self._sel_dir(var)
+			else:
+				def _tmp_handler(var = tk_var):
+					return self._sel_file(var)
 			change_btn = ttk.Button(
 				path_labelframe, text = "Change...", command = _tmp_handler, style = "Contained.TButton"
 			)
@@ -298,8 +303,13 @@ class Settings(BaseDialog):
 		Prompt the user to select a directory, then modify the tkinter
 		variable `variable` with the selected value.
 		"""
-		sel = tk_fid.askdirectory()
-		variable.set(sel)
+		variable.set(tk_fid.askdirectory())
+
+	def _sel_file(self, variable):
+		"""
+		Same as `_sel_dir`, just with a file.
+		"""
+		variable.set(tk_fid.askopenfilename())
 
 	def _reload_options_pane(self, key):
 		"""

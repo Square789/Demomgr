@@ -4,7 +4,7 @@ Demomgr is a python program designed to keep track of, cleanup and play demo fil
 > ![Main program window](https://github.com/Square789/Demomgr/blob/master/img0.PNG)  
 > _Main program view, directory filtered to only demos taking place on payload maps, sorted by creation time._
 
-### Current features:
+## Current features:
 * List Demos, their filesize, creation date and the amount of Killstreaks/Bookmarks
   * Sort them by these criteria
 * Read Killstreak/Bookmark information from both .json files and the \_events.txt file
@@ -17,7 +17,7 @@ Demomgr is a python program designed to keep track of, cleanup and play demo fil
   * Optionally with HLAE
 * Play a demo into an already running instance of TF2 using [RCON](https://developer.valvesoftware.com/wiki/Source_RCON_Protocol)
 
-### Installation Instructions (Pure python):
+## Installation Instructions (Pure python):
 If you don't have python, get it from [the official website](https://www.python.org).
 
 Demomgr is in python's package index (PyPI), you can install it using `pip install demomgr`.
@@ -28,22 +28,20 @@ If that does not work out for you, try `py -m demomgr`, or in a very extravagant
 python script that runs  
 `from demomgr.main_app import MainApp; MainApp()`.
 
-### Installation instructions (exe):
+## Installation instructions (exe):
 There is an experimental [nuitka](https://nuitka.net/) build of Demomgr available in the "Releases" section for Windows.  
 Extract it to a good place for programs to be and run the contained `demomgr.exe`.
 
-### Getting started:
+## Getting started:
 After accepting the disclaimer (Look, I have no idea how to set up tests for deletion/file management logic
 intertwined with a UI, and even though I spend hours testing proper functionality there is a risk of something sneaking by),
 you will be presented an empty UI. In order to view your demos, click "Add demo path" and select the directory containing your demos.  
 You can switch between directories using the selection box at the top of the window.  
 
-### Filter instructions:
-The filter criteria must be entered as follows:  
-`<keyname>:<parameter>`, seperated by commas.  
+## Filter instructions:
+The filter criteria are entered in pairs: `[keyname]:[parameter]`, seperated by commas.  
 **You can negate all key-parameter pairs by prefixing the key with **`!`**.**  
-**Do not use the same filtering key (Even if negated) in a filter request, as one will replace the other.**  
-**You can enter multiple criteria by seperating them with **`,`**.**
+**Do not re-use the same filtering key (Even if negated) in a filter request, one will replace the other.**  
 
 You can currently filter the directory you are in by the following keys:
  * map : _Substring of the map name a demo is playing on._ (String)

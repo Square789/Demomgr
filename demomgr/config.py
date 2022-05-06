@@ -58,34 +58,36 @@ class EnumTransformer:
 class RememberListValidator:
 	"""
 	RememberListValidators validate the types of submitted values
-	against the schema validatables in the given default types,
+	against the schema validatables in the given default validators,
 	then apply a forward-compatible update scheme of incoming values
 	into a copy of the default values, returning it.
 	If the validation fails, an unchanged copy of the default is
 	returned, all errors suppressed.
+	Validators can be omitted, in which case they will be treated
+	as `Schema(type(v))` for each default value.
 
 		i. e.: `DEF: [], UPD: [1, 2]` -> `[1, 2]`;
 		`DEF: [False, 5], UPD: [True]` -> `[True, 5]`
 		`DEF: ["abc", 10], UPD: ["def", "ghi"]` -> `["abc", 10]`
 	"""
-	def __init__(self, default, default_types = None) -> None:
-		if default_types is None:
-			default_types = tuple(Schema(type(v)) for v in default)
+	def __init__(self, default, validators = None) -> None:
+		if validators is None:
+			validators = tuple(Schema(type(v)) for v in default)
 		else:
-			default_types = tuple(
+			validators = tuple(
 				Schema(type(v)) if s is None else s
-				for v, s in zip(default, default_types)
+				for v, s in zip(default, validators)
 			)
 
 		self.default = default
-		self.default_types = default_types
+		self.validators = validators
 
 	def validate(self, update_with):
 		if len(self.default) < len(update_with):
 			return self.default.copy()
 
 		transformed_values = []
-		for schem, newval in zip(self.default_types, update_with):
+		for schem, newval in zip(self.validators, update_with):
 			try:
 				transformed_values.append(schem.validate(newval))
 			except SchemaError:
@@ -121,7 +123,7 @@ _SCHEMA = Schema(
 		"rcon_pwd": Or(None, str),
 		"steam_path": Or(None, str),
 		"ui_remember": {
-			"launch_tf2": RememberListValidator([False, True, "", ""]),
+			"launch_tf2": RememberListValidator([False, True, "", "", 0]),
 			"settings": RememberListValidator([0]),
 			"bulk_operator": RememberListValidator(
 				[CNST.BULK_OPERATION.DELETE, ""],

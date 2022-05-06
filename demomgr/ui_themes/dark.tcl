@@ -83,7 +83,7 @@ ttk::style theme create demomgr_dark -settings \
 			list            $IMG(entry.png) \
 			{focus !active} $IMG(entry-f.png) \
 		] \
-		-border 6 -sticky news
+		-border 6 -padding 5 -sticky news
 	ttk::style element create Spinbox.arrow_frame image [
 			list            $IMG(combobox_attachment.png) \
 		] \

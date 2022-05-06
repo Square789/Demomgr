@@ -20,7 +20,7 @@ class BaseDialog(tk.Toplevel):
 	that allows two dialogs to pop up when spamming the activation key (Space)
 	on a button very quickly while it's focused. Thus, `show` and heavy computational
 	work should be done in `body` since it's guaranteed to be called only once;
-	duplicate dialogs will not show up when their `show` method is clicked and have
+	duplicate dialogs will not show up when their `show` method is called and have
 	their `state` set to `GLITCHED`.
 
 	Code "borrowed" from tkinter.simpledialog.Dialog, overrides the 5px
@@ -62,27 +62,34 @@ class BaseDialog(tk.Toplevel):
 			super().destroy()
 			return
 
-		self.grab_set()
-		self.focus_set()
-		self.withdraw()
+		# tcl/tk moment
+		self.transient(self.parent)
 
-		self.rootframe = ttk.Frame(self)
-		self._mainframe = ttk.Frame(self.rootframe)
+		self._rootframe = ttk.Frame(self)
+		self._mainframe = ttk.Frame(self._rootframe)
 		self.body(self._mainframe)
 		self._mainframe.pack(expand = 1, fill = tk.BOTH, padx = 5, pady = 5)
-		self.rootframe.pack(expand = 1, fill = tk.BOTH)
+		self._rootframe.pack(expand = 1, fill = tk.BOTH)
 
-		if self.parent.winfo_viewable():
-			self.transient(self.parent)
-
-		if self.parent is not None:
-			self.geometry(f"+{self.parent.winfo_rootx() + 50}+{self.parent.winfo_rooty() + 50}")
+		x, y = (
+			(0, 0) if self.parent is None
+			else (self.parent.winfo_rootx(), self.parent.winfo_rooty())
+		)
+		self.geometry(f"+{x + 50}+{y + 50}")
 
 		self.deiconify()
+		self.grab_set()
+		# This causes the execution to stall until the window is closed.
+		# Very epic, cause it means that calling functions can simply continue
+		# as if nothing happened and read the dialog's results.
 		self.wait_window(self)
 
 	def body(self, master):
-		"""Override this"""
+		"""
+		Override this. But never ever call `update`, `wait_visibility`
+		or anything that might prompt tkinter to start processing user
+		events in here.
+		"""
 		pass
 
 	def destroy(self):
