@@ -47,7 +47,8 @@ EVENTFILE_FILENAMEFORMAT = "(?<= \\(\").+(?=\" at)" #regex
 EVENTFILE_BOOKMARK = "Bookmark"
 EVENTFILE_KILLSTREAK = "Killstreak"
 STATUSBARDEFAULT = "Ready."
-TF2_HEAD_PATH = "steamapps/common/Team Fortress 2/tf/"
+TF2_HEAD_PATH = "steamapps/common/Team Fortress 2/"
+TF2_FS_ROOT_TAIL_PATH = "tf/"
 TF2_EXE_TAIL_PATH = "hl2.exe"
 TF2_LAUNCHARGS = ["-steam", "-game", "tf"]
 TF2_GAME_ID = "440"

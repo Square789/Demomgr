@@ -191,7 +191,7 @@ class Play(BaseDialog):
 		# It's possible I'm too incompetent to plug in the correct launch arg into
 		# tf2, but any kind of escaping i've tried causes tf2 to always cut the
 		# file name up and treat stuff as seperate commands.
-		self.warning_bad_chars_in_demo_name = ErrorLabel() # TODO make this show up
+		self.warning_bad_chars_in_demo_name = ErrorLabel()
 		# DONE make the tick/tick offset elements work nicely as outlined in that throwaway note file
 		# DONE fix the launch argument/rcon playdemo weirdness
 		# DONE push 1.10.0 cause new play dialog and interface is just too nice
@@ -576,21 +576,21 @@ class Play(BaseDialog):
 			demo_name = play_cmd[1]
 			if _demo_name_needs_escaping(demo_name):
 				if escape_play:
-					play_cmd = ("playdemo", '"' + play_cmd[1] + '"')
+					play_cmd = ("playdemo", '"' + demo_name + '"')
 				else:
 					play_cmd = None
 			else:
-				play_cmd = ("playdemo", play_cmd[1])
+				play_cmd = ("playdemo", demo_name)
 
-		return tuple(
-			c for c in (play_cmd, self.demo_gototick_cmd)
-			if c is not None
-		)
+		return tuple(c for c in (play_cmd, self.demo_gototick_cmd) if c is not None)
 
 	def _set_play_command(self):
 		self.demo_play_cmd = None
 		try:
-			shortdemopath = os.path.relpath(self.demopath, self._tf2_head_path)
+			shortdemopath = os.path.relpath(
+				self.demopath,
+				os.path.join(self._tf2_head_path, CNST.TF2_FS_ROOT_TAIL_PATH),
+			)
 			if ".." in os.path.normpath(shortdemopath).split(os.sep):
 				raise ValueError("Can't exit game directory")
 			# Should i handle other space characters here? Who knows!
@@ -720,10 +720,10 @@ class Play(BaseDialog):
 			# This thing needs to be escaped properly or else bad things will likely happen.
 			launch_args.append(" ".join(
 				CNST.TF2_LAUNCHARGS +
+				CNST.HLAE_ADD_TF2_ARGS +
 				steam_user_args +
 				custom_args +
-				demo_args +
-				CNST.HLAE_ADD_TF2_ARGS
+				demo_args
 			))
 			final_launchoptions = [os.path.join(self.cfg.hlae_path, CNST.HLAE_EXE)] + launch_args
 		else:
@@ -736,7 +736,6 @@ class Play(BaseDialog):
 
 		try:
 			subprocess.Popen(final_launchoptions)
-			# print(final_launchoptions)
 		except FileNotFoundError:
 			tk_msg.showerror("Demomgr - Error", "Executable not found.", parent = self)
 		except OSError as error:
