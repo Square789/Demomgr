@@ -58,8 +58,18 @@ if _system == "windows":
 	kernel32.GetLastError.argtypes = []
 	kernel32.GetLastError.restype = wintypes.DWORD
 
+	# Taken from https://stackoverflow.com/questions/29213106/
+	# 	how-to-securely-escape-command-line-arguments-for-the-cmd-exe-shell-on-windows,
+	# except i kinda didn't need it so it shall remain as an empty comment.
+	# RE_METACHARS = re.compile('(' + '|'.join(re.escape(c) for c in '()%!^"<>&|') + ')')
+	# def quote(s):
+	# 	if re.search(r'["\s]', s):
+	# 		s = '"' + s.replace('"', '\\"') + '"'
+	# 	return RE_METACHARS.sub(lambda match: '^' + match[1], s)
+
 else:
 	kernel32 = None
+	# quote = shlex.quote
 
 
 def get_cfg_storage_path():

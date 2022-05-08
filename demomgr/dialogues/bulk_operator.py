@@ -17,6 +17,7 @@ from demomgr.platforming import is_same_path
 from demomgr.tk_widgets import TtkText
 from demomgr.threadgroup import ThreadGroup, THREADGROUPSIG
 from demomgr.threads import THREADSIG, CMDDemosThread
+from demomgr.tk_widgets.misc import DynamicLabel
 
 
 _DGM_TXT = {CNST.DATA_GRAB_MODE.JSON: "JSON file", CNST.DATA_GRAB_MODE.EVENTS: "_events logchunk"}
@@ -203,21 +204,14 @@ class BulkOperator(BaseDialog):
 		self.target_sel_button = ttk.Button(
 			self.target_path_frame, text = "Select target...", command = self._select_target
 		)
-		self.warning_label = ttk.Label(
-			self.target_path_frame,
+		self.warning_label = DynamicLabel(
+			300, 400, self.target_path_frame,
 			text = (
 				"Note: Since I don't feel like writing more code that checks for "
 				"duplicate files, any file naming conflicts in the destination directory "
 				"will be ignored and existing files overwritten."
 			),
 			style = "Info.Contained.TLabel",
-			wraplength = 400,
-		)
-		self.target_path_frame.bind(
-			"<Configure>",
-			lambda _: self.warning_label.configure(
-				wraplength = max(300, self.target_path_frame.winfo_width())
-			)
 		)
 
 		self.listbox.grid(row = 0, column = 0, sticky = "nesw")

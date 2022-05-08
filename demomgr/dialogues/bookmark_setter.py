@@ -21,6 +21,7 @@ from demomgr import constants as CNST
 from demomgr.threadgroup import ThreadGroup, THREADGROUPSIG
 from demomgr.threads import THREADSIG, ThreadMarkDemo
 from demomgr.tk_widgets import TtkText
+from demomgr.tk_widgets.misc import DynamicLabel
 
 class BookmarkSetter(BaseDialog):
 	"""
@@ -135,20 +136,14 @@ class BookmarkSetter(BaseDialog):
 
 		widgetcontainer.grid(row = 0, column = 0, columnspan = 2, sticky = "news")
 
-		self.warning_label = ttk.Label(
-			parent,
+		self.warning_label = DynamicLabel(
+			500, 250, parent,
 			text = (
 				"Note: Hitting \"Save\" will replace all existing bookmarks for this demo "
 				"with the ones specified in the listbox above."
 			),
 			style = "Info.TLabel",
 			wraplength = 500,
-		)
-		parent.bind(
-			"<Configure>",
-			lambda _: self.warning_label.configure(
-				wraplength = max(250, parent.winfo_width())
-			)
 		)
 		self.warning_label.grid(row = 1, column = 0, columnspan = 2, sticky = "news", pady = 5)
 

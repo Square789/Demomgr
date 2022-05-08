@@ -1,7 +1,7 @@
 from itertools import chain, cycle, repeat
 import os
 import queue
-from stringprep import in_table_c11
+import re
 import subprocess
 import tkinter as tk
 import tkinter.ttk as ttk
@@ -19,6 +19,8 @@ from demomgr.platforming import get_steam_exe
 from demomgr.threadgroup import ThreadGroup, THREADGROUPSIG
 from demomgr.threads import THREADSIG, RCONThread
 from demomgr.tk_widgets import PasswordButton, TtkText
+from demomgr.tk_widgets.misc import DynamicLabel
+
 
 def follow_vdf_keys(vdf_data, keys, key_case_sensitive = True):
 	"""
@@ -50,6 +52,12 @@ def follow_vdf_keys(vdf_data, keys, key_case_sensitive = True):
 			return None
 	return vdf_data
 
+
+RE_DOES_NOT_REQUIRE_ESCAPING = re.compile(r"^[!#$%&*+,\-./0-9<=>?@A-Z[\\\]^_a-z|]+$")
+def _demo_name_needs_escaping(n):
+	return not RE_DOES_NOT_REQUIRE_ESCAPING.match(n)
+
+
 class User():
 	__slots__ = ("dir_name", "name", "launch_opt")
 
@@ -65,6 +73,7 @@ class User():
 		if self.is_fake():
 			return "No one"
 		return self.dir_name + (f" - {self.name}" if self.name is not None else '')
+
 
 class ErrorLabel():
 	__slots__ = ("label", "grid_options", "is_set")
@@ -86,11 +95,13 @@ class ErrorLabel():
 	def set_grid_options(self, **kw):
 		self.grid_options = kw
 
+
 class ERR_IDX:
 	STEAMDIR = 0
 	STEAMDIR_DRIVE = 1
 	DEMO_OUTSIDE_GAME = 2
 	LAUNCHOPT = 3
+
 
 class Play(BaseDialog):
 	"""
@@ -179,8 +190,8 @@ class Play(BaseDialog):
 		# I am not sure whether this error is correct.
 		# It's possible I'm too incompetent to plug in the correct launch arg into
 		# tf2, but any kind of escaping i've tried causes tf2 to always cut the
-		# file name arg up at the first space.
-		self.warning_space_in_demo_name = ErrorLabel() # TODO make this show up
+		# file name up and treat stuff as seperate commands.
+		self.warning_bad_chars_in_demo_name = ErrorLabel() # TODO make this show up
 		# DONE make the tick/tick offset elements work nicely as outlined in that throwaway note file
 		# DONE fix the launch argument/rcon playdemo weirdness
 		# DONE push 1.10.0 cause new play dialog and interface is just too nice
@@ -250,13 +261,14 @@ class Play(BaseDialog):
 			arg_region, style = "Contained.TEntry", textvariable = self.user_launch_options_var,
 			state = "readonly"
 		)
-		user_launch_options_ignored_label = ttk.Label(
-			arg_region, style = "Contained.TLabel",
+		user_launch_options_ignored_label = DynamicLabel(
+			250, 400, arg_region,
+			style = "Contained.TLabel",
 			text = (
 				"Note: The options immediatedly below are ignored when launching via steam.\n"
-				"Steam will always force the currently logged in user's launch options in\n"
+				"Steam will always force the currently logged in user's launch options in "
 				"addition to the ones in the last two fields."
-			)
+			),
 		)
 		custom_launch_options_entry = ttk.Entry(
 			arg_region, style = "Contained.TEntry", textvariable = self.custom_launch_options_var
@@ -269,9 +281,9 @@ class Play(BaseDialog):
 			arg_region, style = "Contained.TButton", text = "[RCON] Send play commands",
 			state = tk.DISABLED, command = self._rcon_send_commands
 		)
-		self.warning_space_in_demo_name.label = ttk.Label(
+		self.warning_bad_chars_in_demo_name.label = ttk.Label(
 			arg_region, style = "Warning.Contained.TLabel", text = (
-				"Demo is unplayable via TF2 launch arguments as its name contains a space."
+				"playdemo can't be set as launch argument due to special characters in demo name."
 			)
 		)
 
@@ -359,13 +371,17 @@ class Play(BaseDialog):
 		# Launch options region
 		arg_region.grid_columnconfigure(0, weight = 1)
 		user_launch_options_ignored_label.grid(row = 1, column = 0, columnspan = 2, sticky = "ew")
-		user_launch_options_entry.grid(row = 2, column = 0, columnspan = 2, pady = (0, 5), sticky = "ew")
-		custom_launch_options_entry.grid(row = 3, column = 0, columnspan = 2, pady = (0, 5), sticky = "ew")
-		play_commands_entry.grid(row = 4, column = 0, sticky = "ew")
-		self.warning_space_in_demo_name.set_grid_options(row = 5, column = 0, sticky = "ew", pady = (0, 5))
-		self.rcon_send_commands_button.grid(
-			row = 4, column = 1, padx = (5, 0), pady = (0, 5), sticky = "e"
+		user_launch_options_entry.grid(
+			row = 2, column = 0, columnspan = 2, pady = (0, 5), sticky = "ew"
 		)
+		custom_launch_options_entry.grid(
+			row = 3, column = 0, columnspan = 2, pady = (0, 5), sticky = "ew"
+		)
+		play_commands_entry.grid(row = 4, column = 0, sticky = "ew")
+		self.warning_bad_chars_in_demo_name.set_grid_options(
+			row = 5, column = 0, columnspan = 2, sticky = "ew"
+		)
+		self.rcon_send_commands_button.grid(row = 4, column = 1, padx = (5, 0), sticky = "e")
 		arg_region.grid(row = 1, column = 0, sticky = "nesw")
 
 		# Event tick entry
@@ -389,7 +405,7 @@ class Play(BaseDialog):
 
 		bookmark_region.grid_columnconfigure(0, weight = 1)
 		bookmark_region.grid_rowconfigure(0, weight = 1)
-		self.tick_mfl.grid(row = 0, column = 0, rowspan = 3, padx = (0, 5), sticky = "nesw")
+		self.tick_mfl.grid(row = 0, column = 0, rowspan = 3, padx = (0, 5), pady = (5, 0), sticky = "nesw")
 		self.warning_not_in_tf_dir.set_grid_options(row = 1, column = 1, sticky = "ew")
 		launch_button.grid(row = 2, column = 1, ipadx = 40)
 		bookmark_region.grid(row = 2, column = 0, pady = (0, 5), sticky = "nesw")
@@ -539,15 +555,32 @@ class Play(BaseDialog):
 		))
 
 	def get_demo_commands(self, escape_play = False):
+		"""
+		Gets the commands necessary to play the demo as tuples of
+		command name and arguments.
+		If escape_play is given, the play command will be escaped so
+		it can be processed by the TF2 console, if necessary.
+		If escaping is necessary and this parameter is False, no play
+		command will be returned.
+		"""
 		play_cmd = self.demo_play_cmd
-		if play_cmd is not None and escape_play:
+		if play_cmd is not None:
 			# The placement of "" here may seem insanely careless, but TF2's console in
 			# general behaves weirdly with quotes and seems to treat everything between the
 			# first and last quote as a complete string?
+			# Even more weird, the string escaping behavior seems to be depending on whatever
+			# command you're running and changes between i.e. `say`, `echo` and `playdemo`.`
 			# Demos with `"` in their filename are unplayable even from within TF2, so don't
 			# name them that lol
 			# Without this, demos with a space in their filename are not playable via RCON.
-			play_cmd = ("playdemo", '"' + play_cmd[1] + '"')
+			demo_name = play_cmd[1]
+			if _demo_name_needs_escaping(demo_name):
+				if escape_play:
+					play_cmd = ("playdemo", '"' + play_cmd[1] + '"')
+				else:
+					play_cmd = None
+			else:
+				play_cmd = ("playdemo", play_cmd[1])
 
 		return tuple(
 			c for c in (play_cmd, self.demo_gototick_cmd)
@@ -562,8 +595,8 @@ class Play(BaseDialog):
 				raise ValueError("Can't exit game directory")
 			# Should i handle other space characters here? Who knows!
 			# Though if someone somehow puts \n into their demo's filename, they're asking for it.
-			if " " in shortdemopath:
-				self.warning_space_in_demo_name.set(True)
+			if _demo_name_needs_escaping(shortdemopath):
+				self.warning_bad_chars_in_demo_name.set(True)
 			self.demo_play_cmd = ("playdemo", shortdemopath)
 		except (TypeError, ValueError):
 			# TypeError occurrs when steam_path is None.
@@ -683,7 +716,8 @@ class Play(BaseDialog):
 			launch_args.extend(CNST.HLAE_LAUNCHARGS1)
 			launch_args.append(os.path.join(self._tf2_head_path, CNST.TF2_EXE_TAIL_PATH))
 			launch_args.extend(CNST.HLAE_LAUNCHARGS2)
-			# has to be supplied as string
+			# Supply all of the hl2.exe launch args as a string.
+			# This thing needs to be escaped properly or else bad things will likely happen.
 			launch_args.append(" ".join(
 				CNST.TF2_LAUNCHARGS +
 				steam_user_args +
@@ -701,8 +735,8 @@ class Play(BaseDialog):
 			)
 
 		try:
-			# subprocess.Popen(final_launchoptions)
-			print(final_launchoptions)
+			subprocess.Popen(final_launchoptions)
+			# print(final_launchoptions)
 		except FileNotFoundError:
 			tk_msg.showerror("Demomgr - Error", "Executable not found.", parent = self)
 		except OSError as error:
