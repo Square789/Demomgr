@@ -10,12 +10,12 @@ Demomgr is a python program designed to keep track of, cleanup and play demo fil
 * Read Killstreak/Bookmark information from both .json files and the \_events.txt file
 * View and edit bookmark information of individual demos
 * View header information of individual demos
-* Filter and select demos by multiple criteria
-* Cleanup folders by filter criteria
-* Copy/Move demos and their info to other directories
-* Launch TF2 with a playdemo command attached
+* Sort demos and filter/select them by multiple criteria
+* Delete selections of demos
+* Copy/Move selections of demos and their info to other directories
+* Launch TF2 with a `playdemo` and/or `demo_gototick` command attached
   * Optionally with HLAE
-* Play a demo into an already running instance of TF2 using [RCON](https://developer.valvesoftware.com/wiki/Source_RCON_Protocol)
+* Play demos into an already running instance of TF2 using [RCON](https://developer.valvesoftware.com/wiki/Source_RCON_Protocol)
 
 ## Installation Instructions (Pure python):
 If you don't have python, get it from [the official website](https://www.python.org).
