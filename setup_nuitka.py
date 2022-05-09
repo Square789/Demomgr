@@ -25,7 +25,6 @@ PROBABLY_UNUSED_FILES = (
 	"_sqlite3.pyd",
 	"_ssl.pyd",
 	"libcrypto-1_1.dll",
-	"libffi-7.dll",
 	"libssl-1_1.dll",
 	"pyexpat.pyd",
 	"sqlite3.dll",

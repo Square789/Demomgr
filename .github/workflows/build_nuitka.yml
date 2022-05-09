@@ -33,35 +33,8 @@ jobs:
       # So much for the human readability
       - name: Generate variables
         id: vars
-        run: "
-          python -c 'exec(\\\"\\\"\\\"\
-          import os\\n\
-          import re\\n\
-          \\n\
-          RE_SEMVER = re.compile(\\n\
-          \   r\\\"(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\\"\\n\
-          \   r\\\"(?:-((?:0|[1-9][0-9]*|[0-9]*[a-zA-Z-][0-9a-zA-Z-]*)\\\"\\n\
-          \   r\\\"(?:\\.(?:0|[1-9][0-9]*|[0-9]*[a-zA-Z-][0-9a-zA-Z-]*))*))\\\"\\n\
-          \   r\\\"?(?:\\+([0-9a-zA-Z-]+(?:\\.[0-9a-zA-Z-]+)*))?$\\\"\\n\
-          )\\n\
-          arch = \\\"${{ matrix.architecture }}\\\"\\n\
-          dist_glob = \\\"./nuitka_build/demomgr.dist/**\\\"\\n\
-          \\n\
-          raw_ref = os.getenv(\\\"GITHUB_REF\\\", \\\"unknown\\\")\\n\
-          if (ref := RE_SEMVER.search(raw_ref)) is None:\\n\
-          \   print(\\\"Semver not found in GITHUB_REF, using last segment!\\\")\\n\
-          \   ref = raw_ref.split(\\\"/\\\")[-1]\\n\
-          else:\\n\
-          \   ref = ref[0]\\n\
-          \\n\
-          build_name = f\\\"demomgr_v{ref}_win{arch}\\\"\\n\
-          for n, v in zip(\\n\
-          \   (\\\"BUILD_NAME\\\", \\\"DEMOMGR_DIST_GLOB\\\"),\\n\
-          \   (build_name, dist_glob)\\n\
-          ):\\n\
-          \   print(f\\\"::set-output name={n}::{v}\\\")\\n\
-          \\\"\\\"\\\")'
-        "
+        working-directory: .github/workflows/
+        run: python gen_build_vars.py ${{ matrix.architecture }}
 
       - name: Install wheel, nuitka and dependencies
         run: |
