@@ -7,7 +7,6 @@ import shutil
 import subprocess
 
 ASSUME_YES = os.getenv("NUITKA_ASSUME_YES") is not None
-COMPILER_USE_DEFAULT = os.getenv("NUITKA_COMPILER_USE_DEFAULT") is not None
 
 
 # files that the program still runs without (according
@@ -34,14 +33,14 @@ PROBABLY_UNUSED_DIRS = (
 	"lib2to3",
 )
 
-def copy_license(package_name, target_dir, license_suffix, license_names = None):
+def copy_license(package_name, target_dir, license_suffix = "", license_names = None):
 	license_text = None
-	filename = None
 	module = pkg_resources.get_distribution(package_name)
 	names = (
 		map("".join, product(("LICENSE", "LICENCE"), ("", ".txt")))
 		if license_names is None else license_names
 	)
+	filename = None
 	for _name in names:
 		try:
 			# Look, I know this var would persist after the loop anyways,
@@ -70,8 +69,6 @@ def main():
 	options = [sys.executable, "-m", "nuitka"]
 	if ASSUME_YES:
 		options.append("--assume-yes-for-downloads")
-	if COMPILER_USE_DEFAULT is None:
-		options.extend("--mingw64")
 	options.extend((
 		"--standalone",
 		"--follow-imports",
@@ -93,17 +90,13 @@ def main():
 		dirs_exist_ok = True
 	)
 
+	# Delete unused stuff
 	for file in PROBABLY_UNUSED_FILES:
-		to_delete = dist_dir / file
-		if not to_delete.exists():
-			continue
-		to_delete.unlink()
-
+		if (to_delete := dist_dir / file).exists():
+			to_delete.unlink()
 	for dir in PROBABLY_UNUSED_DIRS:
-		to_delete = dist_dir / dir
-		if not to_delete.exists():
-			continue
-		shutil.rmtree(str(to_delete))
+		if (to_delete := dist_dir / dir).exists():
+			shutil.rmtree(str(to_delete))
 
 	# Copy licenses
 	with (cur_path / "LICENSE").open("r") as license_fp:
@@ -111,7 +104,7 @@ def main():
 	with (dist_dir / "LICENSE").open("w") as license_fp:
 		license_fp.write(license)
 
-	copy_license("regex", regex_dist_dir, "")
+	copy_license("regex", regex_dist_dir)
 	copy_license("vdf", dist_dir, "-ValvePython_vdf")
 	copy_license("schema", dist_dir, "-keleshev_schema", ("LICENSE-MIT",))
 

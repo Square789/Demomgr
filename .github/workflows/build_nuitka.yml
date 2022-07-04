@@ -16,7 +16,6 @@ jobs:
 
     env:
       NUITKA_ASSUME_YES: 1
-      NUITKA_COMPILER_USE_DEFAULT: 1
 
     runs-on: windows-latest
 
@@ -30,7 +29,6 @@ jobs:
           python-version: '3.8'
           architecture: ${{ matrix.architecture }}
 
-      # So much for the human readability
       - name: Generate variables
         id: vars
         working-directory: .github/workflows/
