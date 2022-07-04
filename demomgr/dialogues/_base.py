@@ -49,7 +49,7 @@ class BaseDialog(tk.Toplevel):
 
 		context_menus.decorate_root_window(self)
 
-	def show(self, make_transient = True):
+	def show(self):
 		"""
 		Create the dialog's interface and show it if the dialog is not a duplicate.
 		If it is, the custom subclass `body` method won't be called and the dialog's
