@@ -22,7 +22,7 @@ from demomgr import platforming
 from demomgr.threadgroup import ThreadGroup, THREADGROUPSIG
 from demomgr.threads import THREADSIG, ThreadFilter, ThreadReadFolder, ReadDemoMetaThread
 
-__version__ = "1.10.0"
+__version__ = "1.10.1"
 __author__ = "Square789"
 
 class DemoOp():
@@ -804,7 +804,8 @@ class MainApp():
 		directory path to config after validating.
 		"""
 		dirpath = tk_fid.askdirectory(title = "Select the folder containing your demos.")
-		if dirpath == "":
+		# askdirectory can return empty tuples if it feels like it
+		if type(dirpath) is not str or not dirpath:
 			return
 		if dirpath in self.cfg.demo_paths:
 			return

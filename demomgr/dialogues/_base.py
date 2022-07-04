@@ -49,7 +49,7 @@ class BaseDialog(tk.Toplevel):
 
 		context_menus.decorate_root_window(self)
 
-	def show(self):
+	def show(self, make_transient = True):
 		"""
 		Create the dialog's interface and show it if the dialog is not a duplicate.
 		If it is, the custom subclass `body` method won't be called and the dialog's
@@ -62,8 +62,13 @@ class BaseDialog(tk.Toplevel):
 			super().destroy()
 			return
 
-		# tcl/tk moment
-		self.transient(self.parent)
+		# This will make dialogs act as subwindow to main windows only sometimes.
+		# Unfortunately, some dialogs (FirstRun, CfgError) appear before the main window.
+		# The main window itself is withdrawn at that point, the dialogs inherit that
+		# state and for some reason some window managers just refuse to show them with
+		# `deiconify()`. 
+		if self.parent is not None and self.parent.wm_state() != "withdrawn":
+			self.transient(self.parent)
 
 		self._rootframe = ttk.Frame(self)
 		self._mainframe = ttk.Frame(self._rootframe)
