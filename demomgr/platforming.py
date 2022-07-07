@@ -72,7 +72,10 @@ else:
 	# quote = shlex.quote
 
 
-def get_cfg_storage_path():
+# Poor decisions. Why did i not want to roam a config file?
+# Also the `.demomgr` sticks out like a sore thumb alongside all other dirs in `.config`
+# that are not prefixed with a dot
+def get_old_cfg_storage_path():
 	if _system == "windows":
 		appdata_path = Path(os.environ["APPDATA"])
 		if (
@@ -80,10 +83,20 @@ def get_cfg_storage_path():
 			appdata_path.name.lower() == "roaming"
 		):
 			appdata_path = appdata_path.parent
-		return str(Path(appdata_path, "Local", CNST.CFG_FOLDER, CNST.CFG_NAME))
+		return str(Path(appdata_path, "Local", ".demomgr", "config.cfg"))
 	else:
-		return str(Path("~/.config", CNST.CFG_FOLDER, CNST.CFG_NAME).expanduser())
+		return str(Path("~/.config", ".demomgr", "config.cfg").expanduser())
 		# No clue if this works, especially on apple.
+
+def get_cfg_storage_path():
+	if _system == "windows":
+		return str(Path(os.environ["APPDATA"], "Demomgr", "config.json"))
+	else:
+		cfg_dir = os.getenv("XDG_CONFIG_HOME", os.path.join(os.environ["HOME"], ".config/"))
+		return str(Path(cfg_dir, "Demomgr", "config.json"))
+		# Still unsure about this on darwin, since there's also a Library/Application Support/ dir
+		# there but A: i don't really care about that platform and B: i have no way of testing
+		# this as a direct consequence of A.
 
 def get_contextmenu_btn():
 	"""

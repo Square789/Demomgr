@@ -1,5 +1,6 @@
 import os
 import json
+import shutil
 import subprocess
 import tkinter as tk
 import tkinter.ttk as ttk
@@ -87,28 +88,32 @@ class MainApp():
 		self.threadgroups["filter"].build_cb_method(self._after_callback_filter)
 
 		# startup routine
-		is_firstrun = False
 		if os.path.exists(self.cfgpath):
 			self.cfg = self.getcfg()
-			if self.cfg is None: # Quit
-				return
-			if self.cfg.first_run:
-				is_firstrun = True
 		else:
-			try:
-				os.makedirs(
-					os.path.dirname(self.cfgpath), # self.cfgpath ends in a file, should be ok
-					exist_ok = True
-				)
-			except OSError as exc:
-				tk_msg.showerror(
-					"Demomgr - Error", f"The following error occurred during startup: {exc}"
-				)
-				self.quit_app(False)
-				return
-			self.cfg = Config.get_default()
-			self.writecfg()
-			is_firstrun = True
+			# see if an old (pre-1.10.1) config exists and migrate it
+			old_cfgpath = platforming.get_old_cfg_storage_path()
+			if os.path.exists(old_cfgpath):
+				try:
+					os.makedirs(os.path.dirname(self.cfgpath), exist_ok = True)
+					shutil.move(old_cfgpath, self.cfgpath)
+				except OSError as exc:
+					tk_msg.showerror("Demomgr - Error", f"Error migrating config: {exc}")
+					self.quit_app(False)
+					return
+				try:
+					os.rmdir(os.path.dirname(old_cfgpath))
+				except OSError:
+					# Weird, since it may mean the dir is not empty. Just ignore it then.
+					# The dir will be left like that forever but, as a wise man once said,
+					# that's showbiz.
+					pass
+				self.cfg = self.getcfg()
+			else:
+				self.cfg = Config.get_default()
+
+		if self.cfg is None:
+			return
 
 		# load style (For FirstRun)
 		self.ttkstyle = ttk.Style() # Used later-on too.
@@ -116,11 +121,11 @@ class MainApp():
 		self._DEFAULT_THEME = self.ttkstyle.theme_use()
 		self._applytheme()
 
-		if is_firstrun:
+		if self.cfg.first_run:
 			fr_dialog = FirstRun(self.root)
 			fr_dialog.show()
 			if fr_dialog.result.state != DIAGSIG.SUCCESS:
-				self.quit_app()
+				self.quit_app(False)
 				return
 			self.cfg.first_run = False
 
@@ -338,6 +343,7 @@ class MainApp():
 		# Without the stuff below, the root.destroy method will produce
 		# strange errors on closing, due to some dark magic regarding after
 		# commands.
+		# Begin section heavily copied from tkinter's __init__.py
 		for c in list(self.root.children.values()):
 			try:
 				c.destroy()
@@ -347,11 +353,7 @@ class MainApp():
 		tk.Misc.destroy(self.root)
 		if tk._support_default_root and tk._default_root is self.root:
 			tk._default_root = None
-		# Above section copied from tkinter's __init__.py
-		try:
-			self.root.destroy()
-		except tk.TclError:
-			pass
+		# End section copied from tkinter's __init__.py
 		self.root.quit()
 
 	def _opensettings(self):
@@ -836,8 +838,12 @@ class MainApp():
 		fixed.
 		"""
 		write_ok = False
+		cfg_dir = os.path.dirname(self.cfgpath) # self.cfgpath ends in a file, should be ok
 		while not write_ok:
 			try:
+				if not os.path.exists(cfg_dir):
+					# exist_ok is unnecessary but as long as it gets created, whatever
+					os.makedirs(cfg_dir, exist_ok = True)
 				with open(self.cfgpath, "w") as handle:
 					handle.write(self.cfg.to_json())
 				write_ok = True
@@ -863,7 +869,7 @@ class MainApp():
 		while cfg is None:
 			try:
 				cfg = Config.load_and_validate(self.cfgpath)
-			except (OSError, json.decoder.JSONDecodeError, SchemaError) as exc:
+			except (OSError, json.decoder.JSONDecodeError, SchemaError, TypeError) as exc:
 				dialog = CfgError(self.root, cfgpath = self.cfgpath, error = exc, mode = 0)
 				dialog.show()
 				if dialog.result.data == 0: # Retry

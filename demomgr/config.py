@@ -149,6 +149,8 @@ class Config():
 		Will merge the supplied dict with a copy of the default
 		config and run a Schema validation on the supplied dict, so a
 		SchemaError may be raised.
+		May also raise TypeError if the passed object was not of type
+		dict.
 
 		Will perform some backwards-compatibility operations on the
 		supplied arguments, notably `hlae_path`, `last_path`, `rcon_pwd`
@@ -160,6 +162,12 @@ class Config():
 		If `file_manager_mode` is `None`, will be set to a value fitting
 		for the system.
 		"""
+
+		if not isinstance(passed_cfg, dict):
+			raise TypeError(
+				f"Bad type for passed config object. Expected dict, was "
+				f"{type(passed_cfg).__name__}"
+			)
 
 		cfg = deepcopy(DEFAULT)
 		deepupdate_dict(cfg, _rename_fields(passed_cfg))
