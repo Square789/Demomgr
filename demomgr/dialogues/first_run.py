@@ -31,9 +31,10 @@ class FirstRun(BaseDialog):
 		txtbox = TtkText(master, ttk.Style(), wrap = tk.WORD, yscrollcommand = scrlbar_v.set)
 		scrlbar_v.config(command = txtbox.yview)
 		txtbox.insert(tk.END, CNST.WELCOME)
-		txtbox.config(state = tk.DISABLED)
 		txtbox.grid(column = 0, row = 0, sticky = "news", pady = (0, 5))
 		scrlbar_v.grid(column = 1, row = 0, sticky = "sn", pady = (0, 5))
+		txtbox.configure(wrap = tk.WORD)
+		txtbox.configure(state = tk.DISABLED)
 
 		btnframe = ttk.Frame(master)
 		btnframe.columnconfigure((0, 1), weight = 1)

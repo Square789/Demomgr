@@ -148,7 +148,7 @@ class BookmarkSetter(BaseDialog):
 		self.warning_label.grid(row = 1, column = 0, columnspan = 2, sticky = "news", pady = 5)
 
 		self.textbox = TtkText(
-			parent, self.styleobj, height = 8, wrap = "none", takefocus = False
+			parent, self.styleobj, height = 8, wrap = tk.NONE, takefocus = False
 		)
 		self.textbox.grid(row = 2, column = 0, columnspan = 2, sticky = "news", pady = 5)
 		self.textbox.lower()

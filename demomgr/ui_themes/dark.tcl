@@ -25,7 +25,7 @@ ttk::style theme create demomgr_dark -settings \
 		-foreground #EEEEEE -selectbackground #EEEEEE -selectforeground #000000
 	
 	ttk::style configure TtkHook.Text \
-		-foreground #EEEEEE -background #333333 -relief flat -wrap none
+		-foreground #EEEEEE -background #333333 -relief flat
 	# For some reason -2 is necessary
 	ttk::style configure TtkHook.Canvas \
 		-foreground #EEEEEE -background #333333 -relief flat -borderwidth -2

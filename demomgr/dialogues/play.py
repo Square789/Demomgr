@@ -224,6 +224,7 @@ class Play(BaseDialog):
 		)
 		rcon_text_frame = ttk.Frame(rcon_labelframe, style = "Contained.TFrame")
 		self.rcon_text = TtkText(rcon_text_frame, self._style, height = 4, width = 48)
+		self.rcon_text.configure(wrap = tk.NONE)
 		rcon_text_scrollbar = ttk.Scrollbar(
 			rcon_text_frame, orient = tk.HORIZONTAL, command = self.rcon_text.xview
 		)
