@@ -314,6 +314,15 @@ class MainApp():
 		self.listbox.bind("<<MultiframeSelect>>", self._mfl_select_callback)
 		self.listbox.bind("<<MultiframeRightclick>>", self._mfl_rc_callback)
 
+		# # This will force the root window's dimensions to its initially requested one.
+		# # Prevents irritating resize of the window for long paths that get written to the
+		# # statusbar.
+		# self.root.update()
+		# self.root.wm_geometry(self.root.wm_geometry())
+
+		# You know, it's actually much easier to just not put the paths onto the statusbar, so
+		# I did that instead lul
+
 	def _mfl_rc_callback(self, event):
 		context_menus.multiframelist_cb(event, self.listbox, self.demooperations)
 
@@ -794,7 +803,6 @@ class MainApp():
 		"""Set statusbar text to data (str)."""
 		self.statusbarlabel.after_cancel(self.after_handle_statusbar)
 		self.statusbarlabel.config(text = str(data))
-		self.statusbarlabel.update()
 		if timeout is not None:
 			self.after_handle_statusbar = self.statusbarlabel.after(
 				timeout, lambda: self.setstatusbar(CNST.STATUSBARDEFAULT)

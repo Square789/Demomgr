@@ -59,11 +59,7 @@ class ThreadReadFolder(_StoppableBaseThread):
 			self.__stop(None, None, None, THREADSIG.FAILURE)
 			return
 
-		self.queue_out_put(
-			THREADSIG.INFO_STATUSBAR,
-			f"Reading demo information from {self.targetdir} ...",
-			None,
-		)
+		self.queue_out_put(THREADSIG.INFO_STATUSBAR, f"Reading demo information...", None)
 		starttime = time.time()
 
 		try:
@@ -74,10 +70,7 @@ class ThreadReadFolder(_StoppableBaseThread):
 			]
 		except FileNotFoundError:
 			self.__stop(
-				f"ERROR: Current directory {self.targetdir!r} does not exist.",
-				None,
-				None,
-				THREADSIG.FAILURE,
+				f"ERROR: Selected directory does not exist.", None, None, THREADSIG.FAILURE
 			)
 			return
 		except OSError as exc:

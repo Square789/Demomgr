@@ -152,7 +152,7 @@ class _KVDLine():
 		self.entry = ttk.Entry(kvd.innerframe, state = "readonly")
 
 		for w in (self.label, self.entry):
-			prepend_bindtags(w, f"scroll{format(crunch_window_path(kvd._w))}")
+			prepend_bindtags(w, f"scroll{crunch_window_path(kvd._w)}")
 
 		self.label.grid(column = 0, row = kvd.length, sticky = "w")
 		self.entry.grid(column = 1, row = kvd.length, sticky = "ew")
@@ -217,8 +217,10 @@ class KeyValueDisplay(ttk.Frame):
 		self.innerframe.bind("<Configure>", self._frame_cnf_callback)
 		self.innerframe.grid_columnconfigure((0, 1), weight = 1, pad = 50)
 
-		self.tk.eval(SCROLLCOMMAND.format(w = f"scroll{crunch_window_path(self._w)}",
-			tw = self.canvas._w))
+		self.tk.eval(SCROLLCOMMAND.format(
+			w = f"scroll{crunch_window_path(self._w)}",
+			tw = self.canvas._w,
+		))
 		prepend_bindtags(self.innerframe, f"scroll{crunch_window_path(self._w)}")
 		prepend_bindtags(self.canv_scrollbar, f"scroll{crunch_window_path(self._w)}")
 

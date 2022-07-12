@@ -8,6 +8,7 @@ from demomgr.dialogues._diagresult import DIAGSIG
 from demomgr import constants as CNST
 from demomgr.helpers import convertunit, frmd_label, int_validator
 from demomgr.tk_widgets import PasswordButton
+from demomgr.tk_widgets.misc import DynamicLabel
 
 _TK_VARTYPES = {
 	"str": tk.StringVar,
@@ -88,9 +89,12 @@ class Settings(BaseDialog):
 			display_labelframe, variable = self.lazyreload_var, text = "Lazy reload of main demo view",
 			style = "Contained.TCheckbutton"
 		)
-		lazyreload_txt = ttk.Label(
-			display_labelframe, text = "Will not reload the entire directory on minor\n" \
-			"changes such as bookmark modification.", justify = tk.LEFT, style = "Contained.TLabel"
+		lazyreload_txt = DynamicLabel(
+			200, 300, display_labelframe,
+			text = (
+				"Will not reload the entire directory on minor changes such as "
+				"bookmark modification."
+			), justify = tk.LEFT, style = "Contained.TLabel"
 		)
 		lazyreload_btn.grid(sticky = "w", ipadx = 4, pady = (2, 0))
 		lazyreload_txt.grid(sticky = "w", padx = (8, 0)) # Lazy reload
@@ -130,7 +134,7 @@ class Settings(BaseDialog):
 			("File manager:", self.file_manager_path_var, False),
 		)):
 			desc_label = ttk.Label(path_labelframe, style = "Contained.TLabel", text = name)
-			path_entry = ttk.Entry(path_labelframe, state = "readonly", textvariable = tk_var)
+			path_entry = ttk.Entry(path_labelframe, textvariable = tk_var)
 			if dir_only:
 				# ugly parameter binding
 				def _tmp_handler(var = tk_var):
@@ -227,9 +231,6 @@ class Settings(BaseDialog):
 			"File manager": (file_manager_labelframe, ),
 		}
 		self._create_tk_var("int", "_selectedpane_var", 0)
-		self._selected_pane = next(iter(self._INTERFACE)) # Yields first key
-		# Only useful so deleting widgets for the first time in
-		# self._reload_options_panel will not throw AttributeErrors
 
 		sidebar_outerframe = ttk.Frame(mainframe, style = "Border.TFrame")
 		sidebar_outerframe.grid_columnconfigure(0, weight = 1)
@@ -249,8 +250,6 @@ class Settings(BaseDialog):
 			if i == 0 or i == self.ui_remember[0]:
 				tmp_inibtn = curbtn
 
-		tmp_inibtn.invoke()
-
 		sidebar.grid(column = 0, row = 0, sticky = "nesw", padx = 1, pady = 1)
 		sidebar_outerframe.grid(column = 0, row = 0, sticky = "nesw")
 		suboptions_pane.grid(column = 1, row = 0, sticky = "nesw")
@@ -259,8 +258,10 @@ class Settings(BaseDialog):
 		btconfirm = ttk.Button(master, text = "Save", command = lambda: self.done(1))
 		btcancel = ttk.Button(master, text = "Cancel", command = lambda: self.done(0))
 
-		btconfirm.grid(column = 0, row = 1, padx = (0, 3), pady = (3, 0),  sticky = "news")
+		btconfirm.grid(column = 0, row = 1, padx = (0, 3), pady = (3, 0), sticky = "news")
 		btcancel.grid(column = 1, row = 1, padx = (3, 0), pady = (3, 0), sticky = "news")
+
+		tmp_inibtn.invoke()
 
 	def _create_tk_var(self, type_, name, inivalue):
 		"""
@@ -316,8 +317,17 @@ class Settings(BaseDialog):
 		Clears and repopulates right pane with the widgets in
 		self._INTERFACE[`key`]
 		"""
-		for widget in self._INTERFACE[self._selected_pane]:
-			widget.grid_forget()
+		if self._selected_pane == key:
+			return
+
+		# When the user resizes the window, other panes will produce an ugly
+		# amount of empty space. This resets user-requested width.
+		self.wm_geometry("")
+
+		if self._selected_pane is not None:
+			for widget in self._INTERFACE[self._selected_pane]:
+				widget.grid_forget()
+
 		self._selected_pane = key
 		for i, widget in enumerate(self._INTERFACE[key]):
 			pady = (

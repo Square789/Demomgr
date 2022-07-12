@@ -46,4 +46,5 @@ class DynamicLabel(ttk.Label):
 		self._block_reconfigure = True
 		# Hardcoded 5, who cares, good enough for the places it's used in.
 		self.configure(wraplength = max(self._min_wl, e.widget.winfo_width() - 5))
+		e.widget.update_idletasks()
 		self._block_reconfigure = False

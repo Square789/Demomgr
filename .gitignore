@@ -128,8 +128,7 @@ dmypy.json
 .vscode/
 
 # Local ideas/garbage
-_*.png
-_*.txt
+/_*
 
 # nuitka build
 nuitka_build/

@@ -19,6 +19,7 @@ class DIAGSIG:
 	SUCCESS = 0x0
 	FAILURE = 0x1
 
+
 class DiagResult():
 	"""
 	Should be attribute of a dialog to inform of that dialog's state.

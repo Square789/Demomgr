@@ -199,7 +199,7 @@ class BulkOperator(BaseDialog):
 		self.target_path_frame = ttk.Frame(option_frame, style = "Contained.TFrame")
 		self.target_path_frame.grid_columnconfigure(0, weight = 1)
 		self.target_entry = ttk.Entry(
-			self.target_path_frame, textvariable = self.target_directory_var, state = "readonly"
+			self.target_path_frame, textvariable = self.target_directory_var
 		)
 		self.target_sel_button = ttk.Button(
 			self.target_path_frame, text = "Select target...", command = self._select_target
