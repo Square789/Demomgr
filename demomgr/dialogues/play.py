@@ -14,12 +14,11 @@ import vdf
 from demomgr import constants as CNST
 from demomgr.dialogues._base import BaseDialog
 from demomgr.dialogues._diagresult import DIAGSIG
-from demomgr.helpers import frmd_label, tk_secure_str, int_validator
+from demomgr.helpers import frmd_label, tk_secure_str
 from demomgr.platforming import get_steam_exe
 from demomgr.threadgroup import ThreadGroup, THREADGROUPSIG
 from demomgr.threads import THREADSIG, RCONThread
-from demomgr.tk_widgets import PasswordButton, TtkText
-from demomgr.tk_widgets.misc import DynamicLabel
+from demomgr.tk_widgets import DmgrEntry, DmgrSpinbox, DynamicLabel, PasswordButton, TtkText
 
 
 def follow_vdf_keys(vdf_data, keys, key_case_sensitive = True):
@@ -171,7 +170,7 @@ class Play(BaseDialog):
 				with open(
 					os.path.join(self.cfg.steam_path, CNST.LIBRARYFOLDER_VDF),
 					"r",
-					encoding = "utf-8"
+					encoding = "utf-8",
 				) as f:
 					vdf_data = vdf.load(f)
 				libfolders = follow_vdf_keys(vdf_data, ("libraryfolders",), False)
@@ -195,10 +194,10 @@ class Play(BaseDialog):
 		# DONE make the tick/tick offset elements work nicely as outlined in that throwaway note file
 		# DONE fix the launch argument/rcon playdemo weirdness
 		# DONE push 1.10.0 cause new play dialog and interface is just too nice
-		# TODO make cool frag video and link back to demomgr
-		# TODO step 5: 2 unique visitors
-		# TODO step 6: ???
-		# TODO step 7: profit
+		# 2DO  make cool frag video and link back to demomgr
+		# 2DO  step 5: 2 unique visitors
+		# 2DO  step 6: ???
+		# 2DO  step 7: profit
 
 		self.rcon_password_var.set(self.cfg.rcon_pwd or "")
 
@@ -213,13 +212,13 @@ class Play(BaseDialog):
 		rcon_password_label = ttk.Label(
 			rcon_connect_frame, text = "Password", style = "Contained.TLabel"
 		)
-		rcon_password_entry = ttk.Entry(
-			rcon_connect_frame, style = "Contained.TEntry", textvariable = self.rcon_password_var,
-			show = "\u25A0"
+		rcon_password_entry = DmgrEntry(
+			rcon_connect_frame, CNST.RCON_PWD_MAX, style = "Contained.TEntry",
+			textvariable = self.rcon_password_var, show = "\u25A0"
 		)
 		pwd_entry_show_toggle = PasswordButton(rcon_connect_frame, text = "Show")
 		self.rcon_connect_button = ttk.Button(
-			rcon_connect_frame, style = "Contained.TButton",  text = "Connect",
+			rcon_connect_frame, style = "Contained.TButton", text = "Connect",
 			command = self._rcon_start
 		)
 		rcon_text_frame = ttk.Frame(rcon_labelframe, style = "Contained.TFrame")
@@ -259,8 +258,8 @@ class Play(BaseDialog):
 
 		arg_region = ttk.Frame(play_labelframe, style = "Contained.TFrame")
 		user_launch_options_entry = ttk.Entry(
-			arg_region, style = "Contained.TEntry", textvariable = self.user_launch_options_var,
-			state = "readonly"
+			arg_region, style = "Contained.TEntry",
+			textvariable = self.user_launch_options_var, state = "readonly"
 		)
 		user_launch_options_ignored_label = DynamicLabel(
 			250, 400, arg_region,
@@ -271,8 +270,9 @@ class Play(BaseDialog):
 				"addition to the ones in the last two fields."
 			),
 		)
-		custom_launch_options_entry = ttk.Entry(
-			arg_region, style = "Contained.TEntry", textvariable = self.custom_launch_options_var
+		custom_launch_options_entry = DmgrEntry(
+			arg_region, CNST.LAUNCHARG_MAX, style = "Contained.TEntry",
+			textvariable = self.custom_launch_options_var
 		)
 		play_commands_entry = ttk.Entry(
 			arg_region, style = "Contained.TEntry", textvariable = self.play_commands_var,
@@ -305,20 +305,17 @@ class Play(BaseDialog):
 			tick_options_frame, style = "Contained.TCheckbutton",
 			text = "Go to tick in play commands?", variable = self.gototick_launchcmd_var
 		)
-		int_val_id = master.register(int_validator)
-		self.tick_entry = ttk.Entry(
-			tick_options_frame, style = "Contained.TEntry", textvariable = self.tick_var,
-			validate = "key", validatecommand = (int_val_id, "%S", "%P")
+		self.tick_entry = DmgrEntry(
+			tick_options_frame, -1, style = "Contained.TEntry", textvariable = self.tick_var
 		)
 		self.rcon_send_gototick_button = ttk.Button(
 			tick_options_frame, style = "Contained.TButton", text = "[RCON] Go to tick",
 			state = tk.DISABLED, command = self._rcon_send_gototick
 		)
 		tick_offset_frame = ttk.Frame(tick_frame, style = "Contained.TFrame")
-		tick_offset_spinner = ttk.Spinbox(
-			tick_offset_frame, width = 10, textvariable = self.tick_offset_var,
-			from_ = 0, increment = 20, to = 5000, wrap = True,
-			validate = "key", validatecommand = (int_val_id, "%S", "%P")
+		tick_offset_spinner = DmgrSpinbox(
+			tick_offset_frame, -1, width = 10, textvariable = self.tick_offset_var,
+			from_ = 0, increment = 20, to = 5000, wrap = True
 		)
 		tick_offset_label = ttk.Label(
 			tick_offset_frame, style = "Contained.TLabel", text = "Tick offset:"

@@ -17,7 +17,7 @@ from demomgr.platforming import is_same_path
 from demomgr.tk_widgets import TtkText
 from demomgr.threadgroup import ThreadGroup, THREADGROUPSIG
 from demomgr.threads import THREADSIG, CMDDemosThread
-from demomgr.tk_widgets.misc import DynamicLabel
+from demomgr.tk_widgets import DmgrEntry, DynamicLabel
 
 
 _DGM_TXT = {CNST.DATA_GRAB_MODE.JSON: "JSON file", CNST.DATA_GRAB_MODE.EVENTS: "_events logchunk"}
@@ -67,8 +67,8 @@ class BulkOperator(BaseDialog):
 		self.files = files
 		self.cfg = cfg
 		self.styleobj = styleobj
-		self._ini_operation = remember[0]
-		self.target = remember[1]
+		self._rem_ini_operation = remember[0]
+		self._rem_target = remember[1]
 
 		self.spinner = cycle(
 			chain(*(
@@ -165,7 +165,6 @@ class BulkOperator(BaseDialog):
 		self.textbox.config(state = tk.DISABLED)
 
 		self.operation_var = tk.IntVar()
-		self.target_directory_var = tk.StringVar()
 		self.operation_radiobuttons = []
 		option_frame = ttk.LabelFrame(
 			master,
@@ -190,17 +189,9 @@ class BulkOperator(BaseDialog):
 			bt.grid(row = 0, column = i, padx = (0, 10 * (i < 2)), ipadx = 1, sticky = "ew")
 			self.operation_radiobuttons.append(bt)
 
-		if self.target and os.path.isabs(self.target):
-			self.target_directory_var.set(self.target)
-			del self.target
-		self.operation_var.set(self._ini_operation.value)
-		del self._ini_operation
-
 		self.target_path_frame = ttk.Frame(option_frame, style = "Contained.TFrame")
 		self.target_path_frame.grid_columnconfigure(0, weight = 1)
-		self.target_entry = ttk.Entry(
-			self.target_path_frame, textvariable = self.target_directory_var
-		)
+		self.target_entry = DmgrEntry(self.target_path_frame, CNST.PATH_MAX)
 		self.target_sel_button = ttk.Button(
 			self.target_path_frame, text = "Select target...", command = self._select_target
 		)
@@ -230,6 +221,14 @@ class BulkOperator(BaseDialog):
 		self.closebutton.pack(side = tk.LEFT, fill = tk.X, expand = 1, padx = (3, 0))
 		button_frame.grid(row = 3, column = 0, columnspan = 2, sticky = "ew")
 
+		# Initialize some widgets to stored values
+		if self._rem_target and os.path.isabs(self._rem_target):
+			self.target_entry.insert(0, self._rem_target)
+			del self._rem_target
+
+		self.operation_var.set(self._rem_ini_operation.value)
+		del self._rem_ini_operation
+
 		# Pokes all widgets that may need to be modified depending to the operation the dialog was
 		# initialized with
 		self._on_operation_change()
@@ -240,8 +239,8 @@ class BulkOperator(BaseDialog):
 		self.target_sel_button.configure(state = tk.DISABLED)
 		self._locked_operation = op
 		self._locked_operation_success_str, self._locked_operation_failure_str = {
-			CNST.BULK_OPERATION.COPY: ("Copied.", "Failed copying."),
-			CNST.BULK_OPERATION.MOVE: ("Moved.", "Failed moving."),
+			CNST.BULK_OPERATION.COPY:   ("Copied.",  "Failed copying."),
+			CNST.BULK_OPERATION.MOVE:   ("Moved.",   "Failed moving."),
 			CNST.BULK_OPERATION.DELETE: ("Deleted.", "Failed deleting."),
 		}[op]
 
@@ -270,9 +269,10 @@ class BulkOperator(BaseDialog):
 			return
 
 		res = tk_fid.askdirectory(parent = self)
-		if not res:
+		if type(res) is not str or not res:
 			return
-		self.target_directory_var.set(res)
+		self.target_entry.delete(0, tk.END)
+		self.target_entry.insert(0, res)
 
 	def _thread_run_always(self):
 		with self.textbox:
@@ -292,9 +292,13 @@ class BulkOperator(BaseDialog):
 			selected_op is CNST.BULK_OPERATION.COPY or
 			selected_op is CNST.BULK_OPERATION.MOVE
 		):
-			target_dir = self.target_directory_var.get()
+			target_dir = self.target_entry.get()
 			if target_dir == "":
 				tk_msg.showinfo("Demomgr", "You must select a target directory.")
+				return
+
+			if not os.path.isabs(target_dir):
+				tk_msg.showerror("Demomgr", "Destination path must be absolute.")
 				return
 
 			try:
@@ -396,7 +400,7 @@ class BulkOperator(BaseDialog):
 				self._locked_operation if self.result.state is DIAGSIG.SUCCESS
 				else CNST.BULK_OPERATION(self.operation_var.get())
 			),
-			self.target_directory_var.get(),
+			self.target_entry.get(),
 		]
 
 		if self.result.state is DIAGSIG.SUCCESS:

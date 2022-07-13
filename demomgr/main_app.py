@@ -16,14 +16,14 @@ from demomgr.config import Config
 from demomgr.demo_info import DemoInfo
 from demomgr.dialogues import *
 from demomgr.explorer import open_explorer
-from demomgr.tk_widgets import KeyValueDisplay, HeadedFrame
 from demomgr.helpers import build_date_formatter, convertunit
-from demomgr.style_helper import StyleHelper
 from demomgr import platforming
+from demomgr.style_helper import StyleHelper
 from demomgr.threadgroup import ThreadGroup, THREADGROUPSIG
 from demomgr.threads import THREADSIG, ThreadFilter, ThreadReadFolder, ReadDemoMetaThread
+from demomgr.tk_widgets import DmgrEntry, KeyValueDisplay, HeadedFrame, purge_commands
 
-__version__ = "1.10.1"
+__version__ = "1.10.2"
 __author__ = "Square789"
 
 class DemoOp():
@@ -247,7 +247,9 @@ class MainApp():
 		)
 
 		filterlabel = ttk.Label(widgetframe1, text = "Filter: ")
-		self.filterentry = ttk.Entry(widgetframe1, textvariable = self.filterentry_var)
+		self.filterentry = DmgrEntry(
+			widgetframe1, CNST.FILTERSTR_MAX, textvariable = self.filterentry_var
+		)
 		self.filterentry.bind("<Return>", self._filter)
 		self.filterbtn = ttk.Button(widgetframe1, text = "Apply filter", command = self._filter)
 		self.resetfilterbtn = ttk.Button(
@@ -352,17 +354,21 @@ class MainApp():
 		# Without the stuff below, the root.destroy method will produce
 		# strange errors on closing, due to some dark magic regarding after
 		# commands.
-		# Begin section heavily copied from tkinter's __init__.py
-		for c in list(self.root.children.values()):
-			try:
-				c.destroy()
-			except tk.TclError:
-				pass
-		self.root.tk.call('destroy', self.root._w)
-		tk.Misc.destroy(self.root)
-		if tk._support_default_root and tk._default_root is self.root:
-			tk._default_root = None
+		# # Begin section heavily copied from tkinter's __init__.py
+		# for c in list(self.root.children.values()):
+		# 	try:
+		# 		c.destroy()
+		# 	except tk.TclError:
+		# 		pass
+		# self.root.tk.call('destroy', self.root._w)
+		# tk.Misc.destroy(self.root)
+		# if tk._support_default_root and tk._default_root is self.root:
+		# 	tk._default_root = None
 		# End section copied from tkinter's __init__.py
+
+		# ! Not too sure about the above anymore, seems just fine now...
+		purge_commands(self.root)
+		self.root.destroy()
 		self.root.quit()
 
 	def _opensettings(self):

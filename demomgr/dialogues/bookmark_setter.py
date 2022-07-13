@@ -16,12 +16,12 @@ from demomgr.demo_info import DemoEvent
 from demomgr.dialogues._base import BaseDialog
 from demomgr.dialogues._diagresult import DIAGSIG
 
-from demomgr.helpers import frmd_label, int_validator, name_validator
+from demomgr.helpers import frmd_label
 from demomgr import constants as CNST
 from demomgr.threadgroup import ThreadGroup, THREADGROUPSIG
 from demomgr.threads import THREADSIG, ThreadMarkDemo
-from demomgr.tk_widgets import TtkText
-from demomgr.tk_widgets.misc import DynamicLabel
+from demomgr.tk_widgets import DmgrEntry, DynamicLabel, TtkText
+
 
 class BookmarkSetter(BaseDialog):
 	"""
@@ -108,14 +108,8 @@ class BookmarkSetter(BaseDialog):
 		ttk.Label(
 			insert_opt_lblfrm, style = "Contained.TLabel", text = "Tick:"
 		).grid(row = 1, column = 0)
-		self.name_entry = ttk.Entry(
-			insert_opt_lblfrm, validate = "key",
-			validatecommand = (parent.register(name_validator), "%P")
-		)
-		self.tick_entry = ttk.Entry(
-			insert_opt_lblfrm, validate = "key",
-			validatecommand = (parent.register(int_validator), "%S", "%P")
-		)
+		self.name_entry = DmgrEntry(insert_opt_lblfrm, -1)
+		self.tick_entry = DmgrEntry(insert_opt_lblfrm, -1)
 		apply_btn = ttk.Button(
 			insert_opt_lblfrm, text = "Apply", command = self._apply_changes
 		)

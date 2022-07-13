@@ -146,24 +146,3 @@ def tk_secure_str(in_str, repl = None):
 	if repl is None:
 		repl = CNST.REPLACEMENT_CHAR
 	return "".join((i if ord(i) <= 0xFFFF else repl) for i in in_str)
-
-def int_validator(inp, ifallowed):
-	"""
-	Test whether only (positive) integers are being keyed into a widget.
-	Call signature: %S %P
-	"""
-	if len(ifallowed) > 10:
-		return False
-	try:
-		return int(inp) >= 0
-	except ValueError:
-		return False
-
-def name_validator(ifallowed):
-	"""
-	Limit length of string to 40 chars
-	Call signature: %P
-	"""
-	if len(ifallowed) > 40:
-		return False
-	return True

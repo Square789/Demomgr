@@ -1,6 +1,7 @@
 
 from tkinter import ttk
 
+
 class PasswordButton(ttk.Button):
 	def __init__(self, parent, **kwargs):
 		super().__init__(parent, **kwargs)
@@ -48,3 +49,72 @@ class DynamicLabel(ttk.Label):
 		self.configure(wraplength = max(self._min_wl, e.widget.winfo_width() - 5))
 		e.widget.update_idletasks()
 		self._block_reconfigure = False
+
+
+def _int_validator(inp, ifallowed):
+	"""
+	Test whether only (positive) integers are being keyed into an entry.
+	Call signature: %S %P
+	"""
+	if len(ifallowed) > 10:
+		return False
+	try:
+		return int(inp) >= 0
+	except ValueError:
+		return False
+
+
+_command_registry = {}
+
+def purge_commands(tk):
+	"""
+	Properly deletes all commands that have been registered to
+	demomgr specific widgets in the past.
+	"""
+	for cmd in _command_registry.values():
+		tk.deletecommand(cmd)
+
+# The needcleanup parameter will cause tkinter to not store the commands in an internal
+# list on the parent that is used to destroy it as soon as the parent is.
+# We technically leak these, but track them ourselves so it's all good, man
+def _get_command(input_limit, tk_haver):
+	if input_limit not in _command_registry:
+		if input_limit == 0:
+			_command_registry[input_limit] = tk_haver.register(_int_validator, needcleanup=False)
+		else:
+			def _name_validator(if_allowed):
+				"""
+				Limits length of string to X chars
+				Call signature: %P
+				"""
+				return len(if_allowed) <= input_limit
+			_command_registry[input_limit] = tk_haver.register(_name_validator, needcleanup=False)
+
+	sig = ("%S", "%P") if input_limit == 0 else ("%P",)
+	return (_command_registry[input_limit],) + sig
+
+
+class DmgrEntry(ttk.Entry):
+	def __init__(self, parent, input_limit = 40, **kwargs):
+		"""
+		Creates an entry that will limit its input length to the
+		amount of characters. If `input_limit` is <= 0, instead
+		the entry is turned into an int-validator entry which only
+		allows empty strings or valid, positive integer to be typed
+		into itself.
+		"""
+		input_limit = max(input_limit, 0)
+		kwargs["validate"] = "key"
+		kwargs["validatecommand"] = _get_command(input_limit, parent)
+		super().__init__(parent, **kwargs)
+
+
+class DmgrSpinbox(ttk.Spinbox):
+	def __init__(self, parent, input_limit = 40, **kwargs):
+		"""
+		Similar to the DmgrEntry, just a spinbox instead.
+		"""
+		input_limit = max(input_limit, 0)
+		kwargs["validate"] = "key"
+		kwargs["validatecommand"] = _get_command(input_limit, parent)
+		super().__init__(parent, **kwargs)

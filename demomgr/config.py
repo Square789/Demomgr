@@ -1,3 +1,4 @@
+
 from copy import deepcopy
 import json
 
@@ -46,6 +47,32 @@ DEFAULT = {
 	},
 	"ui_theme": "Dark",
 }
+
+# You can do silly things with some of these values.
+# I do not trust.
+
+class IntClipper:
+	def __init__(self, min_, max_) -> None:
+		self._min_constraint = min_
+		self._max_constraint = max_
+
+	def validate(self, v):
+		if not isinstance(v, int):
+			raise SchemaError("Not an int.")
+	
+		return min(max(v, self._min_constraint), self._max_constraint)
+
+
+class StringClipper:
+	def __init__(self, max_length) -> None:
+		self._max_length = max(0, max_length)
+
+	def validate(self, v):
+		if not isinstance(v, str):
+			raise SchemaError("Not a string.")
+
+		return v[:self._max_length]
+
 
 class EnumTransformer:
 	def __init__(self, enum_type) -> None:
@@ -107,27 +134,30 @@ _SCHEMA = Schema(
 		"data_grab_mode": And(int, EnumTransformer(CNST.DATA_GRAB_MODE)),
 		"date_format": str,
 		"demo_paths": [And(str, lambda x: x != "")],
-		"events_blocksize": And(int, lambda x: x > 0),
+		"events_blocksize": IntClipper(1, 1 << 31),
 		"file_manager_mode": Or(
 			None,
 			And(int, EnumTransformer(CNST.FILE_MANAGER_MODE))
 		), # will be set depending on OS when None
-		"file_manager_path": Or(None, str),
+		"file_manager_path": Or(None, StringClipper(CNST.PATH_MAX)),
 		"_comment": str,
 		"first_run": bool,
-		"hlae_path": Or(None, str),
+		"hlae_path": Or(None, StringClipper(CNST.PATH_MAX)),
 		"last_path": Or(str, None, int), # str only for pre-1.9.0 comp
 		"lazy_reload": bool,
 		"preview_demos": bool,
-		"rcon_port": int,
-		"rcon_pwd": Or(None, str),
-		"steam_path": Or(None, str),
+		"rcon_port": IntClipper(0, 65535),
+		"rcon_pwd": Or(None, StringClipper(CNST.RCON_PWD_MAX)),
+		"steam_path": Or(None, StringClipper(CNST.PATH_MAX)),
 		"ui_remember": {
-			"launch_tf2": RememberListValidator([False, True, "", "", 0]),
+			"launch_tf2": RememberListValidator(
+				[False, True, "", "", 0],
+				[None, None, None, StringClipper(CNST.LAUNCHARG_MAX), IntClipper(0, 5000)]
+			),
 			"settings": RememberListValidator([0]),
 			"bulk_operator": RememberListValidator(
 				[CNST.BULK_OPERATION.DELETE, ""],
-				[EnumTransformer(CNST.BULK_OPERATION), None],
+				[EnumTransformer(CNST.BULK_OPERATION), StringClipper(CNST.PATH_MAX)],
 			),
 		},
 		"ui_theme": str,

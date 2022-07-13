@@ -6,9 +6,9 @@ from demomgr.dialogues._base import BaseDialog
 from demomgr.dialogues._diagresult import DIAGSIG
 
 from demomgr import constants as CNST
-from demomgr.helpers import convertunit, frmd_label, int_validator
-from demomgr.tk_widgets import PasswordButton
-from demomgr.tk_widgets.misc import DynamicLabel
+from demomgr.helpers import convertunit, frmd_label
+from demomgr.tk_widgets import DmgrEntry, DynamicLabel, PasswordButton
+
 
 _TK_VARTYPES = {
 	"str": tk.StringVar,
@@ -24,17 +24,20 @@ class Settings(BaseDialog):
 	After the dialog is closed:
 	`self.result.state` will be SUCCESS if user hit OK, else FAILURE.
 	`self.result.data` will be a dict with the following keys:
-		"datagrabmode": How the demo information should be gathered.
-			0 for None, 1 for _events.txt, 2 for .json .
-		"previewdemos": Whether to preview demos in the main view. (bool)
-		"steampath": Path to steam (str)
-		"hlaepath": Path to HLAE (str)
-		"evtblocksz": Chunk size _events.txt should be read in. (int)
+		"data_grab_mode": (DATA_GRAB_MODE)
+		"file_manager_mode": (FILE_MANAGER_MODE)
+		"preview_demos": Whether to preview demos in the main view. (bool)
+		"steam_path": Path to steam (str | None)
+		"hlae_path": Path to HLAE (str | None)
+		"file_manager_path": Path to file manager (str | None)
+		"events_blocksize": Chunk size _events.txt should be read in. (int)
 		"ui_theme": Interface theme. Key of same name must be in
 			constants. (str)
-		"lazyreload": Whether to lazily refresh singular UI elements instead
+		"lazy_reload": Whether to lazily refresh singular UI elements instead
 			of reloading entire UI on changes as single demo deletion or
 			bookmark setting. (bool)
+		"rcon_pwd": Password to use for RCON connections. (str | None)
+		"rcon_port": Port to use for RCON connections. (int)
 
 	Widget state remembering:
 		0: Last visited section
@@ -50,17 +53,6 @@ class Settings(BaseDialog):
 
 		self.cfg = cfg
 
-		self._create_tk_var("int", "datagrabmode_var", cfg.data_grab_mode.value)
-		self._create_tk_var("int", "file_manager_mode_var", cfg.file_manager_mode.value)
-		self._create_tk_var("bool", "preview_var", cfg.preview_demos)
-		self._create_tk_var("str", "date_fmt_var", cfg.date_format)
-		self._create_tk_var("str", "steampath_var", cfg.steam_path or "")
-		self._create_tk_var("str", "hlaepath_var", cfg.hlae_path or "")
-		self._create_tk_var("str", "file_manager_path_var", cfg.file_manager_path or "")
-		self._create_tk_var("str", "ui_style_var", cfg.ui_theme)
-		self._create_tk_var("bool", "lazyreload_var", cfg.lazy_reload)
-		self._create_tk_var("str", "rcon_pwd_var", cfg.rcon_pwd or "")
-
 		self._selected_pane = None
 		self.ui_remember = remember
 
@@ -70,6 +62,13 @@ class Settings(BaseDialog):
 		"""UI setup."""
 		self.protocol("WM_DELETE_WINDOW", self.done)
 
+		self.datagrabmode_var = tk.IntVar(value = self.cfg.data_grab_mode.value)
+		self.file_manager_mode_var = tk.IntVar(value = self.cfg.file_manager_mode.value)
+		self.preview_var = tk.BooleanVar(value = self.cfg.preview_demos)
+		self.ui_style_var = tk.StringVar(value = self.cfg.ui_theme)
+		self.lazyreload_var = tk.BooleanVar(value = self.cfg.lazy_reload)
+		self._selectedpane_var = tk.IntVar()
+
 		master.grid_columnconfigure((0, 1), weight = 1)
 		mainframe = ttk.Frame(master)
 		mainframe.grid_columnconfigure(1, weight = 1)
@@ -77,6 +76,7 @@ class Settings(BaseDialog):
 		suboptions_pane = ttk.Frame(mainframe)
 		suboptions_pane.grid_columnconfigure(0, weight = 1)
 
+		# === Display Pane ===
 		display_labelframe = ttk.LabelFrame(
 			suboptions_pane, padding = 8, labelwidget = frmd_label(suboptions_pane, "Display")
 		)
@@ -124,24 +124,29 @@ class Settings(BaseDialog):
 		)
 		self.date_fmt_combobox.grid(sticky = "ew")
 
+		# === Path pane ===
 		path_labelframe = ttk.LabelFrame(
 			suboptions_pane, padding = 8, labelwidget = frmd_label(suboptions_pane, "Paths")
 		)
 		path_labelframe.grid_columnconfigure(1, weight = 1)
-		for i, (name, tk_var, dir_only) in enumerate((
-			("Steam:", self.steampath_var, True),
-			("HLAE:", self.hlaepath_var, True),
-			("File manager:", self.file_manager_path_var, False),
+
+		self.path_entry_steam = DmgrEntry(path_labelframe, CNST.PATH_MAX)
+		self.path_entry_hlae = DmgrEntry(path_labelframe, CNST.PATH_MAX)
+		self.path_entry_file_manager = DmgrEntry(path_labelframe, CNST.PATH_MAX)
+
+		for i, (name, path_entry, dir_only) in enumerate((
+			("Steam:", self.path_entry_steam, True),
+			("HLAE:", self.path_entry_hlae, True),
+			("File manager:", self.path_entry_file_manager, False),
 		)):
 			desc_label = ttk.Label(path_labelframe, style = "Contained.TLabel", text = name)
-			path_entry = ttk.Entry(path_labelframe, textvariable = tk_var)
 			if dir_only:
 				# ugly parameter binding
-				def _tmp_handler(var = tk_var):
-					return self._sel_dir(var)
+				def _tmp_handler(e = path_entry):
+					return self._sel_dir(e)
 			else:
-				def _tmp_handler(var = tk_var):
-					return self._sel_file(var)
+				def _tmp_handler(e = path_entry):
+					return self._sel_file(e)
 			change_btn = ttk.Button(
 				path_labelframe, text = "Change...", command = _tmp_handler, style = "Contained.TButton"
 			)
@@ -149,6 +154,7 @@ class Settings(BaseDialog):
 			path_entry.grid(row = i, column = 1, padx = (3, 0), sticky = "ew")
 			change_btn.grid(row = i, column = 2, padx = (3, 0))
 
+		# === Data retrieval pane ===
 		datagrab_labelframe = ttk.LabelFrame(
 			suboptions_pane, padding = 8, labelwidget = frmd_label(suboptions_pane, "Get demo information via...")
 		)
@@ -174,27 +180,25 @@ class Settings(BaseDialog):
 		)
 		self.blockszselector.grid(sticky = "ew")
 
+		# === RCON pane ===
 		rcon_pwd_labelframe = ttk.LabelFrame(
 			suboptions_pane, padding = 8, labelwidget = frmd_label(suboptions_pane, "RCON password")
 		)
 		rcon_pwd_labelframe.grid_columnconfigure(0, weight = 1)
-		rcon_entry = ttk.Entry(rcon_pwd_labelframe, textvariable = self.rcon_pwd_var, show = "\u25A0")
-		rcon_entry.grid(column = 0, row = 0, sticky = "ew")
+		self.rcon_pwd_entry = DmgrEntry(rcon_pwd_labelframe, CNST.RCON_PWD_MAX, show = "\u25A0")
+		self.rcon_pwd_entry.grid(column = 0, row = 0, sticky = "ew")
 		entry_visibility_toggle = PasswordButton(rcon_pwd_labelframe, text = "Show")
-		entry_visibility_toggle.bind_to_entry(rcon_entry)
+		entry_visibility_toggle.bind_to_entry(self.rcon_pwd_entry)
 		entry_visibility_toggle.grid(column = 1, row = 0)
 
-		int_val_id = master.register(int_validator)
 		rcon_port_labelframe = ttk.LabelFrame(
 			suboptions_pane, padding = 8, labelwidget = frmd_label(suboptions_pane, "RCON port")
 		)
 		rcon_port_labelframe.grid_columnconfigure(0, weight = 1)
-		self.rcon_port_entry = ttk.Entry(
-			rcon_port_labelframe, validate = "key", validatecommand = (int_val_id, "%S", "%P")
-		)
-		self.rcon_port_entry.insert(0, str(self.cfg.rcon_port))
+		self.rcon_port_entry = DmgrEntry(rcon_port_labelframe, -1)
 		self.rcon_port_entry.grid(column = 0, row = 0, sticky = "ew")
 
+		# === File manager pane ===
 		file_manager_labelframe = ttk.LabelFrame(
 			suboptions_pane, padding = 8, labelwidget = frmd_label(suboptions_pane, "File manager")
 		)
@@ -209,20 +213,7 @@ class Settings(BaseDialog):
 			)
 			b.grid(sticky = "w", ipadx = 4)
 
-		# Set comboboxes
-		tmp = convertunit(self.cfg.events_blocksize, "B")
-		if tmp in self.blockszvals:
-			self.blockszselector.set(tmp)
-		else:
-			self.blockszselector.set(next(iter(self.blockszvals)))
-
-		tmp = self.cfg.date_format
-		if tmp in CNST.DATE_FORMATS:
-			self.date_fmt_combobox.set(tmp)
-		else:
-			self.date_fmt_combobox.set(CNST.DATE_FORMATS[0])
-
-		# Set up main interface
+		# Set up sidebar
 		self._INTERFACE = {
 			"Interface": (display_labelframe, date_format_labelframe),
 			"Information reading": (datagrab_labelframe, eventread_labelframe),
@@ -230,7 +221,6 @@ class Settings(BaseDialog):
 			"RCON": (rcon_pwd_labelframe, rcon_port_labelframe),
 			"File manager": (file_manager_labelframe, ),
 		}
-		self._create_tk_var("int", "_selectedpane_var", 0)
 
 		sidebar_outerframe = ttk.Frame(mainframe, style = "Border.TFrame")
 		sidebar_outerframe.grid_columnconfigure(0, weight = 1)
@@ -261,19 +251,28 @@ class Settings(BaseDialog):
 		btconfirm.grid(column = 0, row = 1, padx = (0, 3), pady = (3, 0), sticky = "news")
 		btcancel.grid(column = 1, row = 1, padx = (3, 0), pady = (3, 0), sticky = "news")
 
-		tmp_inibtn.invoke()
+		# Set comboboxes
+		tmp = convertunit(self.cfg.events_blocksize, "B")
+		if tmp in self.blockszvals:
+			self.blockszselector.set(tmp)
+		else:
+			self.blockszselector.set(next(iter(self.blockszvals)))
 
-	def _create_tk_var(self, type_, name, inivalue):
-		"""
-		Creates a tkinter variable of type "str", "int", "bool", "double",
-		registers it as an attribute of the dialog with name `name` and sets
-		it to `inivalue`.
-		"""
-		if hasattr(self, name):
-			raise ValueError(f"Variable {name} already exists.")
-		var = _TK_VARTYPES[type_]()
-		var.set(inivalue)
-		setattr(self, name, var)
+		tmp = self.cfg.date_format
+		if tmp in CNST.DATE_FORMATS:
+			self.date_fmt_combobox.set(tmp)
+		else:
+			self.date_fmt_combobox.set(CNST.DATE_FORMATS[0])
+
+		# Set entries
+		self.path_entry_steam.insert(0, self.cfg.steam_path or "")
+		self.path_entry_hlae.insert(0, self.cfg.hlae_path or "")
+		self.path_entry_file_manager.insert(0, self.cfg.file_manager_path or "")
+		self.rcon_pwd_entry.insert(0, self.cfg.rcon_pwd or "")
+		self.rcon_port_entry.insert(0, str(self.cfg.rcon_port))
+
+		# Trigger display of selected pane
+		tmp_inibtn.invoke()
 
 	def done(self, save=False):
 		self.withdraw()
@@ -286,31 +285,40 @@ class Settings(BaseDialog):
 				"file_manager_mode": CNST.FILE_MANAGER_MODE(self.file_manager_mode_var.get()),
 				"preview_demos": self.preview_var.get(),
 				"date_format": self.date_fmt_combobox.get(),
-				"steam_path": self.steampath_var.get() or None,
-				"hlae_path": self.hlaepath_var.get() or None,
-				"file_manager_path": self.file_manager_path_var.get() or None,
+				"steam_path": self.path_entry_steam.get() or None,
+				"hlae_path": self.path_entry_hlae.get() or None,
+				"file_manager_path": self.path_entry_file_manager.get() or None,
 				"events_blocksize": self.blockszvals[self.blockszselector.get()],
 				"ui_theme": self.ui_style_var.get(),
 				"lazy_reload": self.lazyreload_var.get(),
-				"rcon_pwd": self.rcon_pwd_var.get() or None,
+				"rcon_pwd": self.rcon_port_entry.get() or None,
 				"rcon_port": int(self.rcon_port_entry.get() or 0),
 			}
 		else:
 			self.result.state = DIAGSIG.FAILURE
 		self.destroy()
 
-	def _sel_dir(self, variable):
+	def _sel_dir(self, entry):
 		"""
-		Prompt the user to select a directory, then modify the tkinter
-		variable `variable` with the selected value.
+		Prompts the user to select a directory, then modifies the
+		tkinter entry `entry` with the selected value, unless the
+		selection was aborted.
 		"""
-		variable.set(tk_fid.askdirectory())
+		res = tk_fid.askdirectory()
+		if type(res) is not str or not res:
+			return
+		entry.delete(0, tk.END)
+		entry.insert(0, res)
 
-	def _sel_file(self, variable):
+	def _sel_file(self, entry):
 		"""
 		Same as `_sel_dir`, just with a file.
 		"""
-		variable.set(tk_fid.askopenfilename())
+		res = tk_fid.askopenfilename()
+		if type(res) is not str or not res:
+			return
+		entry.delete(0, tk.END)
+		entry.insert(0, res)
 
 	def _reload_options_pane(self, key):
 		"""
