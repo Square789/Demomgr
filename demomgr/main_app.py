@@ -23,8 +23,10 @@ from demomgr.threadgroup import ThreadGroup, THREADGROUPSIG
 from demomgr.threads import THREADSIG, ThreadFilter, ThreadReadFolder, ReadDemoMetaThread
 from demomgr.tk_widgets import DmgrEntry, KeyValueDisplay, HeadedFrame, purge_commands
 
+
 __version__ = "1.10.2"
 __author__ = "Square789"
+
 
 class DemoOp():
 	__slots__ = ("name", "cmd", "button", "fit_for_selection_size")
@@ -114,6 +116,15 @@ class MainApp():
 
 		if self.cfg is None:
 			return
+
+		try:
+			f = os.path.join(
+				os.path.dirname(__file__), CNST.THEME_SUBDIR, CNST.ICON_FILENAME
+			)
+			icon = tk.PhotoImage(file = f)
+			self.root.tk.call("wm", "iconphoto", self.root._w, "-default", icon)
+		except Exception as e:
+			pass
 
 		# load style (For FirstRun)
 		self.ttkstyle = ttk.Style() # Used later-on too.

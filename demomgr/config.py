@@ -28,6 +28,7 @@ DEFAULT = {
 	"date_format": "%d.%m.%Y %H:%M:%S",
 	"demo_paths": [],
 	"events_blocksize": 65536,
+	"file_manager_arg_template": [],
 	"file_manager_mode": None,
 	"file_manager_path": None,
 	"_comment": "By messing with the firstrun parameter you acknowledge "
@@ -135,6 +136,7 @@ _SCHEMA = Schema(
 		"date_format": str,
 		"demo_paths": [And(str, lambda x: x != "")],
 		"events_blocksize": IntClipper(1, 1 << 31),
+		"file_manager_arg_template": [str],
 		"file_manager_mode": Or(
 			None,
 			And(int, EnumTransformer(CNST.FILE_MANAGER_MODE))

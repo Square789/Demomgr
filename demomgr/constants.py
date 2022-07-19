@@ -91,6 +91,7 @@ STEAM_CFG_USER_NAME = ("UserLocalConfigStore", "friends", "PersonaName")
 GUI_UPDATE_WAIT = 30
 
 THEME_SUBDIR = "ui_themes"
+ICON_FILENAME = "_icon.gif"
 
 # 0: tcl file, 1: theme name, 2: resource dir name
 THEME_PACKAGES = {

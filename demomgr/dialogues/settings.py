@@ -1,6 +1,8 @@
+import os
 import tkinter as tk
 import tkinter.ttk as ttk
 import tkinter.filedialog as tk_fid
+import typing as t
 
 from demomgr.dialogues._base import BaseDialog
 from demomgr.dialogues._diagresult import DIAGSIG
@@ -9,13 +11,58 @@ from demomgr import constants as CNST
 from demomgr.helpers import convertunit, frmd_label
 from demomgr.tk_widgets import DmgrEntry, DynamicLabel, PasswordButton
 
+if t.TYPE_CHECKING:
+	from demomgr.config import Config
 
-_TK_VARTYPES = {
-	"str": tk.StringVar,
-	"int": tk.IntVar,
-	"bool": tk.BooleanVar,
-	"double": tk.DoubleVar,
-}
+
+class _MalformedSettingsReminder(BaseDialog):
+	"""
+	
+	"""
+
+	def __init__(self, parent: tk.Wm, malformed_ones: t.List[str]) -> None:
+		super().__init__(parent, "Malformed Settings")
+
+		self.malformed_str = "- " + "\n- ".join(malformed_ones) + "\n"
+
+	def body(self, mainframe: tk.Widget) -> None:
+		self.protocol("WM_DELETE_WINDOW", self._go_back)
+		# self.overrideredirect(1)
+
+		self.wm_resizable(False, False)
+		self.wm_attributes("-type", "dialog")
+
+		label = ttk.Label(mainframe, text = (
+			f"The values of the following settings are malformed:\n"
+			f"{self.malformed_str}If you save now, they will "
+			f"be reset to their default values."
+		))
+		label.grid(column = 0, row = 0, sticky = "nesw")
+
+		button_frame = ttk.Frame(mainframe, padding = 5)
+		button_frame.grid_rowconfigure(0, weight = 1)
+		discard_button = ttk.Button(button_frame, text = "Reset and save", command = self._discard)
+		go_back_button = ttk.Button(button_frame, text = "Go back", command = self._go_back)
+		discard_button.grid(column = 0, row = 0, sticky = "ew")
+		go_back_button.grid(column = 1, row = 0, sticky = "ew")
+		button_frame.grid(column = 0, row = 1, sticky = "ew")
+
+	def _discard(self) -> None:
+		self.result.state = DIAGSIG.SUCCESS
+		self.destroy()
+
+	def _go_back(self) -> None:
+		self.result.state = DIAGSIG.FAILURE
+		self.destroy()
+
+
+class MalformedSetting():
+	__slots__ = ("info", "default")
+
+	def __init__(self, info: str, default: object) -> None:
+		self.info = info
+		self.default = default
+
 
 class Settings(BaseDialog):
 	"""
@@ -43,22 +90,22 @@ class Settings(BaseDialog):
 		0: Last visited section
 	"""
 
-	def __init__(self, parent, cfg, remember):
+	def __init__(self, parent: tk.Wm, cfg: "Config", remember: t.List) -> None:
 		"""
 		parent: Tkinter widget that is the parent of this dialog.
-		cfg: Program configuration. (dict)
+		cfg: Program configuration
 		remember: List of arbitrary values, see class docstring.
 		"""
 		super().__init__(parent, "Settings")
 
 		self.cfg = cfg
 
-		self._selected_pane = None
+		self._selected_pane: t.Optional[str] = None
 		self.ui_remember = remember
 
 		self.blockszvals = {convertunit(i, "B"): i for i in (2**pw for pw in range(12, 28))}
 
-	def body(self, master):
+	def body(self, master: tk.Widget) -> None:
 		"""UI setup."""
 		self.protocol("WM_DELETE_WINDOW", self.done)
 
@@ -213,13 +260,31 @@ class Settings(BaseDialog):
 			)
 			b.grid(sticky = "w", ipadx = 4)
 
+		custom_file_manager_arg_labelframe = ttk.LabelFrame(
+			suboptions_pane, padding = 8,
+			labelwidget = frmd_label(suboptions_pane, "Custom file manager arguments"),
+		)
+		custom_file_manager_arg_labelframe.grid_columnconfigure(0, weight = 1)
+		self.file_manager_arg_template_entry = DmgrEntry(
+			custom_file_manager_arg_labelframe, CNST.LAUNCHARG_MAX, style = "Contained.TEntry"
+		)
+		self.file_manager_arg_template_entry.grid(column = 0, row = 0, sticky = "ew")
+		file_manager_arg_template_label = DynamicLabel(
+			200, 300, custom_file_manager_arg_labelframe, style = "Contained.TLabel",
+			justify = tk.LEFT, text = (
+				"Lorem ipsum dolor sit amet."
+			)
+		)
+		file_manager_arg_template_label.grid(column = 0, row = 1, sticky = "nesw")
+
+
 		# Set up sidebar
 		self._INTERFACE = {
 			"Interface": (display_labelframe, date_format_labelframe),
 			"Information reading": (datagrab_labelframe, eventread_labelframe),
 			"Paths": (path_labelframe, ),
 			"RCON": (rcon_pwd_labelframe, rcon_port_labelframe),
-			"File manager": (file_manager_labelframe, ),
+			"File manager": (file_manager_labelframe, custom_file_manager_arg_labelframe),
 		}
 
 		sidebar_outerframe = ttk.Frame(mainframe, style = "Border.TFrame")
@@ -274,31 +339,72 @@ class Settings(BaseDialog):
 		# Trigger display of selected pane
 		tmp_inibtn.invoke()
 
-	def done(self, save=False):
-		self.withdraw()
-		self.update_idletasks()
+	def done(self, save=False) -> None:
+		config_dict = self._collect_settings_dict()
+		bad_settings = []
+		for k, v in config_dict.items():
+			if isinstance(v, MalformedSetting):
+				config_dict[k] = v.default
+				bad_settings.append(v.info)
+
+		if save and bad_settings:
+			# NOTE: This will (at least on my windowing system) cause a new entry in the task bar
+			# I have no idea how to prevent this, I guess only the first layer of transience
+			# causes no extra entry.
+			reminder = _MalformedSettingsReminder(self, bad_settings)
+			reminder.show()
+			# Extremely important to reacquire grab to self, otherwise
+			# main window becomes responsive again
+			self.grab_set()
+			if reminder.result.state != DIAGSIG.SUCCESS:
+				return
+
+		# Settings dialog closed for sure at this point #
+
 		self.result.remember = [self._selectedpane_var.get()]
 		if save:
 			self.result.state = DIAGSIG.SUCCESS
-			self.result.data = {
-				"data_grab_mode": CNST.DATA_GRAB_MODE(self.datagrabmode_var.get()),
-				"file_manager_mode": CNST.FILE_MANAGER_MODE(self.file_manager_mode_var.get()),
-				"preview_demos": self.preview_var.get(),
-				"date_format": self.date_fmt_combobox.get(),
-				"steam_path": self.path_entry_steam.get() or None,
-				"hlae_path": self.path_entry_hlae.get() or None,
-				"file_manager_path": self.path_entry_file_manager.get() or None,
-				"events_blocksize": self.blockszvals[self.blockszselector.get()],
-				"ui_theme": self.ui_style_var.get(),
-				"lazy_reload": self.lazyreload_var.get(),
-				"rcon_pwd": self.rcon_port_entry.get() or None,
-				"rcon_port": int(self.rcon_port_entry.get() or 0),
-			}
+			self.result.data = config_dict
 		else:
 			self.result.state = DIAGSIG.FAILURE
 		self.destroy()
 
-	def _sel_dir(self, entry):
+	def _collect_settings_dict(self) -> t.Dict[str, t.Any]:
+		result = {
+			"data_grab_mode": CNST.DATA_GRAB_MODE(self.datagrabmode_var.get()),
+			"file_manager_mode": CNST.FILE_MANAGER_MODE(self.file_manager_mode_var.get()),
+			"preview_demos": self.preview_var.get(),
+			"date_format": self.date_fmt_combobox.get(),
+			"events_blocksize": self.blockszvals[self.blockszselector.get()],
+			"ui_theme": self.ui_style_var.get(),
+			"lazy_reload": self.lazyreload_var.get(),
+			"rcon_pwd": self.rcon_port_entry.get() or None,
+			"rcon_port": int(self.rcon_port_entry.get() or 0),
+		}
+
+		for key, e, name in (
+			("steam_path", self.path_entry_steam, "Steam path"),
+			("hlae_path", self.path_entry_hlae, "HLAE path"),
+			("file_manager_path", self.path_entry_file_manager, "File manager path"),
+		):
+			v = e.get()
+			if not v:
+				result[key] = None
+			elif not os.path.isabs(v):
+				result[key] = MalformedSetting(name, None)
+			else:
+				result[key] = v
+
+		if self.file_manager_arg_template_entry.get():
+			result["file_manager_arg_template"] = MalformedSetting(
+				"File manager argument template", []
+			)
+		else:
+			result["file_manager_arg_template"] = []
+
+		return result
+
+	def _sel_dir(self, entry: tk.Entry) -> None:
 		"""
 		Prompts the user to select a directory, then modifies the
 		tkinter entry `entry` with the selected value, unless the
@@ -310,7 +416,7 @@ class Settings(BaseDialog):
 		entry.delete(0, tk.END)
 		entry.insert(0, res)
 
-	def _sel_file(self, entry):
+	def _sel_file(self, entry: tk.Entry) -> None:
 		"""
 		Same as `_sel_dir`, just with a file.
 		"""
@@ -320,10 +426,10 @@ class Settings(BaseDialog):
 		entry.delete(0, tk.END)
 		entry.insert(0, res)
 
-	def _reload_options_pane(self, key):
+	def _reload_options_pane(self, key: str) -> None:
 		"""
 		Clears and repopulates right pane with the widgets in
-		self._INTERFACE[`key`]
+		`self._INTERFACE[key]`
 		"""
 		if self._selected_pane == key:
 			return

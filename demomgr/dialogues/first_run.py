@@ -7,6 +7,7 @@ from demomgr.dialogues._diagresult import DIAGSIG
 from demomgr import constants as CNST
 from demomgr.tk_widgets import TtkText
 
+
 class FirstRun(BaseDialog):
 	"""
 	Will open up when no config file is found on startup, prompts
@@ -50,7 +51,5 @@ class FirstRun(BaseDialog):
 		btnframe.grid(column = 0, row = 2, columnspan = 2, sticky = "ew")
 
 	def done(self, param):
-		self.withdraw()
-		self.update_idletasks()
 		self.result.state = param
 		self.destroy()

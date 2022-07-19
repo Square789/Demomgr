@@ -66,7 +66,7 @@ class BaseDialog(tk.Toplevel):
 		# Unfortunately, some dialogs (FirstRun, CfgError) appear before the main window.
 		# The main window itself is withdrawn at that point, the dialogs inherit that
 		# state and for some reason some window managers just refuse to show them with
-		# `deiconify()`. 
+		# `deiconify()`.
 		if self.parent is not None and self.parent.wm_state() != "withdrawn":
 			self.transient(self.parent)
 
