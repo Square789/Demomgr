@@ -1,12 +1,14 @@
 
 from copy import deepcopy
 import json
+import typing as t
 
-from schema import And, Or, Schema, SchemaError
+from schema import And, Or, Schema, SchemaError, Use
 
 import demomgr.constants as CNST
 from demomgr.helpers import deepupdate_dict
 from demomgr.platforming import should_use_windows_explorer
+
 
 # Field renames since 2019 me made some really poor, ugly to read
 # naming choices. (Converts <=1.8.4 to >=1.9.0 cfg)
@@ -53,11 +55,11 @@ DEFAULT = {
 # I do not trust.
 
 class IntClipper:
-	def __init__(self, min_, max_) -> None:
+	def __init__(self, min_: int, max_: int) -> None:
 		self._min_constraint = min_
 		self._max_constraint = max_
 
-	def validate(self, v):
+	def validate(self, v: t.Any) -> int:
 		if not isinstance(v, int):
 			raise SchemaError("Not an int.")
 	
@@ -65,22 +67,29 @@ class IntClipper:
 
 
 class StringClipper:
-	def __init__(self, max_length) -> None:
+	def __init__(self, max_length: int) -> None:
 		self._max_length = max(0, max_length)
 
-	def validate(self, v):
+	def validate(self, v: t.Any) -> str:
 		if not isinstance(v, str):
 			raise SchemaError("Not a string.")
 
 		return v[:self._max_length]
 
 
+# No clue how to type hint this.
 class EnumTransformer:
 	def __init__(self, enum_type) -> None:
 		self.enum_type = enum_type
 
 	def validate(self, v):
 		return self.enum_type(v)
+
+_bool_schema = Schema(bool)
+def validate_launcharg_template(v: t.Any) -> t.Tuple[str, bool]:
+	if not isinstance(v, (list, tuple)) or len(v) != 2:
+		raise SchemaError("Invalid argument template. Expected list or tuple of length 2.")
+	return (StringClipper(CNST.CMDARG_MAX).validate(v[0]), _bool_schema.validate(v[1]))
 
 
 class RememberListValidator:
@@ -98,7 +107,7 @@ class RememberListValidator:
 		`DEF: [False, 5], UPD: [True]` -> `[True, 5]`
 		`DEF: ["abc", 10], UPD: ["def", "ghi"]` -> `["abc", 10]`
 	"""
-	def __init__(self, default, validators = None) -> None:
+	def __init__(self, default: t.List, validators: t.Optional[t.List] = None) -> None:
 		if validators is None:
 			validators = tuple(Schema(type(v)) for v in default)
 		else:
@@ -107,10 +116,10 @@ class RememberListValidator:
 				for v, s in zip(default, validators)
 			)
 
-		self.default = default
-		self.validators = validators
+		self.default: t.List = default
+		self.validators: t.List[Schema] = validators
 
-	def validate(self, update_with):
+	def validate(self, update_with: t.List) -> t.List:
 		if len(self.default) < len(update_with):
 			return self.default.copy()
 
@@ -136,7 +145,7 @@ _SCHEMA = Schema(
 		"date_format": str,
 		"demo_paths": [And(str, lambda x: x != "")],
 		"events_blocksize": IntClipper(1, 1 << 31),
-		"file_manager_arg_template": [str],
+		"file_manager_arg_template": [Use(validate_launcharg_template)],
 		"file_manager_mode": Or(
 			None,
 			And(int, EnumTransformer(CNST.FILE_MANAGER_MODE))
@@ -154,7 +163,7 @@ _SCHEMA = Schema(
 		"ui_remember": {
 			"launch_tf2": RememberListValidator(
 				[False, True, "", "", 0],
-				[None, None, None, StringClipper(CNST.LAUNCHARG_MAX), IntClipper(0, 5000)]
+				[None, None, None, StringClipper(CNST.CMDLINE_MAX), IntClipper(0, 5000)]
 			),
 			"settings": RememberListValidator([0]),
 			"bulk_operator": RememberListValidator(
@@ -167,14 +176,14 @@ _SCHEMA = Schema(
 	ignore_extra_keys = True,
 )
 
-def _rename_fields(data):
+def _rename_fields(data: t.Dict) -> t.Dict:
 	return {_RENAMES.get(k, k): v for k, v in data.items()}
 
 class Config():
 
 	_cfg = None
 
-	def __init__(self, passed_cfg):
+	def __init__(self, passed_cfg: t.Dict) -> None:
 		"""
 		Initializes a demomgr config.
 
@@ -229,14 +238,14 @@ class Config():
 
 		self._cfg = cfg
 
-	def to_json(self):
+	def to_json(self) -> str:
 		"""
 		Returns a json string containing the config, ready to be written
 		to a file.
 		"""
 		return json.dumps(self._cfg, indent = "\t")
 
-	def update(self, **kwargs):
+	def update(self, **kwargs) -> None:
 		"""
 		Updates the config from the given kwargs using the helper function
 		`deepupdate_dict`.
@@ -249,19 +258,19 @@ class Config():
 
 		deepupdate_dict(self._cfg, kwargs)
 
-	def __getattr__(self, attr):
+	def __getattr__(self, attr: str) -> t.Any:
 		if self._cfg is None or attr not in self._cfg:
 			raise AttributeError(f"{type(self).__name__!r} has no attribute {attr!r}")
 		return self._cfg[attr]
 
-	def __setattr__(self, attr, value):
+	def __setattr__(self, attr: str, value: t.Any) -> None:
 		if self._cfg is not None and attr in self._cfg:
 			self._cfg[attr] = value
 		else:
 			super().__setattr__(attr, value)
 
 	@classmethod
-	def load_and_validate(cls, file_path):
+	def load_and_validate(cls, file_path: str) -> "Config":
 		"""
 		Loads and validates the configuration file from the given file
 		path.
@@ -274,7 +283,7 @@ class Config():
 		return cls(data)
 
 	@classmethod
-	def get_default(cls):
+	def get_default(cls) -> "Config":
 		"""
 		Creates and returns a new default config.
 		"""

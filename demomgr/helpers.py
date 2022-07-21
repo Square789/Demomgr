@@ -1,11 +1,17 @@
 """Various helper functions and classes used all over the program."""
 
 import datetime
-import struct
-from tkinter.ttk import Frame, Label
 from math import log10, floor
+from string import Formatter
+import struct
+from tkinter.ttk import Frame, Label, Widget
+import typing as t
 
 from demomgr import constants as CNST
+
+if t.TYPE_CHECKING:
+	from demomgr.demo_info import DemoEvent
+
 
 _CONVPREF = (
 	"y", "z", "a", "f", "p", "n", "µ", "m", "", "k", "M", "G", "T",
@@ -14,14 +20,14 @@ _CONVPREF = (
 _CONVPREF_CENTER = 8
 
 
-def build_date_formatter(fmt):
+def build_date_formatter(fmt: str) -> t.Callable[[int], str]:
 	"""
 	Creates a date formatter method that takes an UNIX timestamp and
 	converts it to what's dictated by the given `fmt`.
 	"""
 	return lambda ts: datetime.datetime.fromtimestamp(ts).strftime(fmt)
 
-def convertunit(inp, ext = "B"):
+def convertunit(inp, ext: str = "B") -> str:
 	"""
 	Unit conversion function. Takes an integer as input, rounds off the
 	number to the last 3 digits and returns it as a string followed by an
@@ -38,7 +44,7 @@ def convertunit(inp, ext = "B"):
 		f"{_CONVPREF[_CONVPREF_CENTER + mag]}{ext}"
 	)
 
-def deepupdate_dict(target, update):
+def deepupdate_dict(target: t.Dict, update: t.Dict) -> None:
 	"""
 	Updates dicts and calls itself recursively if a list or dict is encountered
 	to perform updating at nesting levels instead of just the first one.
@@ -55,22 +61,22 @@ def deepupdate_dict(target, update):
 			target[k] = v
 	return target
 
-def readbin_str(handle, leng = 260):
+def readbin_str(handle: t.IO, leng: int = 260) -> str:
 	"""Reads file handle by leng bytes and attempts to decode to utf-8."""
 	rawbin = handle.read(leng)
 	bin = rawbin.strip(b"\x00")
 	return bin.decode("utf-8")
 
-def readbin_int(handle, leng = 4):
+def readbin_int(handle: t.IO, leng: int = 4) -> int:
 	rawbin = handle.read(leng)
 	return struct.unpack("i", rawbin)[0]
 
-def readbin_flt(handle):
+def readbin_flt(handle: t.IO) -> float:
 	rawbin = handle.read(4)
 	return struct.unpack("f", rawbin)[0]
 
 # Code happily duplicated from https://developer.valvesoftware.com/wiki/DEM_Format
-def readdemoheader(path):
+def readdemoheader(path) -> t.Dict:
 	"""
 	Reads the header information of a demo.
 	May raise:
@@ -98,9 +104,9 @@ def readdemoheader(path):
 
 	return demhdr
 
-def getstreakpeaks(killstreaks):
+def getstreakpeaks(killstreaks: t.Sequence["DemoEvent"]) -> t.List["DemoEvent"]:
 	"""
-	Takes a list of DemoEvents, then returns a list of only the tuples
+	Takes a list of DemoEvents, then returns a list of only the ones
 	whose values make up the peak of their sequence.
 	For example if values of DemoEvents were: (1,2,3,4,5,6,1,2,1,2,3,4),
 	the function would deliver the DemoEvents for (6,2,4).
@@ -123,9 +129,9 @@ def getstreakpeaks(killstreaks):
 	return streakpeaks
 
 def frmd_label(
-		parent, text,
-		styles = ("Framed.Contained.TFrame", "Labelframe.Contained.TLabel")
-	):
+		parent: Widget, text: str,
+		styles: t.Tuple[str] = ("Framed.Contained.TFrame", "Labelframe.Contained.TLabel")
+	) -> Frame:
 	"""
 	Returns a ttk.Frame object containing a ttk.Label with text specified
 	that is supposed to be integrated into a Labelframe.
@@ -137,7 +143,7 @@ def frmd_label(
 	lbl.pack()
 	return frm
 
-def tk_secure_str(in_str, repl = None):
+def tk_secure_str(in_str: str, repl: t.Optional[str] = None) -> str:
 	"""
 	If any character in in_str is out of tkinter's char displaying range
 	(0x0000 - 0xFFFF), it will be replaced with the constant REPLACEMENT_CHAR.
@@ -146,3 +152,26 @@ def tk_secure_str(in_str, repl = None):
 	if repl is None:
 		repl = CNST.REPLACEMENT_CHAR
 	return "".join((i if ord(i) <= 0xFFFF else repl) for i in in_str)
+
+
+_VALID_FILE_MANAGER_TEMPLATES = {"D", "S", "s"}
+
+def verify_file_manager_args(args: str) -> bool:
+	iterator = Formatter().parse(args)
+	try:
+		*segments, = iterator
+	except ValueError:
+		return False
+
+	for _literal_text, field_name, format_spec, conversion in segments:
+		if field_name is None: # and format_spec is None and conversion is None
+			continue
+
+		if (
+			(field_name not in _VALID_FILE_MANAGER_TEMPLATES) or
+			bool(format_spec) or
+			conversion is not None
+		):
+			return False
+
+	return True

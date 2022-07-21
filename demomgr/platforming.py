@@ -9,6 +9,7 @@ from ctypes import Structure, POINTER
 import os
 from pathlib import Path
 import platform
+import typing as t
 
 import demomgr.constants as CNST
 
@@ -58,24 +59,99 @@ if _system == "windows":
 	kernel32.GetLastError.argtypes = []
 	kernel32.GetLastError.restype = wintypes.DWORD
 
-	# Taken from https://stackoverflow.com/questions/29213106/
+
+	# Stolen together from all over
+	# https://stackoverflow.com/questions/29213106/
 	# 	how-to-securely-escape-command-line-arguments-for-the-cmd-exe-shell-on-windows,
-	# except i kinda didn't need it so it shall remain as an empty comment.
-	# RE_METACHARS = re.compile('(' + '|'.join(re.escape(c) for c in '()%!^"<>&|') + ')')
-	# def quote(s):
-	# 	if re.search(r'["\s]', s):
-	# 		s = '"' + s.replace('"', '\\"') + '"'
-	# 	return RE_METACHARS.sub(lambda match: '^' + match[1], s)
+	# https://docs.microsoft.com/en-us/cpp/cpp/main-function-command-line-args
+	# 	#parsing-c-command-line-arguments
+	# https://docs.microsoft.com/en-us/cpp/c-language/parsing-c-command-line-arguments
+	# https://docs.microsoft.com/en-us/archive/blogs/twistylittlepassagesallalike/
+	# 	everyone-quotes-command-line-arguments-the-wrong-way
+	# https://github.com/mesonbuild/meson/blob/master/mesonbuild/mesonlib/universal.py
+	# https://github.com/python/cpython/blob/3.8/Lib/subprocess.py
+
+	_SPACE_CHARS = {' ', '\t', '\v', '\n'}
+	# _QUOTE_NEEDING_CHARS = _SPACE_CHARS | {'"'}
+
+	# Below is handled by subprocess when passing multiple things to . 
+	# def quote_cmdline_arg(arg: str) -> str:
+	# 	if not any(x in _QUOTE_NEEDING_CHARS for x in arg):
+	# 		return arg
+	# 	return '"' + arg.replace('"', "\\\"") + '"'
+
+	def split_cmdline(args: str) -> t.List[str]:
+		if not args:
+			return []
+
+		res = []
+		cur_arg = []
+		in_string = False
+		backslash_run = 0
+		i = 0
+		while i < len(args):
+			c = args[i]
+			if c == '\\':
+				backslash_run += 1
+				i += 1
+				continue
+
+			if c == '"':
+				if backslash_run & 1:
+					# odd amount of backslashes, escaped quote
+					cur_arg.append('\\' * (backslash_run // 2) + '"')
+				else:
+					# Regular quote, you may be thinking? Ha, surprise!
+					# "A pair of double quotes inside a string is interpreted as a
+					# single literal quote" because screw you i guess.
+					if in_string and i < len(args) - 1 and args[i + 1] == '"':
+						cur_arg.append('"')
+						i += 1
+					else:
+						# Regular quote, starts or ends a string.
+						# However, a string is not an argument, so don't round up cur_arg here.
+						# Yes, strings may be embedded in other arguments. I really hope they
+						# can not nest cause this function does not care for that.
+						# This still halves any preceding backslash count, cause it's a double
+						# quote and who am i to speak against microsoft legacy garbage?
+						cur_arg.append('\\' * (backslash_run // 2))
+						in_string = not in_string
+
+			elif not in_string and c in _SPACE_CHARS:
+				# Cool, argument terminated. If at the start, it may not contain
+				# anything, check for that.
+				if cur_arg or backslash_run > 0:
+					res.append(''.join(cur_arg) + ('\\' * backslash_run))
+					cur_arg.clear()
+				# Skip other whitespace while we're at it.
+				# (i += 1 at loop end does the missing jump)
+				while i < len(args) - 1 and args[i + 1] in _SPACE_CHARS:
+					i += 1
+
+			else:
+				# Backslashes not preceding '"' are interpreted literally, add them as-is
+				cur_arg += ('\\' * backslash_run) + c
+
+			i += 1
+			backslash_run = 0
+
+		if cur_arg or backslash_run > 0:
+			res.append(''.join(cur_arg) + ('\\' * backslash_run))
+
+		return res
 
 else:
 	kernel32 = None
-	# quote = shlex.quote
+
+	# from shlex import quote as quote_cmdline_arg
+
+	from shlex import split as split_cmdline
 
 
 # Poor decisions. Why did i not want to roam a config file?
 # Also the `.demomgr` sticks out like a sore thumb alongside all other dirs in `.config`
 # that are not prefixed with a dot
-def get_old_cfg_storage_path():
+def get_old_cfg_storage_path() -> str:
 	if _system == "windows":
 		appdata_path = Path(os.environ["APPDATA"])
 		if (
@@ -88,7 +164,7 @@ def get_old_cfg_storage_path():
 		return str(Path("~/.config", ".demomgr", "config.cfg").expanduser())
 		# No clue if this works, especially on apple.
 
-def get_cfg_storage_path():
+def get_cfg_storage_path() -> str:
 	if _system == "windows":
 		return str(Path(os.environ["APPDATA"], "Demomgr", "config.json"))
 	else:
@@ -98,7 +174,7 @@ def get_cfg_storage_path():
 		# there but A: i don't really care about that platform and B: i have no way of testing
 		# this as a direct consequence of A.
 
-def get_contextmenu_btn():
+def get_contextmenu_btn() -> t.Optional[str]:
 	"""
 	Returns the name of the contextmenu button, dependent on the system.
 	May return None, in which case it's probably best to create no binding.
@@ -109,14 +185,14 @@ def get_contextmenu_btn():
 		return "Menu"
 	return None
 
-def should_use_windows_explorer():
+def should_use_windows_explorer() -> bool:
 	"""
 	Returns whether the windows explorer should be used aka the system
 	is windows.
 	"""
 	return _system == "windows"
 
-def get_rightclick_btn():
+def get_rightclick_btn() -> str:
 	"""
 	Returns the identifier for the right mouse button used by tkinter
 	as a string.
@@ -129,7 +205,7 @@ def get_rightclick_btn():
 		return "3"
 	return "3" # best guess
 
-def get_steam_exe():
+def get_steam_exe() -> str:
 	"""
 	Returns the steam executable name.
 	"""
@@ -138,7 +214,7 @@ def get_steam_exe():
 	else:
 		return CNST.STEAM_SH
 
-def _win_create_file(p):
+def _win_create_file(p: str) -> int:
 	# OPEN_EXISTING is 3
 	# FILE_ATTRIBUTE_NORMAL is 128
 	# FILE_FLAG_BACKUP_SEMANTICS is 0x02000000, required for directories
@@ -148,7 +224,7 @@ def _win_create_file(p):
 		raise OSError("CreateFile returned invalid handle.")
 	return h
 
-def is_same_path(a, b):
+def is_same_path(a: str, b: str) -> bool:
 	"""
 	Compares the paths a and b given as strings and returns whether
 	they lead to the same location.

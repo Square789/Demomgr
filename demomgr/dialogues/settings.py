@@ -17,13 +17,18 @@ if t.TYPE_CHECKING:
 
 class _MalformedSettingsReminder(BaseDialog):
 	"""
-	
+	Dialog popping up a warning to the user that settings are
+	malformed and will be restored to their the default on exit.
+
+	After the dialog is closed:
+	`self.result.state` will be SUCCESS if user chose to exit anyways
+		and FAILURE if they decided to go back.
 	"""
 
 	def __init__(self, parent: tk.Wm, malformed_ones: t.List[str]) -> None:
 		super().__init__(parent, "Malformed Settings")
 
-		self.malformed_str = "- " + "\n- ".join(malformed_ones) + "\n"
+		self.malformed_str = "- " + "\n- ".join(malformed_ones)
 
 	def body(self, mainframe: tk.Widget) -> None:
 		self.protocol("WM_DELETE_WINDOW", self._go_back)
@@ -33,9 +38,8 @@ class _MalformedSettingsReminder(BaseDialog):
 		self.wm_attributes("-type", "dialog")
 
 		label = ttk.Label(mainframe, text = (
-			f"The values of the following settings are malformed:\n"
-			f"{self.malformed_str}If you save now, they will "
-			f"be reset to their default values."
+			f"The values of the following settings are malformed:\n{self.malformed_str}\n"
+			f"If you save now, they will be reset to their default values."
 		))
 		label.grid(column = 0, row = 0, sticky = "nesw")
 
@@ -43,7 +47,7 @@ class _MalformedSettingsReminder(BaseDialog):
 		button_frame.grid_rowconfigure(0, weight = 1)
 		discard_button = ttk.Button(button_frame, text = "Reset and save", command = self._discard)
 		go_back_button = ttk.Button(button_frame, text = "Go back", command = self._go_back)
-		discard_button.grid(column = 0, row = 0, sticky = "ew")
+		discard_button.grid(column = 0, row = 0, padx = (0, 5), sticky = "ew")
 		go_back_button.grid(column = 1, row = 0, sticky = "ew")
 		button_frame.grid(column = 0, row = 1, sticky = "ew")
 
@@ -266,7 +270,7 @@ class Settings(BaseDialog):
 		)
 		custom_file_manager_arg_labelframe.grid_columnconfigure(0, weight = 1)
 		self.file_manager_arg_template_entry = DmgrEntry(
-			custom_file_manager_arg_labelframe, CNST.LAUNCHARG_MAX, style = "Contained.TEntry"
+			custom_file_manager_arg_labelframe, CNST.CMDLINE_MAX, style = "Contained.TEntry"
 		)
 		self.file_manager_arg_template_entry.grid(column = 0, row = 0, sticky = "ew")
 		file_manager_arg_template_label = DynamicLabel(
@@ -396,11 +400,11 @@ class Settings(BaseDialog):
 				result[key] = v
 
 		if self.file_manager_arg_template_entry.get():
-			result["file_manager_arg_template"] = MalformedSetting(
-				"File manager argument template", []
+			result["file_manager_arg_template"] = (
+				MalformedSetting("File manager argument template", [])
+				if self.file_manager_arg_template_entry.get()
+				else []
 			)
-		else:
-			result["file_manager_arg_template"] = []
 
 		return result
 

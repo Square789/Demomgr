@@ -6,6 +6,7 @@ import subprocess
 import tkinter as tk
 import tkinter.ttk as ttk
 import tkinter.messagebox as tk_msg
+import typing as t
 
 from multiframe_list import MultiframeList
 from multiframe_list.multiframe_list import SELECTION_TYPE
@@ -15,13 +16,19 @@ from demomgr import constants as CNST
 from demomgr.dialogues._base import BaseDialog
 from demomgr.dialogues._diagresult import DIAGSIG
 from demomgr.helpers import frmd_label, tk_secure_str
-from demomgr.platforming import get_steam_exe
+from demomgr.platforming import get_steam_exe, split_cmdline
 from demomgr.threadgroup import ThreadGroup, THREADGROUPSIG
 from demomgr.threads import THREADSIG, RCONThread
 from demomgr.tk_widgets import DmgrEntry, DmgrSpinbox, DynamicLabel, PasswordButton, TtkText
 
+if t.TYPE_CHECKING:
+	from demomgr.config import Config
+	from demomgr.demo_info import DemoInfo
 
-def follow_vdf_keys(vdf_data, keys, key_case_sensitive = True):
+
+def follow_vdf_keys(
+	vdf_data: t.Dict, keys: t.Iterable[str], key_case_sensitive: bool = True
+) -> t.Any:
 	"""
 	Resolves a sequence of vdf keys through a given dict representing
 	a vdf file and returns the last value resulted from following the
@@ -60,15 +67,20 @@ def _demo_name_needs_escaping(n):
 class User():
 	__slots__ = ("dir_name", "name", "launch_opt")
 
-	def __init__(self, dir_name = None, name = None, launch_opt = None):
+	def __init__(
+		self,
+		dir_name: t.Optional[str] = None,
+		name: t.Optional[str] = None,
+		launch_opt: t.Optional[str] = None,
+	) -> None:
 		self.dir_name = dir_name
 		self.name = name
 		self.launch_opt = launch_opt
 
-	def is_fake(self):
+	def is_fake(self) -> bool:
 		return self.dir_name is None
 
-	def get_display_str(self):
+	def get_display_str(self) -> str:
 		if self.is_fake():
 			return "No one"
 		return self.dir_name + (f" - {self.name}" if self.name is not None else '')
@@ -77,12 +89,12 @@ class User():
 class ErrorLabel():
 	__slots__ = ("label", "grid_options", "is_set")
 
-	def __init__(self):
-		self.label = None
+	def __init__(self) -> None:
+		self.label: t.Optional[tk.Label] = None
 		self.grid_options = {}
 		self.is_set = False
 
-	def set(self, val):
+	def set(self, val: bool) -> None:
 		if val == self.is_set or self.label is None:
 			return
 		self.is_set = val
@@ -91,7 +103,7 @@ class ErrorLabel():
 		else:
 			self.label.grid_forget()
 
-	def set_grid_options(self, **kw):
+	def set_grid_options(self, **kw) -> None:
 		self.grid_options = kw
 
 
@@ -120,12 +132,20 @@ class Play(BaseDialog):
 			(ignored when not existing)
 	"""
 
-	def __init__(self, parent, demo_dir, info, cfg, style, remember):
+	def __init__(
+		self,
+		parent: tk.Wm,
+		demo_dir: str,
+		info: "DemoInfo",
+		cfg: "Config",
+		style: ttk.Style,
+		remember: t.List,
+	) -> None:
 		"""
 		parent: Parent widget, should be a `Tk` or `Toplevel` instance.
-		demo_dir: Demo directory the demo is located in (str)
-		info: Information about the demo. (DemoInfo)
-		cfg: The program configuration. (dict)
+		demo_dir: Demo directory the demo is located in.
+		info: Information about the demo.
+		cfg: The program configuration.
 		style: ttk.Style object
 		remember: List of arbitrary values. See class docstring for details.
 		"""
@@ -201,7 +221,7 @@ class Play(BaseDialog):
 
 		self.rcon_password_var.set(self.cfg.rcon_pwd or "")
 
-	def body(self, master):
+	def body(self, master: tk.Widget) -> None:
 		"""UI"""
 		self.protocol("WM_DELETE_WINDOW", self.done)
 
@@ -271,7 +291,7 @@ class Play(BaseDialog):
 			),
 		)
 		custom_launch_options_entry = DmgrEntry(
-			arg_region, CNST.LAUNCHARG_MAX, style = "Contained.TEntry",
+			arg_region, CNST.CMDLINE_MAX, style = "Contained.TEntry",
 			textvariable = self.custom_launch_options_var
 		)
 		play_commands_entry = ttk.Entry(
@@ -456,7 +476,7 @@ class Play(BaseDialog):
 		self._set_gototick_command()
 		self._update_demo_commands_var()
 
-	def get_user_data(self, user_dir):
+	def get_user_data(self, user_dir: str) -> t.Tuple[t.Optional[str], t.Optional[str]]:
 		"""
 		Retrieves a user's information.
 		Returns a two-element tuple where [0] is the user's name, safe for
@@ -480,7 +500,7 @@ class Play(BaseDialog):
 		except (OSError, KeyError, SyntaxError):
 			return (None, None)
 
-	def _ini_load_users(self, set_if_present = None):
+	def _ini_load_users(self, set_if_present: str = None) -> None:
 		"""
 		Lists the users based on the passed config's steam directory,
 		saves them in `self.users` and configures the `user_select_var`
@@ -514,7 +534,7 @@ class Play(BaseDialog):
 		self.user_select_var.set(tgt)
 		self.on_user_select()
 
-	def on_user_select(self, *_):
+	def on_user_select(self, *_) -> None:
 		"""
 		Callback to retrieve launch options and update error labels.
 		"""
@@ -522,15 +542,15 @@ class Play(BaseDialog):
 		self.user_launch_options_var.set(user.launch_opt or "")
 		self.info_launch_options_not_found.set((user.launch_opt is None) and (not user.is_fake()))
 
-	def _on_tick_offset_change(self, *_):
+	def _on_tick_offset_change(self, *_) -> None:
 		self._update_tick_entry()
 		self._update_gototick_command_and_demo_commands_var()
 
-	def _on_tick_entry_change(self, *_):
+	def _on_tick_entry_change(self, *_) -> None:
 		self.true_tick = int(self.tick_var.get() or 0) + int(self.tick_offset_var.get() or 0)
 		self._update_gototick_command_and_demo_commands_var()
 
-	def _on_mfl_selection(self):
+	def _on_mfl_selection(self) -> None:
 		tt = 0
 		if self.tick_mfl.selection:
 			tt = self.tick_mfl.get_cell("col_tick", self.tick_mfl.get_selection())
@@ -539,11 +559,11 @@ class Play(BaseDialog):
 		self._update_tick_entry()
 		self._update_demo_commands_var()
 
-	def _update_gototick_command_and_demo_commands_var(self, *_):
+	def _update_gototick_command_and_demo_commands_var(self, *_) -> None:
 		self._set_gototick_command()
 		self._update_demo_commands_var()
 
-	def _update_tick_entry(self):
+	def _update_tick_entry(self) -> None:
 		"""
 		Sets the tick entry to `max(0, true_tick - self.tick_offset_var.get())`
 		"""
@@ -552,7 +572,7 @@ class Play(BaseDialog):
 			self.true_tick - int(self.tick_offset_var.get() or 0)),
 		))
 
-	def get_demo_commands(self, escape_play = False):
+	def get_demo_commands(self, escape_play = False) -> t.Tuple[t.Tuple[str, str], ...]:
 		"""
 		Gets the commands necessary to play the demo as tuples of
 		command name and arguments.
@@ -582,7 +602,7 @@ class Play(BaseDialog):
 
 		return tuple(c for c in (play_cmd, self.demo_gototick_cmd) if c is not None)
 
-	def _set_play_command(self):
+	def _set_play_command(self) -> None:
 		self.demo_play_cmd = None
 		try:
 			shortdemopath = os.path.relpath(
@@ -600,23 +620,23 @@ class Play(BaseDialog):
 			# TypeError occurrs when steam_path is None.
 			self.warning_not_in_tf_dir.set(True)
 
-	def _set_gototick_command(self):
+	def _set_gototick_command(self) -> None:
 		self.demo_gototick_cmd = None
 		if self.gototick_launchcmd_var.get():
 			self.demo_gototick_cmd = ("demo_gototick", self.tick_var.get() or "0")
 
-	def _update_demo_commands_var(self):
+	def _update_demo_commands_var(self) -> None:
 		"""Updates the contents of the third launch args entry."""
 		commands = self.get_demo_commands(escape_play = True)
 		self.play_commands_var.set("; ".join(" ".join(c) for c in commands))
 
-	def _rcon_txt_set_line(self, n, content):
+	def _rcon_txt_set_line(self, n: int, content: str) -> None:
 		"""
 		Sets line n (0-2) of rcon txt widget to content.
 		"""
 		self.rcon_text.replace(f"{n + 2}.0", f"{n + 2}.{tk.END}", content)
 
-	def _rcon_start(self):
+	def _rcon_start(self) -> None:
 		self.animate_spinner = True
 		self.rcon_connect_button.configure(text = "Cancel", command = self._rcon_cancel)
 		with self.rcon_text:
@@ -628,13 +648,13 @@ class Play(BaseDialog):
 			port = self.cfg.rcon_port,
 		)
 
-	def _rcon_cancel(self):
+	def _rcon_cancel(self) -> None:
 		self.animate_spinner = True
 		self.rcon_send_commands_button.config(state = tk.DISABLED)
 		self.rcon_send_gototick_button.config(state = tk.DISABLED)
 		self.rcon_threadgroup.join_thread()
 
-	def _rcon_after_callback(self, sig, *args):
+	def _rcon_after_callback(self, sig: THREADSIG, *args) -> THREADGROUPSIG:
 		if sig.is_finish_signal():
 			self._rcon_on_finish(sig)
 			return THREADGROUPSIG.FINISHED
@@ -645,14 +665,14 @@ class Play(BaseDialog):
 				self._rcon_txt_set_line(args[0], args[1])
 		return THREADGROUPSIG.CONTINUE
 
-	def _rcon_run_always(self):
+	def _rcon_run_always(self) -> None:
 		if not self.animate_spinner:
 			return
 		with self.rcon_text:
 			self.rcon_text.delete("spinner", "spinner + 1 chars")
 			self.rcon_text.insert("spinner", next(self.spinner))
 
-	def _rcon_on_finish(self, sig):
+	def _rcon_on_finish(self, sig: THREADSIG) -> None:
 		self.animate_spinner = False
 		self.rcon_connect_button.configure(text = "Connect", command = self._rcon_start)
 		self.rcon_send_commands_button.config(state = tk.DISABLED)
@@ -664,7 +684,7 @@ class Play(BaseDialog):
 				for i in range(3):
 					self._rcon_txt_set_line(i, "")
 
-	def _rcon_on_connect(self):
+	def _rcon_on_connect(self) -> None:
 		self.animate_spinner = False
 		self.rcon_connect_button.configure(text = "Disconnect")
 		self.rcon_send_commands_button.config(state = tk.NORMAL)
@@ -673,18 +693,18 @@ class Play(BaseDialog):
 			self.rcon_text.replace("status0", "status1", "Connected")
 			self.rcon_text.replace("spinner", "spinner + 1 chars", ".")
 
-	def _rcon_send_commands(self):
+	def _rcon_send_commands(self) -> None:
 		for cmd in self.get_demo_commands(escape_play = True):
 			self.rcon_in_queue.put(" ".join(cmd).encode("utf-8"))
 
-	def _rcon_send_gototick(self):
+	def _rcon_send_gototick(self) -> None:
 		entry_contents = self.tick_var.get()
 		if entry_contents == "":
 			return
 		# Otherwise, entry_contents must be a number (if the validation function didn't fail)
 		self.rcon_in_queue.put(f"demo_gototick {entry_contents}".encode("utf-8"))
 
-	def _launch(self):
+	def _launch(self) -> None:
 		for cond, name in (
 			(self.cfg.steam_path is None, "Steam"),
 			(self.usehlae_var.get() and self.cfg.hlae_path is None, "HLAE")
@@ -701,8 +721,8 @@ class Play(BaseDialog):
 			tk_msg.showerror("Demomgr - Error", "Could not locate TF2.", parent = self)
 			return
 
-		steam_user_args = self.user_launch_options_var.get().split()
-		custom_args = self.custom_launch_options_var.get().split()
+		steam_user_args = split_cmdline(self.user_launch_options_var.get())
+		custom_args = split_cmdline(self.custom_launch_options_var.get())
 		demo_args = []
 		for cmd_name, *cmd_args in self.get_demo_commands():
 			demo_args.append('+' + cmd_name)
@@ -733,6 +753,7 @@ class Play(BaseDialog):
 			)
 
 		try:
+			__import__("pprint").pprint(final_launchoptions)
 			subprocess.Popen(final_launchoptions)
 		except FileNotFoundError:
 			tk_msg.showerror("Demomgr - Error", "Executable not found.", parent = self)
@@ -743,7 +764,7 @@ class Play(BaseDialog):
 				parent = self
 			)
 
-	def done(self):
+	def done(self) -> None:
 		self._rcon_cancel()
 		self.result.state = DIAGSIG.SUCCESS
 
