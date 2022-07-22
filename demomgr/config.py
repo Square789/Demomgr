@@ -85,11 +85,18 @@ class EnumTransformer:
 	def validate(self, v):
 		return self.enum_type(v)
 
+
 _bool_schema = Schema(bool)
 def validate_launcharg_template(v: t.Any) -> t.Tuple[str, bool]:
 	if not isinstance(v, (list, tuple)) or len(v) != 2:
-		raise SchemaError("Invalid argument template. Expected list or tuple of length 2.")
-	return (StringClipper(CNST.CMDARG_MAX).validate(v[0]), _bool_schema.validate(v[1]))
+		raise SchemaError("Invalid argument template object. Expected list or tuple of length 2.")
+
+	string = StringClipper(CNST.CMDARG_MAX).validate(v[0])
+	is_template = _bool_schema.validate(v[1])
+	if is_template and string not in "DSs":
+		raise SchemaError("Invalid template string.")
+
+	return (string, is_template)
 
 
 class RememberListValidator:
@@ -245,18 +252,18 @@ class Config():
 		"""
 		return json.dumps(self._cfg, indent = "\t")
 
-	def update(self, **kwargs) -> None:
+	def update(self, updater: t.Dict) -> None:
 		"""
-		Updates the config from the given kwargs using the helper function
+		Updates the config from the given dict using the helper function
 		`deepupdate_dict`.
 		If an argument is supplied that isn't a valid config field, a
 		`ValueError` is raised.
 		"""
-		for k in kwargs.keys():
+		for k in updater.keys():
 			if k not in DEFAULT:
 				raise ValueError("Unallowed key: {k!r}")
 
-		deepupdate_dict(self._cfg, kwargs)
+		deepupdate_dict(self._cfg, updater)
 
 	def __getattr__(self, attr: str) -> t.Any:
 		if self._cfg is None or attr not in self._cfg:

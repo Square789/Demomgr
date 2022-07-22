@@ -6,6 +6,7 @@ import tkinter as tk
 import tkinter.ttk as ttk
 import tkinter.filedialog as tk_fid
 import tkinter.messagebox as tk_msg
+import typing as t
 
 import multiframe_list.multiframe_list as mfl
 from schema import SchemaError
@@ -31,7 +32,13 @@ __author__ = "Square789"
 class DemoOp():
 	__slots__ = ("name", "cmd", "button", "fit_for_selection_size")
 
-	def __init__(self, name, cmd, button, fit_for_selection_size):
+	def __init__(
+		self,
+		name: str,
+		cmd: t.Callable[[], None],
+		button: t.Optional[tk.Button],
+		fit_for_selection_size: t.Callable[[int], bool],
+	) -> None:
 		self.name = name
 		self.cmd = cmd
 		self.button = button
@@ -45,7 +52,7 @@ class DemoOp():
 
 
 class MainApp():
-	def __init__(self):
+	def __init__(self) -> None:
 		"""
 		Initializes values, variables, reads config, checks for firstrun,
 		applies UI style, sets up interface, then shows main window.
@@ -66,7 +73,7 @@ class MainApp():
 		)
 
 		self.cfgpath = platforming.get_cfg_storage_path()
-		self.curdir = None
+		self.curdir: t.Optional[str] = None
 		self.spinboxvar = tk.StringVar()
 
 		self.after_handle_statusbar = self.root.after(0, lambda: True)
@@ -174,7 +181,7 @@ class MainApp():
 		self.root.deiconify() # end startup; show UI
 		self.root.focus()
 
-	def _setupgui(self):
+	def _setupgui(self) -> None:
 		"""Sets up UI inside of self.root widget."""
 		self.mainframe = ttk.Frame(self.root, padding = (5, 3, 5, 3))
 
@@ -336,10 +343,10 @@ class MainApp():
 		# You know, it's actually much easier to just not put the paths onto the statusbar, so
 		# I did that instead lul
 
-	def _mfl_rc_callback(self, event):
+	def _mfl_rc_callback(self, event: tk.Event) -> None:
 		context_menus.multiframelist_cb(event, self.listbox, self.demooperations)
 
-	def _mfl_select_callback(self, event):
+	def _mfl_select_callback(self, event: tk.Event) -> None:
 		for _, _, btn, fit_for_sel in self.demooperations:
 			btn.configure(
 				state = (
@@ -353,7 +360,7 @@ class MainApp():
 		if self.listbox.selection:
 			self._updatedemowindow()
 
-	def quit_app(self, save_cfg = True):
+	def quit_app(self, save_cfg: bool = True) -> None:
 		for g in self.threadgroups.values():
 			g.cancel_after() # Calling first to cancel running after callbacks asap
 		for g in self.threadgroups.values():
@@ -362,27 +369,20 @@ class MainApp():
 			if self.curdir in self.cfg.demo_paths:
 				self.cfg.last_path = self.cfg.demo_paths.index(self.curdir)
 			self.writecfg()
-		# Without the stuff below, the root.destroy method will produce
-		# strange errors on closing, due to some dark magic regarding after
-		# commands.
-		# # Begin section heavily copied from tkinter's __init__.py
-		# for c in list(self.root.children.values()):
-		# 	try:
-		# 		c.destroy()
-		# 	except tk.TclError:
-		# 		pass
-		# self.root.tk.call('destroy', self.root._w)
-		# tk.Misc.destroy(self.root)
-		# if tk._support_default_root and tk._default_root is self.root:
-		# 	tk._default_root = None
-		# End section copied from tkinter's __init__.py
 
-		# ! Not too sure about the above anymore, seems just fine now...
 		purge_commands(self.root)
-		self.root.destroy()
-		self.root.quit()
+		# Sometimes, TclErrors are produced on closing. Since the program always happens
+		# to close fine though, suppress them. Maybe start logging stuff sometime.
+		try:
+			self.root.destroy()
+		except tk.TclError as e:
+			pass
+		try:
+			self.root.quit()
+		except tk.TclError as e:
+			pass
 
-	def _opensettings(self):
+	def _opensettings(self) -> None:
 		"""Opens settings, acts based on results"""
 		dialog = Settings(
 			self.root,
@@ -403,11 +403,11 @@ class MainApp():
 			self.listbox.config_column(
 				"col_ctime", formatter = build_date_formatter(dialog.result.data["date_format"])
 			)
-		self.cfg.update(**dialog.result.data)
+		self.cfg.update(dialog.result.data)
 		self.reloadgui()
 		self._applytheme()
 
-	def _open_file_manager(self):
+	def _open_file_manager(self) -> None:
 		"""
 		Opens file manager in the current directory.
 		"""
@@ -445,7 +445,7 @@ class MainApp():
 					"Demomgr - Error", f"Error launching file manager: {e}", parent = self.root
 				)
 
-	def _playdem(self):
+	def _playdem(self) -> None:
 		"""
 		Opens play dialog for the currently selected demo.
 		"""
@@ -471,7 +471,7 @@ class MainApp():
 			return
 		self.cfg.ui_remember["launch_tf2"] = dialog.result.remember
 
-	def _copy_move_delete_demos(self):
+	def _copy_move_delete_demos(self) -> None:
 		"""
 		Opens a bulk operator dialog on the selected demos and applies
 		its return values.
@@ -523,7 +523,7 @@ class MainApp():
 			self.listbox.remove_rows(to_remove)
 			self._updatedemowindow(clear = True)
 
-	def _managebookmarks(self):
+	def _managebookmarks(self) -> None:
 		"""Offers dialog to manage a demo's bookmarks."""
 		if not self.listbox.selection:
 			return
@@ -572,7 +572,7 @@ class MainApp():
 		self.listbox.format(("col_bm", "col_ks"), (index, ))
 		self._updatedemowindow(no_io = True)
 
-	def _applytheme(self):
+	def _applytheme(self) -> None:
 		"""
 		Looks at self.cfg, attempts to apply an interface theme using a
 		StyleHelper.
@@ -602,7 +602,7 @@ class MainApp():
 				f"The theme file was not found or a permission problem occurred:\n{error}"
 			)
 
-	def _updatedemowindow(self, clear = False, no_io = False):
+	def _updatedemowindow(self, clear: bool = False, no_io: bool = False) -> None:
 		"""
 		Renews contents of demo information windows.
 		When `clear` is set to `True`, just clears the associated
@@ -640,7 +640,7 @@ class MainApp():
 			target_demo_path = os.path.join(self.curdir, demname)
 		)
 
-	def _after_callback_demoinfo(self, sig, *args):
+	def _after_callback_demoinfo(self, sig: THREADSIG, *args) -> None:
 		"""
 		Loop worker for the demo_info thread.
 		Updates demo info window with I/O-obtained information.
@@ -660,7 +660,7 @@ class MainApp():
 		elif sig is THREADSIG.RESULT_FS_INFO:
 			return THREADGROUPSIG.CONTINUE
 
-	def reloadgui(self):
+	def reloadgui(self) -> None:
 		"""
 		Re-fetches the current directory's contents, cancelling all
 		running threads, clearing all information displays and then
@@ -682,7 +682,7 @@ class MainApp():
 		else:
 			self.threadgroups["fetchdata"].start_thread(targetdir = self.curdir, cfg = self.cfg)
 
-	def _after_callback_fetchdata(self, sig, *args):
+	def _after_callback_fetchdata(self, sig: THREADSIG, *args) -> None:
 		"""
 		Loop worker for the after callback decorator stub.
 		Grabs thread signals from the fetchdata queue and
@@ -700,12 +700,12 @@ class MainApp():
 				self._display_demo_data(data)
 		return THREADGROUPSIG.CONTINUE
 
-	def _finalization_fetchdata(self, *_):
+	def _finalization_fetchdata(self, *_) -> None:
 		self.directory_inf_kvd.set_value(
 			"l_totalsize", sum(self.listbox.get_column("col_filesize"))
 		)
 
-	def _filter_select(self):
+	def _filter_select(self) -> None:
 		"""
 		Starts the filter-select thread after disabling the invoking button.
 		"""
@@ -719,7 +719,7 @@ class MainApp():
 			cfg = self.cfg,
 		)
 
-	def _after_callback_filter_select(self, sig, *args):
+	def _after_callback_filter_select(self, sig: THREADSIG, *args) -> None:
 		"""
 		Loop worker for the after callback decorator stub.
 		Grabs thread signals from the filter-select queue and acts
@@ -735,7 +735,7 @@ class MainApp():
 		elif sig is THREADSIG.RESULT_DEMODATA:
 			return THREADGROUPSIG.HOLDBACK
 
-	def _finalization_filter_select(self, sig, *args):
+	def _finalization_filter_select(self, sig: THREADSIG, *args) -> None:
 		if sig is None:
 			return
 		if sig is not THREADSIG.RESULT_DEMODATA: # weird
@@ -747,13 +747,11 @@ class MainApp():
 
 		self.listbox.set_selection(new_selection)
 
-	def _filter(self, *_):
+	def _filter(self, *_) -> None:
 		"""Starts a filtering thread and configures the filtering button."""
 		if not self.filterentry_var.get() or self.curdir is None:
 			return
-		self.filterbtn.config(
-			text = "Stop Filtering", command = lambda: self._stopfilter(True)
-		)
+		self.filterbtn.config(text = "Stop Filtering", command = self._stopfilter)
 		self.filterentry.unbind("<Return>")
 		self.resetfilterbtn.config(state = tk.DISABLED)
 		self.threadgroups["filter"].start_thread(
@@ -763,14 +761,14 @@ class MainApp():
 			cfg = self.cfg,
 		)
 
-	def _stopfilter(self, called_by_user = False):
+	def _stopfilter(self) -> None:
 		"""
 		Stops the filtering thread by calling the threadgroup's join method.
 		As this invokes the after callback, button states will be reverted.
 		"""
 		self.threadgroups["filter"].join_thread()
 
-	def _after_callback_filter(self, sig, *args):
+	def _after_callback_filter(self, sig: THREADSIG, *args) -> None:
 		"""
 		Loop worker for the after handler callback stub.
 		Grabs elements from the filter queue and updates the statusbar with
@@ -793,7 +791,7 @@ class MainApp():
 			self._display_demo_data(args[0])
 			return THREADGROUPSIG.CONTINUE
 
-	def _display_demo_data(self, data):
+	def _display_demo_data(self, data: t.Dict) -> None:
 		"""
 		Sets the main listbox to display demo data as delivered by the
 		ReadFolder and Filter thread. Mutates `data` before feeding it
@@ -804,7 +802,7 @@ class MainApp():
 		self.listbox.set_data(data)
 		self.listbox.format()
 
-	def _spinboxsel(self, *_):
+	def _spinboxsel(self, *_) -> None:
 		"""
 		Observer callback to self.spinboxvar; is called whenever
 		self.spinboxvar (so the combobox) is updated.
@@ -816,8 +814,12 @@ class MainApp():
 			self.curdir = selpath
 			self.reloadgui()
 
-	def setstatusbar(self, data, timeout = None):
-		"""Set statusbar text to data (str)."""
+	def setstatusbar(self, data: str, timeout: t.Optional[int] = None) -> None:
+		"""
+		Sets the statusbar text to `data`, resetting it to a default
+		after `timeout` msecs, or keeping it indefinitely if `timeout`
+		is None.
+		"""
 		self.statusbarlabel.after_cancel(self.after_handle_statusbar)
 		self.statusbarlabel.config(text = str(data))
 		if timeout is not None:
@@ -825,7 +827,7 @@ class MainApp():
 				timeout, lambda: self.setstatusbar(CNST.STATUSBARDEFAULT)
 			)
 
-	def _addpath(self):
+	def _addpath(self) -> None:
 		"""
 		Offers a directory selection dialog and writes the selected
 		directory path to config after validating.
@@ -840,7 +842,7 @@ class MainApp():
 		self.pathsel_spinbox.config(values = tuple(self.cfg.demo_paths))
 		self.spinboxvar.set(dirpath)
 
-	def _rempath(self):
+	def _rempath(self) -> None:
 		"""
 		Removes the current directory from the registered directories,
 		automatically moves to another one or sets the current directory
@@ -856,7 +858,7 @@ class MainApp():
 			self.spinboxvar.set("")
 		self.pathsel_spinbox.config(values = tuple(self.cfg.demo_paths))
 
-	def writecfg(self):
+	def writecfg(self) -> None:
 		"""
 		Writes the `Config` in `self.cfg` to self.cfgpath, converted to JSON.
 		On write error, opens the CfgError dialog, blocking until the issue is
@@ -883,7 +885,7 @@ class MainApp():
 					self.quit_app(False)
 					return
 
-	def getcfg(self):
+	def getcfg(self) -> t.Optional[Config]:
 		"""
 		Gets config from self.cfgpath and returns it. On error, blocks
 		until program is closed, config is replaced or fixed.

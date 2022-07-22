@@ -44,7 +44,10 @@ ttk::style theme create demomgr_dark -settings \
 	ttk::style configure Error.Contained.TLabel -foreground #DD0000
 	ttk::style configure Warning.Contained.TLabel -foreground #FC7E00
 	ttk::style configure Info.Contained.TLabel -foreground #DDDDDD
-	ttk::style configure Centered.TButton -anchor center
+
+	ttk::style configure Error.TLabel -foreground #DD0000
+	ttk::style configure Warning.TLabel -foreground #FC7E00
+	ttk::style configure Info.TLabel -foreground #DDDDDD
 
 	# border and padding values:
 	# {left,       top,        right, bottom}

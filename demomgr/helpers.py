@@ -2,7 +2,6 @@
 
 import datetime
 from math import log10, floor
-from string import Formatter
 import struct
 from tkinter.ttk import Frame, Label, Widget
 import typing as t
@@ -44,17 +43,18 @@ def convertunit(inp, ext: str = "B") -> str:
 		f"{_CONVPREF[_CONVPREF_CENTER + mag]}{ext}"
 	)
 
-def deepupdate_dict(target: t.Dict, update: t.Dict) -> None:
+def deepupdate_dict(target: t.Dict, update: t.Dict) -> t.Dict:
 	"""
-	Updates dicts and calls itself recursively if a list or dict is encountered
-	to perform updating at nesting levels instead of just the first one.
-	Does not work with tuples.
+	Updates dicts and calls itself recursively if a dict is encountered
+	to perform updating at nesting levels instead of just the first
+	one.
+	Does not work with tuples or lists.
 	"""
 	for k, v in update.items():
-		if isinstance(v, list):
-			target_obj = target.get(k, [])
-			target[k] = (target_obj + v) if isinstance(target_obj, list) else v
-		elif isinstance(v, dict):
+		# if isinstance(v, list) :
+		# 	target_obj = target.get(k, [])
+		# 	target[k] = (target_obj + v) if isinstance(target_obj, list) else v
+		if isinstance(v, dict):
 			target_obj = target.get(k, {})
 			target[k] = deepupdate_dict(target_obj, v) if isinstance(target_obj, dict) else v
 		else:
@@ -152,26 +152,3 @@ def tk_secure_str(in_str: str, repl: t.Optional[str] = None) -> str:
 	if repl is None:
 		repl = CNST.REPLACEMENT_CHAR
 	return "".join((i if ord(i) <= 0xFFFF else repl) for i in in_str)
-
-
-_VALID_FILE_MANAGER_TEMPLATES = {"D", "S", "s"}
-
-def verify_file_manager_args(args: str) -> bool:
-	iterator = Formatter().parse(args)
-	try:
-		*segments, = iterator
-	except ValueError:
-		return False
-
-	for _literal_text, field_name, format_spec, conversion in segments:
-		if field_name is None: # and format_spec is None and conversion is None
-			continue
-
-		if (
-			(field_name not in _VALID_FILE_MANAGER_TEMPLATES) or
-			bool(format_spec) or
-			conversion is not None
-		):
-			return False
-
-	return True

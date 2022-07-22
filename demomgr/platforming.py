@@ -15,6 +15,10 @@ import demomgr.constants as CNST
 
 _system = platform.system().lower()
 
+
+_SPACE_CHARS = {' ', '\t', '\v', '\n'}
+_QUOTE_NEEDING_CHARS = _SPACE_CHARS | {'"'}
+
 if _system == "windows":
 	kernel32 = ctypes.windll.Kernel32
 
@@ -70,16 +74,6 @@ if _system == "windows":
 	# 	everyone-quotes-command-line-arguments-the-wrong-way
 	# https://github.com/mesonbuild/meson/blob/master/mesonbuild/mesonlib/universal.py
 	# https://github.com/python/cpython/blob/3.8/Lib/subprocess.py
-
-	_SPACE_CHARS = {' ', '\t', '\v', '\n'}
-	# _QUOTE_NEEDING_CHARS = _SPACE_CHARS | {'"'}
-
-	# Below is handled by subprocess when passing multiple things to . 
-	# def quote_cmdline_arg(arg: str) -> str:
-	# 	if not any(x in _QUOTE_NEEDING_CHARS for x in arg):
-	# 		return arg
-	# 	return '"' + arg.replace('"', "\\\"") + '"'
-
 	def split_cmdline(args: str) -> t.List[str]:
 		if not args:
 			return []
@@ -109,7 +103,7 @@ if _system == "windows":
 						i += 1
 					else:
 						# Regular quote, starts or ends a string.
-						# However, a string is not an argument, so don't round up cur_arg here.
+						# However, a string is not an argument, so don't finalize cur_arg here.
 						# Yes, strings may be embedded in other arguments. I really hope they
 						# can not nest cause this function does not care for that.
 						# This still halves any preceding backslash count, cause it's a double
@@ -118,7 +112,7 @@ if _system == "windows":
 						in_string = not in_string
 
 			elif not in_string and c in _SPACE_CHARS:
-				# Cool, argument terminated. If at the start, it may not contain
+				# Cool, argument terminated. If at the start, cur_arg may not contain
 				# anything, check for that.
 				if cur_arg or backslash_run > 0:
 					res.append(''.join(cur_arg) + ('\\' * backslash_run))
@@ -140,12 +134,16 @@ if _system == "windows":
 
 		return res
 
+	def quote_cmdline_arg(arg: str) -> str:
+		if not any(x in _QUOTE_NEEDING_CHARS for x in arg):
+			return arg
+		return '"' + arg.replace('"', "\\\"") + '"'
+
 else:
 	kernel32 = None
 
-	# from shlex import quote as quote_cmdline_arg
-
 	from shlex import split as split_cmdline
+	from shlex import quote as quote_cmdline_arg
 
 
 # Poor decisions. Why did i not want to roam a config file?

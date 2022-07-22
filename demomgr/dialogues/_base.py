@@ -4,6 +4,7 @@ import tkinter.ttk as ttk
 from demomgr import context_menus
 from demomgr.dialogues._diagresult import DIAGSIG, DiagResult
 
+
 class BaseDialog(tk.Toplevel):
 	"""
 	A base dialog that serves as ground for all other dialogs in the
@@ -83,6 +84,9 @@ class BaseDialog(tk.Toplevel):
 		self.geometry(f"+{x + 50}+{y + 50}")
 
 		self.deiconify()
+		# I had the error "grab failed: window not viewable" once, thus we wait
+		# for visibility of self. I am not taking chances.
+		self.wait_visibility()
 		self.grab_set()
 		# This causes the execution to stall until the window is closed.
 		# Very epic, cause it means that calling functions can simply continue

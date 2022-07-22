@@ -1,4 +1,5 @@
 import os
+import re
 import tkinter as tk
 import tkinter.ttk as ttk
 import tkinter.filedialog as tk_fid
@@ -9,10 +10,38 @@ from demomgr.dialogues._diagresult import DIAGSIG
 
 from demomgr import constants as CNST
 from demomgr.helpers import convertunit, frmd_label
+from demomgr.platforming import quote_cmdline_arg, split_cmdline
 from demomgr.tk_widgets import DmgrEntry, DynamicLabel, PasswordButton
 
 if t.TYPE_CHECKING:
 	from demomgr.config import Config
+
+
+_VALID_FILE_MANAGER_TEMPLATES = {"D", "S", "s"}
+_RE_VALID_TEMPLATE = re.compile(
+	r"(?<!%)(?:%%)*(%([" +
+	''.join(map(re.escape, _VALID_FILE_MANAGER_TEMPLATES)) +
+	r"]))"
+)
+_RE_UNBALANCED_PERCENT = re.compile(r"(?<!%)(?:%%)*%(?!%)")
+
+def process_file_manager_args(args: str) -> t.Union[t.List[t.Tuple[str, bool]], str]:
+	argl = split_cmdline(args)
+
+	template: t.List[t.Tuple[str, bool]] = []
+	for i, arg in enumerate(argl):
+		template_match = _RE_VALID_TEMPLATE.search(arg)
+		if template_match:
+			if template_match.end(1) - template_match.start(1) != len(arg):
+				return f"Argument {i} contained a template and additional characters."
+			else:
+				template.append((template_match.group(2), True))
+		else:
+			if _RE_UNBALANCED_PERCENT.search(arg):
+				return "Argument {i} contained unbalanced percent escapes."
+			template.append((arg.replace("%%", "%"), False))
+
+	return template
 
 
 class _MalformedSettingsReminder(BaseDialog):
@@ -34,22 +63,29 @@ class _MalformedSettingsReminder(BaseDialog):
 		self.protocol("WM_DELETE_WINDOW", self._go_back)
 		# self.overrideredirect(1)
 
-		self.wm_resizable(False, False)
-		self.wm_attributes("-type", "dialog")
+		#self.wm_resizable(False, False)
+		# self.wm_attributes("-type", "dialog")
 
 		label = ttk.Label(mainframe, text = (
-			f"The values of the following settings are malformed:\n{self.malformed_str}\n"
-			f"If you save now, they will be reset to their default values."
+			f"The values of the following settings are malformed:\n{self.malformed_str}"
 		))
-		label.grid(column = 0, row = 0, sticky = "nesw")
+		label.grid(column = 0, row = 0, sticky = "ew", pady = (0, 8))
+		warnlabel = ttk.Label(
+			mainframe,
+			text = "If you save now, they will be reset to their default values.",
+			style = "Warning.TLabel",
+		)
+		warnlabel.grid(column = 0, row = 1, sticky = "ew")
 
 		button_frame = ttk.Frame(mainframe, padding = 5)
-		button_frame.grid_rowconfigure(0, weight = 1)
+		button_frame.grid_columnconfigure((0, 1), weight = 1)
 		discard_button = ttk.Button(button_frame, text = "Reset and save", command = self._discard)
 		go_back_button = ttk.Button(button_frame, text = "Go back", command = self._go_back)
 		discard_button.grid(column = 0, row = 0, padx = (0, 5), sticky = "ew")
 		go_back_button.grid(column = 1, row = 0, sticky = "ew")
-		button_frame.grid(column = 0, row = 1, sticky = "ew")
+		#mainframe.grid_columnconfigure(0, weight = 1)
+		#mainframe.grid_rowconfigure(1, weight = 1)
+		button_frame.grid(column = 0, row = 2, sticky = "ew")
 
 	def _discard(self) -> None:
 		self.result.state = DIAGSIG.SUCCESS
@@ -269,18 +305,24 @@ class Settings(BaseDialog):
 			labelwidget = frmd_label(suboptions_pane, "Custom file manager arguments"),
 		)
 		custom_file_manager_arg_labelframe.grid_columnconfigure(0, weight = 1)
-		self.file_manager_arg_template_entry = DmgrEntry(
-			custom_file_manager_arg_labelframe, CNST.CMDLINE_MAX, style = "Contained.TEntry"
+		self.file_manager_arg_template_entry = ttk.Entry(
+			custom_file_manager_arg_labelframe, style = "Contained.TEntry"
 		)
 		self.file_manager_arg_template_entry.grid(column = 0, row = 0, sticky = "ew")
 		file_manager_arg_template_label = DynamicLabel(
-			200, 300, custom_file_manager_arg_labelframe, style = "Contained.TLabel",
+			400, 500, custom_file_manager_arg_labelframe, style = "Contained.TLabel",
 			justify = tk.LEFT, text = (
-				"Lorem ipsum dolor sit amet."
+				"A few special arguments exist that will be replaced by 0, 1 or more actual "
+				"arguments.\n"
+				"These must be specified as standalone.\n"
+				"- %D: The current directory as single argument\n"
+				"- %S: All selected demos as separate arguments\n"
+				"- %s: Like %s, but an explicit empty string on no selection.\n"
+				"If you want to include literal percents in your command line for whatever "
+				"reason, double them: %%"
 			)
 		)
 		file_manager_arg_template_label.grid(column = 0, row = 1, sticky = "nesw")
-
 
 		# Set up sidebar
 		self._INTERFACE = {
@@ -339,6 +381,13 @@ class Settings(BaseDialog):
 		self.path_entry_file_manager.insert(0, self.cfg.file_manager_path or "")
 		self.rcon_pwd_entry.insert(0, self.cfg.rcon_pwd or "")
 		self.rcon_port_entry.insert(0, str(self.cfg.rcon_port))
+		w = []
+		for arg, is_template in self.cfg.file_manager_arg_template:
+			if is_template:
+				w.append("%" + arg)
+			else:
+				w.append(quote_cmdline_arg(arg))
+		self.file_manager_arg_template_entry.insert(0, " ".join(w))
 
 		# Trigger display of selected pane
 		tmp_inibtn.invoke()
@@ -395,16 +444,20 @@ class Settings(BaseDialog):
 			if not v:
 				result[key] = None
 			elif not os.path.isabs(v):
-				result[key] = MalformedSetting(name, None)
+				result[key] = MalformedSetting(name + " (Path is not absolute.)", None)
 			else:
 				result[key] = v
 
-		if self.file_manager_arg_template_entry.get():
-			result["file_manager_arg_template"] = (
-				MalformedSetting("File manager argument template", [])
-				if self.file_manager_arg_template_entry.get()
-				else []
+		try:
+			fma = process_file_manager_args(self.file_manager_arg_template_entry.get())
+		except ValueError as e:
+			fma = "".join(e.args)
+		if isinstance(fma, str):
+			result["file_manager_arg_template"] = MalformedSetting(
+				f"File manager argument template ({fma})", [],
 			)
+		else:
+			result["file_manager_arg_template"] = fma
 
 		return result
 
