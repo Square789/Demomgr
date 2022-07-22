@@ -30,7 +30,7 @@ DEFAULT = {
 	"date_format": "%d.%m.%Y %H:%M:%S",
 	"demo_paths": [],
 	"events_blocksize": 65536,
-	"file_manager_arg_template": [],
+	"file_manager_launchcmd": [],
 	"file_manager_mode": None,
 	"file_manager_path": None,
 	"_comment": "By messing with the firstrun parameter you acknowledge "
@@ -87,7 +87,7 @@ class EnumTransformer:
 
 
 _bool_schema = Schema(bool)
-def validate_launcharg_template(v: t.Any) -> t.Tuple[str, bool]:
+def validate_launchcmd_template(v: t.Any) -> t.Tuple[str, bool]:
 	if not isinstance(v, (list, tuple)) or len(v) != 2:
 		raise SchemaError("Invalid argument template object. Expected list or tuple of length 2.")
 
@@ -152,7 +152,7 @@ _SCHEMA = Schema(
 		"date_format": str,
 		"demo_paths": [And(str, lambda x: x != "")],
 		"events_blocksize": IntClipper(1, 1 << 31),
-		"file_manager_arg_template": [Use(validate_launcharg_template)],
+		"file_manager_launchcmd": [Use(validate_launchcmd_template)],
 		"file_manager_mode": Or(
 			None,
 			And(int, EnumTransformer(CNST.FILE_MANAGER_MODE))

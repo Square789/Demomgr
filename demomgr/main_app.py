@@ -278,11 +278,8 @@ class MainApp():
 		)
 
 		demo_op_label = ttk.Label(widgetframe2, text = "Selection:")
-		for i, (s, cmd, _, fit_for_sel) in enumerate(self.demooperations):
-			btn = ttk.Button(
-				widgetframe2, text = s, command = cmd,
-				state = tk.NORMAL if fit_for_sel(0) else tk.DISABLED
-			)
+		for i, (s, cmd, _, _) in enumerate(self.demooperations):
+			btn = ttk.Button(widgetframe2, text = s, command = cmd, state = tk.DISABLED)
 			self.demooperations[i].button = btn
 
 		self.statusbarlabel = ttk.Label(self.statusbar, text = "Ready.", style = "Statusbar.TLabel")
@@ -343,23 +340,6 @@ class MainApp():
 		# You know, it's actually much easier to just not put the paths onto the statusbar, so
 		# I did that instead lul
 
-	def _mfl_rc_callback(self, event: tk.Event) -> None:
-		context_menus.multiframelist_cb(event, self.listbox, self.demooperations)
-
-	def _mfl_select_callback(self, event: tk.Event) -> None:
-		for _, _, btn, fit_for_sel in self.demooperations:
-			btn.configure(
-				state = (
-					tk.NORMAL if fit_for_sel(len(self.listbox.selection))
-					else tk.DISABLED
-				)
-			)
-		# NOTE: After removing/deleting demos, an event will be fired with a then-empty
-		# selection, which fills the demo event screen confusingly with the next demo's
-		# event data/header. Prevent that with the if.
-		if self.listbox.selection:
-			self._updatedemowindow()
-
 	def quit_app(self, save_cfg: bool = True) -> None:
 		for g in self.threadgroups.values():
 			g.cancel_after() # Calling first to cancel running after callbacks asap
@@ -381,6 +361,28 @@ class MainApp():
 			self.root.quit()
 		except tk.TclError as e:
 			pass
+
+	def _mfl_rc_callback(self, event: tk.Event) -> None:
+		context_menus.multiframelist_cb(event, self.listbox, self.demooperations)
+
+	def _mfl_select_callback(self, event: tk.Event) -> None:
+		self._config_action_buttons()
+		# NOTE: After removing/deleting demos, an event will be fired with a then-empty
+		# selection, which fills the demo event screen confusingly with the next demo's
+		# event data/header. Prevent that with the if.
+		if self.listbox.selection:
+			self._updatedemowindow()
+
+	def _config_action_buttons(self, force_disable = False) -> None:
+		"""
+		Reconfigs the state of action buttons based on the current
+		selection as well as whether a valid directory is selected.
+		"""
+		disable = self.curdir is None or force_disable
+		sel_len = len(self.listbox.selection)
+		for (_, _, btn, fit_for_sel) in self.demooperations:
+			state = tk.DISABLED if disable or not fit_for_sel(sel_len) else tk.NORMAL
+			btn.configure(state = state)
 
 	def _opensettings(self) -> None:
 		"""Opens settings, acts based on results"""
@@ -434,8 +436,24 @@ class MainApp():
 				)
 				return
 
+			final_args = []
+			for arg, is_template in self.cfg.file_manager_launchcmd:
+				if not is_template:
+					final_args.append(arg)
+					continue
+
+				if arg == "D":
+					# Shouldn't be possible to get here when it's None, but better be safe
+					final_args.append(self.curdir if self.curdir is not None else "")
+				elif arg == "S" or arg == "s":
+					d = self.listbox.get_column("col_filename")
+					if self.listbox.selection:
+						final_args.extend(d[i] for i in self.listbox.selection)
+					elif arg == "s":
+						final_args.append("")
+
 			try:
-				subprocess.Popen([self.cfg.file_manager_path, self.curdir])
+				subprocess.Popen([self.cfg.file_manager_path] + final_args)
 			except FileNotFoundError:
 				tk_msg.showinfo(
 					"Demomgr - Error", "File manager executable not found.", parent = self.root
@@ -672,6 +690,7 @@ class MainApp():
 			g.cancel_after()
 		self.listbox.clear()
 		self.directory_inf_kvd.clear()
+		self._config_action_buttons(force_disable = True)
 		self._updatedemowindow(clear = True)
 		for g in self.threadgroups.values():
 			g.join_thread(finalize = False)
@@ -698,6 +717,7 @@ class MainApp():
 			if data is not None:
 				self.directory_inf_kvd.set_value("l_amount", len(data["col_filename"]))
 				self._display_demo_data(data)
+				self._config_action_buttons()
 		return THREADGROUPSIG.CONTINUE
 
 	def _finalization_fetchdata(self, *_) -> None:

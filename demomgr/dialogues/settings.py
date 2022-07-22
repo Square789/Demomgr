@@ -38,7 +38,7 @@ def process_file_manager_args(args: str) -> t.Union[t.List[t.Tuple[str, bool]], 
 				template.append((template_match.group(2), True))
 		else:
 			if _RE_UNBALANCED_PERCENT.search(arg):
-				return "Argument {i} contained unbalanced percent escapes."
+				return f"Argument {i} contained unbalanced percent escapes."
 			template.append((arg.replace("%%", "%"), False))
 
 	return template
@@ -302,14 +302,14 @@ class Settings(BaseDialog):
 
 		custom_file_manager_arg_labelframe = ttk.LabelFrame(
 			suboptions_pane, padding = 8,
-			labelwidget = frmd_label(suboptions_pane, "Custom file manager arguments"),
+			labelwidget = frmd_label(suboptions_pane, "Custom file manager launch arguments"),
 		)
 		custom_file_manager_arg_labelframe.grid_columnconfigure(0, weight = 1)
-		self.file_manager_arg_template_entry = ttk.Entry(
+		self.file_manager_launchcmd_entry = ttk.Entry(
 			custom_file_manager_arg_labelframe, style = "Contained.TEntry"
 		)
-		self.file_manager_arg_template_entry.grid(column = 0, row = 0, sticky = "ew")
-		file_manager_arg_template_label = DynamicLabel(
+		self.file_manager_launchcmd_entry.grid(column = 0, row = 0, sticky = "ew")
+		file_manager_launchcmd_label = DynamicLabel(
 			400, 500, custom_file_manager_arg_labelframe, style = "Contained.TLabel",
 			justify = tk.LEFT, text = (
 				"A few special arguments exist that will be replaced by 0, 1 or more actual "
@@ -317,12 +317,12 @@ class Settings(BaseDialog):
 				"These must be specified as standalone.\n"
 				"- %D: The current directory as single argument\n"
 				"- %S: All selected demos as separate arguments\n"
-				"- %s: Like %s, but an explicit empty string on no selection.\n"
+				"- %s: Like %s, but an explicit empty string for an empty selection.\n"
 				"If you want to include literal percents in your command line for whatever "
 				"reason, double them: %%"
 			)
 		)
-		file_manager_arg_template_label.grid(column = 0, row = 1, sticky = "nesw")
+		file_manager_launchcmd_label.grid(column = 0, row = 1, sticky = "nesw")
 
 		# Set up sidebar
 		self._INTERFACE = {
@@ -382,12 +382,12 @@ class Settings(BaseDialog):
 		self.rcon_pwd_entry.insert(0, self.cfg.rcon_pwd or "")
 		self.rcon_port_entry.insert(0, str(self.cfg.rcon_port))
 		w = []
-		for arg, is_template in self.cfg.file_manager_arg_template:
+		for arg, is_template in self.cfg.file_manager_launchcmd:
 			if is_template:
 				w.append("%" + arg)
 			else:
-				w.append(quote_cmdline_arg(arg))
-		self.file_manager_arg_template_entry.insert(0, " ".join(w))
+				w.append(quote_cmdline_arg(arg.replace("%", "%%")))
+		self.file_manager_launchcmd_entry.insert(0, " ".join(w))
 
 		# Trigger display of selected pane
 		tmp_inibtn.invoke()
@@ -449,15 +449,15 @@ class Settings(BaseDialog):
 				result[key] = v
 
 		try:
-			fma = process_file_manager_args(self.file_manager_arg_template_entry.get())
+			fma = process_file_manager_args(self.file_manager_launchcmd_entry.get())
 		except ValueError as e:
 			fma = "".join(e.args)
 		if isinstance(fma, str):
-			result["file_manager_arg_template"] = MalformedSetting(
+			result["file_manager_launchcmd"] = MalformedSetting(
 				f"File manager argument template ({fma})", [],
 			)
 		else:
-			result["file_manager_arg_template"] = fma
+			result["file_manager_launchcmd"] = fma
 
 		return result
 
