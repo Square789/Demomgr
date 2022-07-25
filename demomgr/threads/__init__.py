@@ -8,6 +8,6 @@ from .read_folder import ThreadReadFolder
 from ._threadsig import THREADSIG
 
 __all__ = (
-	"CMDDemoInfoThread", "CMDDemosThread", "ThreadFilter", "ThreadMarkDemo",
-	"RCONThread", "ReadDemoMetaThread", "ThreadReadFolder", "THREADSIG"
+	"CMDDemosThread", "ThreadFilter", "ThreadMarkDemo", "RCONThread",
+	"ReadDemoMetaThread", "ThreadReadFolder", "THREADSIG"
 )

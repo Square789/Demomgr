@@ -68,6 +68,7 @@ class MainApp():
 		self.demooperations = (
 			DemoOp("Play...", self._playdem, None, lambda s: s == 1),
 			DemoOp("Delete/Copy/Move...", self._copy_move_delete_demos, None, lambda s: s > 0),
+			DemoOp("Rename...", self._rename, None, lambda s: s == 1),
 			DemoOp("Manage bookmarks...", self._managebookmarks, None, lambda s: s == 1),
 			DemoOp("Reveal in file manager...", self._open_file_manager, None, lambda _: True),
 		)
@@ -467,7 +468,7 @@ class MainApp():
 		"""
 		Opens play dialog for the currently selected demo.
 		"""
-		if len(self.listbox.selection) != 1:
+		if not self.listbox.selection:
 			return
 
 		index = next(iter(self.listbox.selection))
@@ -540,6 +541,23 @@ class MainApp():
 			)
 			self.listbox.remove_rows(to_remove)
 			self._updatedemowindow(clear = True)
+
+	def _rename(self) -> None:
+		"""Opens the rename dialog"""
+		if not self.listbox.selection:
+			return
+
+		index = next(iter(self.listbox.selection))
+		target = self.listbox.get_cell("col_filename", index)
+		dialog = Rename(self.root, self.cfg, self.curdir, target)
+		dialog.show()
+		if dialog.result.state != DIAGSIG.SUCCESS:
+			return
+
+		if not self.cfg.lazy_reload:
+			self.reloadgui()
+		else:
+			self.listbox.set_cell("col_filename", index, dialog.result.data)
 
 	def _managebookmarks(self) -> None:
 		"""Offers dialog to manage a demo's bookmarks."""
