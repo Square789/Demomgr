@@ -753,7 +753,6 @@ class Play(BaseDialog):
 			)
 
 		try:
-			__import__("pprint").pprint(final_launchoptions)
 			subprocess.Popen(final_launchoptions)
 		except FileNotFoundError:
 			tk_msg.showerror("Demomgr - Error", "Executable not found.", parent = self)

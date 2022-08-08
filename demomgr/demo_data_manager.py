@@ -4,10 +4,14 @@ import json
 import os
 import shutil
 import tempfile
+import typing as t
 
 from demomgr.constants import DATA_GRAB_MODE, EVENT_FILE
 from demomgr.demo_info import DemoInfo
 import demomgr.handle_events as he
+
+if t.TYPE_CHECKING:
+	from demomgr.config import Config
 
 
 class PROCESSOR_TYPE(IntEnum):
@@ -16,11 +20,11 @@ class PROCESSOR_TYPE(IntEnum):
 
 
 class DemoInfoProcessor():
-	def __init__(self, ddm):
+	def __init__(self, ddm: "DemoDataManager"):
 		self.ddm = ddm
 		self.is_acquired = False
 
-	def acquire(self):
+	def acquire(self) -> None:
 		"""
 		Processor should acquire resources here.
 		This method may raise `OSError`s, in which case it is
@@ -30,7 +34,7 @@ class DemoInfoProcessor():
 			raise RuntimeError("Acquired processor was acquired again!")
 		self.is_acquired = True
 
-	def release(self):
+	def release(self) -> None:
 		"""
 		Processor should release resources here.
 		This method is expected to never raise errors and instead
@@ -43,19 +47,19 @@ class DemoInfoProcessor():
 
 
 class Reader(DemoInfoProcessor):
-	def get_info(self, names):
+	def get_info(self, names: t.List[str]) -> t.List[t.Optional[DemoInfo]]:
 		raise NotImplementedError("Le abstract class")
 
 
 class Writer(DemoInfoProcessor):
-	def __init__(self, ddm):
+	def __init__(self, ddm: "DemoDataManager"):
 		super().__init__(ddm)
 		self._write_results = {}
 
-	def write_info(self, name, info):
+	def write_info(self, names: t.List[str], info: t.List[t.Optional[DemoInfo]]) -> None:
 		raise NotImplementedError("Le abstract class")
 
-	def get_write_results(self):
+	def get_write_results(self) -> t.Dict[str, t.Optional[Exception]]:
 		r = self._write_results
 		self._write_results = {}
 		return r
@@ -110,7 +114,7 @@ class EventsWriter(Writer):
 	def __init__(self, ddm):
 		super().__init__(ddm)
 
-	def _exhaust_reader(self, target_names):
+	def _exhaust_reader(self, target_names: t.Set[str]) -> None:
 		if not target_names:
 			return
 
@@ -163,10 +167,14 @@ class EventsWriter(Writer):
 
 	def release(self):
 		super().release()
+
 		fname = writer = write_result = None
 
 		try:
-			if self._reader_error is not None or not self._write_on_release:
+			if not self._write_on_release:
+				return
+
+			if self._reader_error is not None:
 				# If this is True, the reader failed and integrity of `self._demo_info`
 				# can't be guaranteed. Don't write anything, system probably has bigger
 				# problems at this point.
@@ -177,7 +185,7 @@ class EventsWriter(Writer):
 			writer = he.EventWriter(fhandle_int)
 
 			for info in self._demo_info:
-				if info is not None and not info.is_empty():
+				if not (info is None or info.is_empty()):
 					writer.writechunk(info.to_logchunk())
 			# Writes any pending logchunks from a non-fully-exhausted reader.
 			# This is so stupidly overengineered lmao
@@ -223,7 +231,7 @@ class EventsWriter(Writer):
 
 
 class JSONReader(Reader):
-	def _single_get_info(self, name):
+	def _single_get_info(self, name: str) -> t.Optional[DemoInfo]:
 		json_name = os.path.splitext(name)[0] + ".json"
 		try:
 			fh = open(os.path.join(self.ddm.directory, json_name), "r", encoding = "utf-8")
@@ -249,7 +257,7 @@ class JSONReader(Reader):
 
 
 class JSONWriter(Writer):
-	def _single_write_info(self, name, info):
+	def _single_write_info(self, name: str, info: DemoInfo) -> t.Optional[Exception]:
 		json_path = os.path.join(self.ddm.directory, os.path.splitext(name)[0] + ".json")
 		if info is not None and not info.is_empty():
 			try:
@@ -306,53 +314,55 @@ class DemoDataManager():
 	being able to read and modify it as safely as possible.
 	"""
 
-	def __init__(self, directory, cfg):
+	def __init__(self, directory: str, cfg: "Config"):
 		"""
 		Creates a new DemoDataManager.
 
-		directory: Directory the DDM should operate on. (str)
-		cfg: Program configuration (demomgr.config.Config)
+		directory: Directory the DDM should operate on.
+		cfg: Program configuration
 		"""
-		self.readers = {}
-		self.writers = {}
+		self.readers: t.Dict[DATA_GRAB_MODE, Reader] = {}
+		self.writers: t.Dict[DATA_GRAB_MODE, Writer] = {}
+		self._write_results: t.Dict[DATA_GRAB_MODE, t.Dict[str, t.Optional[Exception]]] = {}
 		self.directory = directory
 		self.cfg = cfg
-		self._write_results = {}
 
-	def _get_reader(self, mode):
+	def _get_reader(self, mode: DATA_GRAB_MODE) -> Reader:
 		"""
 		Returns a reader for the specified mode or creates it
 		newly if it does not exist.
 		"""
 		if mode not in self.readers:
-			r = _PROCESSOR_MAP[mode][PROCESSOR_TYPE.READER](self)
+			r: Reader = _PROCESSOR_MAP[mode][PROCESSOR_TYPE.READER](self)
 			r.acquire()
 			self.readers[mode] = r
 		return self.readers[mode]
 
-	def _get_writer(self, mode):
+	def _get_writer(self, mode: DATA_GRAB_MODE) -> Writer:
 		"""
 		Returns a writer for the specified mode or creates it
 		newly if it does not exist.
 		"""
 		if mode not in self.writers:
-			w = _PROCESSOR_MAP[mode][PROCESSOR_TYPE.WRITER](self)
+			w: Writer = _PROCESSOR_MAP[mode][PROCESSOR_TYPE.WRITER](self)
 			w.acquire()
 			self.writers[mode] = w
 		return self.writers[mode]
 
-	def _merge_write_results(self, mode, results):
+	def _merge_write_results(
+		self, mode: DATA_GRAB_MODE, results: t.Dict[str, t.Optional[Exception]]
+	) -> None:
 		if mode not in self._write_results:
 			self._write_results[mode] = {}
 		for name, result in results.items():
 			self._write_results[mode][name] = result
 
-	def _fetch_write_results(self, mode):
+	def _fetch_write_results(self, mode: DATA_GRAB_MODE) -> None:
 		if mode not in self.writers:
 			return
 		self._merge_write_results(mode, self.writers[mode].get_write_results())
 
-	def get_write_results(self):
+	def get_write_results(self) -> t.Dict[DATA_GRAB_MODE, t.Dict[str, t.Optional[Exception]]]:
 		"""
 		Retrieves information on how writing of DemoInfo went.
 		This method only returns a non-empty result after `flush` is
@@ -361,14 +371,18 @@ class DemoDataManager():
 			- An exception
 			- None if all went well
 		This method should be called before an operation is affecting
-		the same demo/mode pair twice, in order to get a fully overview
+		the same demo/mode pair twice, in order to get a full overview
 		of all write processes.
 		"""
 		r = self._write_results
 		self._write_results = {}
 		return r
 
-	def get_demo_info(self, demos, mode):
+	def get_demo_info(
+		self,
+		demos: t.List[str],
+		mode: DATA_GRAB_MODE,
+	) -> t.List[t.Union[DemoInfo, None, Exception]]:
 		"""
 		Retrieves information about demos via the data grab mode
 		given in `mode`.
@@ -383,7 +397,7 @@ class DemoDataManager():
 			return [e] * len(demos)
 		return r.get_info(demos)
 
-	def get_fs_info(self, names):
+	def get_fs_info(self, names: t.List[str]) -> t.List[t.Union[OSError, t.Dict]]:
 		"""
 		Retrieves file system info for all given demos.
 
@@ -404,7 +418,12 @@ class DemoDataManager():
 			res.append(stat_res)
 		return res
 
-	def write_demo_info(self, names, demo_info, mode):
+	def write_demo_info(
+		self,
+		names: t.List[str],
+		demo_info: t.List[t.Optional[DemoInfo]],
+		mode: DATA_GRAB_MODE,
+	) -> bool:
 		"""
 		Sets information for the given demos for the supplied mode.
 		This will destroy any existing information.
@@ -430,7 +449,7 @@ class DemoDataManager():
 		w.write_info(names, demo_info)
 		return False
 
-	def flush(self):
+	def flush(self) -> t.Optional[OSError]:
 		"""
 		Call this to write any data to where it should be.
 		`write_demo_info(x, y)` -> `get_demo_info(x)` may not return
@@ -476,7 +495,7 @@ class DemoDataManager():
 
 		return exc
 
-	def destroy(self):
+	def destroy(self) -> None:
 		"""
 		Releases and removes all processors of the DemoDataManager.
 		"""
@@ -488,5 +507,5 @@ class DemoDataManager():
 		self.readers = {}
 		self.writers = {}
 
-	def __del__(self):
+	def __del__(self) -> None:
 		self.destroy()

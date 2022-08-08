@@ -388,7 +388,6 @@ class BulkOperator(BaseDialog):
 		with self.textbox:
 			self.textbox.replace(f"{line}.0", f"{line}.end", _inp)
 			self.textbox.yview_moveto(1.0)
-			self.textbox.update()
 
 	def destroy(self):
 		self._stopoperation()

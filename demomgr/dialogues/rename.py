@@ -5,6 +5,7 @@ import typing as t
 
 import demomgr.constants as CNST
 from demomgr.demo_data_manager import DemoDataManager
+from demomgr.demo_info import DemoInfo
 from demomgr.dialogues._base import BaseDialog
 from demomgr.dialogues._diagresult import DIAGSIG
 from demomgr.tk_widgets import DmgrEntry
@@ -32,7 +33,21 @@ class Rename(BaseDialog):
 		self.target_file = file
 
 		self.pending_rename = True
-		self.pending_modes = {x for x in CNST.DATA_GRAB_MODE if x is not CNST.DATA_GRAB_MODE.NONE}
+		self.pending_modes: t.Dict[CNST.DATA_GRAB_MODE, t.List] = {
+			x: [None, None]
+			for x in CNST.DATA_GRAB_MODE if x is not CNST.DATA_GRAB_MODE.NONE
+		}
+		"""
+		Maps relevant data modes to a 2-element list of an
+		exception and demo info.
+		"""
+		
+		self._renaming = False
+		"""
+		You never know what tk events may do. This is probably stupid
+		though, not like there's a way for multiple threads to be
+		spawned that run `_rename`, right?
+		"""
 
 	def body(self, master: tk.Widget) -> None:
 		self.protocol("WM_DELETE_WINDOW", self._exit)
@@ -41,16 +56,20 @@ class Rename(BaseDialog):
 
 		self.new_name_entry = DmgrEntry(master, CNST.FILENAME_MAX, width = 48)
 
+		self.error_label = ttk.Label(master, text = "", style = "Error.TLabel")
+
 		self.button_frame = ttk.Frame(master, padding = 5)
 		self.ok_but = ttk.Button(self.button_frame, text = "Rename", command = self._rename)
 		self.notok_but = ttk.Button(self.button_frame, text = "Cancel", command = self._exit)
 
 		master.grid_columnconfigure(0, weight = 1)
 		self.new_name_entry.grid(row = 0, column = 0, sticky = "ew")
+		self.error_label.grid(row = 1, column = 0, sticky = "nsew")
+		self.error_label.grid_remove()
 		self.button_frame.grid_columnconfigure((0, 1), weight = 1)
 		self.ok_but.grid(row = 0, column = 0, sticky = "ew", padx = (0, 5))
 		self.notok_but.grid(row = 0, column = 1, sticky = "ew")
-		self.button_frame.grid(row = 1, column = 0, sticky = "ew")
+		self.button_frame.grid(row = 2, column = 0, sticky = "ew")
 
 		sel_len = tk.END
 		root, ext = os.path.splitext(self.target_file)
@@ -63,6 +82,9 @@ class Rename(BaseDialog):
 		self.new_name_entry.focus()
 
 	def _rename(self) -> None:
+		if self._renaming:
+			return False
+
 		# Do it in the UI thread, the hassle with a threadgroup
 		# is really not worth it as cancellation would block just like
 		# the I/O does anyways.
@@ -76,6 +98,8 @@ class Rename(BaseDialog):
 			self.destroy()
 			return
 
+		self._renaming = True
+
 		if self.pending_rename:
 			try:
 				os.rename(
@@ -84,40 +108,62 @@ class Rename(BaseDialog):
 				)
 				self.pending_rename = False
 			except OSError as e:
-				# fail
-				pass
+				self.error_label.configure(text = f"Failed renaming: {e}")
+				self.error_label.grid()
+				self._renaming = False
+				return
 
 		ddm = DemoDataManager(self.dir, self.cfg)
-		for mode in self.pending_modes:
-			di = ddm.get_demo_info([self.target_file], mode)[0]
-			if isinstance(di, Exception):
-				print("0Failure.")
-				continue
-			ddm.write_demo_info([self.target_file], [None], mode)
-			# NOTE: If something fails here, info is destroyed. Could of course store it
-			# from above but it's such a stupidly unlikely condition.
-			ddm.write_demo_info([new_name], [di], mode)
+		for mode in self.pending_modes.keys():
+			stored_di = self.pending_modes[mode][1]
+			if stored_di is None:
+				stored_di = ddm.get_demo_info([self.target_file], mode)[0]
+				if isinstance(stored_di, Exception):
+					self.pending_modes[mode][0] = stored_di
+					continue
+				else:
+					# NOTE: pretty ugly, maybe remove the name out of demo info at some point?
+					if isinstance(stored_di, DemoInfo):
+						stored_di.demo_name = new_name
+					self.pending_modes[mode][1] = stored_di
+
+			ddm.write_demo_info([self.target_file, new_name], [None, stored_di], mode)
 
 		ddm.flush()
 
 		res = ddm.get_write_results()
-		for mode in tuple(self.pending_modes):
-			if (
-				mode not in res or
-				res[mode][new_name] is not None or res[mode][self.target_file] is not None
-			):
-				# Fail. mode may not even be in res due to failure getting demo info.
-				print("1Failure.", res[mode])
+		for mode in tuple(self.pending_modes.keys()):
+			if mode not in res:
+				# failure getting info, no write has occurred
+				pass
+			elif res[mode][new_name] is not None:
+				# failure writing demo info under new name
+				self.pending_modes[mode][0] = res[mode][new_name]
+			elif res[mode][self.target_file] is not None:
+				# failure removing demo info under old name
+				self.pending_modes[mode][0] = res[mode][self.target_file]
 			else:
-				self.pending_modes.remove(mode)
+				self.pending_modes.pop(mode)
 
-		if self.pending_rename or self.pending_modes:
-			# failure
-			print("2Failure.")
-		else:
-			self.result.data = new_name
-			self.result.state = DIAGSIG.SUCCESS
-			self.destroy()
+		if self.pending_modes:
+			fail_str = ""
+			mode, (err, _) = next(iter(self.pending_modes.items()))
+			if len(self.pending_modes) == 1:
+				fail_str = f"Failed transferring demo info for mode {mode.name}: {err}"
+			else:
+				fail_str = (
+					f"Failed transferring demo info for multiple modes. "
+					f"First error in mode {mode.name}: {err}"
+				)
+
+			self.error_label.configure(text = fail_str)
+			self.error_label.grid()
+			self._renaming = False
+			return
+
+		self.result.data = new_name
+		self.result.state = DIAGSIG.SUCCESS
+		self.destroy()
 
 	def _exit(self) -> None:
 		self.result.data = None
