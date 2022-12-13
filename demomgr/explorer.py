@@ -11,20 +11,19 @@ import os
 
 # Thanks: https://stackoverflow.com/questions/3018002/
 # 	c-how-to-use-shopenfolderandselectitems/12262552#12262552
+class SHITEMID(Structure):
+	_fields_ = [
+		("cb", wintypes.USHORT),
+		("abID", wintypes.BYTE * 1),
+	]
+
+class ITEMIDLIST(Structure):
+	_fields_ = [
+		("mkid", SHITEMID),
+	]
 
 if os.name == "nt":
 	shell32 = ctypes.windll.shell32
-
-	class SHITEMID(Structure):
-		_fields_ = [
-			("cb", wintypes.USHORT),
-			("abID", wintypes.BYTE * 1),
-		]
-
-	class ITEMIDLIST(Structure):
-		_fields_ = [
-			("mkid", SHITEMID)
-		]
 
 	shell32.ILFree.argtypes = [POINTER(ITEMIDLIST)]
 	shell32.ILFree.restype = None

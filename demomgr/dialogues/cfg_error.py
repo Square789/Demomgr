@@ -2,11 +2,10 @@ import tkinter as tk
 import tkinter.ttk as ttk
 
 import os
-import json
 
 from demomgr.config import Config
 from demomgr.dialogues._base import BaseDialog
-from demomgr import constants as CNST
+
 
 class CfgError(BaseDialog):
 	"""
@@ -16,6 +15,7 @@ class CfgError(BaseDialog):
 	After the dialog is closed:
 	`self.result.data` will contain 0: Retry; 1: Replace; 2: Quit
 	"""
+
 	def __init__(self, parent, cfgpath, error, mode):
 		"""
 		parent: Parent widget, should be a `Tk` or `Toplevel` instance.
@@ -81,7 +81,7 @@ class CfgError(BaseDialog):
 			self.err_rewrite_fail.pack_forget()
 			self.inf_updating.pack(side = tk.TOP, expand = 1, fill = tk.BOTH)
 			os.makedirs(os.path.dirname(self.cfgpath), exist_ok = True)
-			with open(self.cfgpath, "w") as handle:
+			with open(self.cfgpath, "w", encoding = "utf-8") as handle:
 				handle.write(self.cfg.to_json())
 		except Exception as exception:
 			self.inf_updating.pack_forget()

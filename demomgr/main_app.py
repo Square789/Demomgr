@@ -909,7 +909,7 @@ class MainApp():
 				if not os.path.exists(cfg_dir):
 					# exist_ok is unnecessary but as long as it gets created, whatever
 					os.makedirs(cfg_dir, exist_ok = True)
-				with open(self.cfgpath, "w") as handle:
+				with open(self.cfgpath, "w", encoding = "utf-8") as handle:
 					handle.write(self.cfg.to_json())
 				write_ok = True
 			except OSError as error:
@@ -933,7 +933,8 @@ class MainApp():
 		cfg = None
 		while cfg is None:
 			try:
-				cfg = Config.load_and_validate(self.cfgpath)
+				with open(self.cfgpath, "r", encoding = "utf-8") as f:
+					cfg = Config(json.load(f))
 			except (OSError, json.decoder.JSONDecodeError, SchemaError, TypeError) as exc:
 				dialog = CfgError(self.root, cfgpath = self.cfgpath, error = exc, mode = 0)
 				dialog.show()

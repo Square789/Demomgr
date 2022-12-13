@@ -1,5 +1,9 @@
 
+import re
 from tkinter import ttk
+
+
+RE_NUMBER = re.compile(r"^\d+$")
 
 
 class PasswordButton(ttk.Button):
@@ -51,17 +55,16 @@ class DynamicLabel(ttk.Label):
 		self._block_reconfigure = False
 
 
-def _int_validator(inp, ifallowed):
+def _int_validator(action, changed_section, if_allowed):
 	"""
 	Test whether only (positive) integers are being keyed into an entry.
-	Call signature: %S %P
+	Call signature: %d %S %P
 	"""
-	if len(ifallowed) > 10:
+	if len(if_allowed) > 10:
 		return False
-	try:
-		return int(inp) >= 0
-	except ValueError:
-		return False
+
+	# don't validate deletion
+	return (action == 0) or bool(RE_NUMBER.match(changed_section))
 
 
 _command_registry = {}
@@ -90,7 +93,7 @@ def _get_command(input_limit, tk_haver):
 				return len(if_allowed) <= input_limit
 			_command_registry[input_limit] = tk_haver.register(_name_validator, needcleanup=False)
 
-	sig = ("%S", "%P") if input_limit == 0 else ("%P",)
+	sig = ("%d", "%S", "%P") if input_limit == 0 else ("%P",)
 	return (_command_registry[input_limit],) + sig
 
 

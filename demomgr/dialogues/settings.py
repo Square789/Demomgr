@@ -314,12 +314,12 @@ class Settings(BaseDialog):
 			justify = tk.LEFT, text = (
 				"A few special arguments exist that will be replaced by 0, 1 or more actual "
 				"arguments.\n"
-				"These must be specified as standalone.\n"
+				"These must be specified standalone (`as%Df` is invalid).\n"
 				"- %D: The current directory as single argument\n"
 				"- %S: All selected demos as separate arguments\n"
 				"- %s: Like %s, but an explicit empty string for an empty selection.\n"
-				"If you want to include literal percents in your command line for whatever "
-				"reason, double them: %%"
+				"- %%: Becomes a single %, for when you want to include literal percents "
+				"in your command line for whatever reason"
 			)
 		)
 		file_manager_launchcmd_label.grid(column = 0, row = 1, sticky = "nesw")

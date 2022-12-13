@@ -277,19 +277,6 @@ class Config():
 			super().__setattr__(attr, value)
 
 	@classmethod
-	def load_and_validate(cls, file_path: str) -> "Config":
-		"""
-		Loads and validates the configuration file from the given file
-		path.
-		May raise: JSONDecodeError, any sort of OSError from opening a
-		protected/nonexistent/used file and any error `Config.__init__`
-		may raise.
-		"""
-		with open(file_path, "r") as f:
-			data = json.load(f)
-		return cls(data)
-
-	@classmethod
 	def get_default(cls) -> "Config":
 		"""
 		Creates and returns a new default config.

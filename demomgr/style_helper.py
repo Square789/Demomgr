@@ -80,7 +80,7 @@ class StyleHelper():
 		"""
 		existingthemes = self.tk.eval("ttk::style theme names").split(" ")
 		if not themename in existingthemes:
-			with open(theme_filepath, "r") as handle:
+			with open(theme_filepath, "r", encoding = "utf-8") as handle:
 				script = handle.read()
 			self.tk.eval(script)
 			del script
