@@ -431,7 +431,7 @@ class Settings(BaseDialog):
 			"events_blocksize": self.blockszvals[self.blockszselector.get()],
 			"ui_theme": self.ui_style_var.get(),
 			"lazy_reload": self.lazyreload_var.get(),
-			"rcon_pwd": self.rcon_port_entry.get() or None,
+			"rcon_pwd": self.rcon_pwd_entry.get() or None,
 			"rcon_port": int(self.rcon_port_entry.get() or 0),
 		}
 
