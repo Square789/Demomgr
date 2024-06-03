@@ -108,7 +108,7 @@ class BookmarkSetter(BaseDialog):
 		ttk.Label(
 			insert_opt_lblfrm, style = "Contained.TLabel", text = "Tick:"
 		).grid(row = 1, column = 0)
-		self.name_entry = DmgrEntry(insert_opt_lblfrm, -1)
+		self.name_entry = DmgrEntry(insert_opt_lblfrm, CNST.BOOKMARK_NAME_MAX)
 		self.tick_entry = DmgrEntry(insert_opt_lblfrm, -1)
 		apply_btn = ttk.Button(
 			insert_opt_lblfrm, text = "Apply", command = self._apply_changes
