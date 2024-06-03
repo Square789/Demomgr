@@ -211,13 +211,6 @@ class Play(BaseDialog):
 		# tf2, but any kind of escaping i've tried causes tf2 to always cut the
 		# file name up and treat stuff as seperate commands.
 		self.warning_bad_chars_in_demo_name = ErrorLabel()
-		# DONE make the tick/tick offset elements work nicely as outlined in that throwaway note file
-		# DONE fix the launch argument/rcon playdemo weirdness
-		# DONE push 1.10.0 cause new play dialog and interface is just too nice
-		# 2DO  make cool frag video and link back to demomgr
-		# 2DO  step 5: 2 unique visitors
-		# 2DO  step 6: ???
-		# 2DO  step 7: profit
 
 		self.rcon_password_var.set(self.cfg.rcon_pwd or "")
 
