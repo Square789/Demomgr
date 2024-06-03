@@ -102,7 +102,10 @@ THEME_PACKAGES = {
 }
 
 HEADER_HUMAN_NAMES = {
-	"hostname": "Hostname", "clientid": "Playername",
-	"map_name": "Map", "playtime": "Playtime",
-	"tick_num": "No. of ticks", "game_dir": "Game directory",
+	"hostname": "Hostname",
+	"clientid": "Playername",
+	"map_name": "Map",
+	"playtime": "Playtime",
+	"tick_num": "No. of ticks",
+	"game_dir": "Game directory",
 }
