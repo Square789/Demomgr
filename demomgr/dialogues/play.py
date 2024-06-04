@@ -278,7 +278,7 @@ class Play(BaseDialog):
 			250, 400, arg_region,
 			style = "Contained.TLabel",
 			text = (
-				"Note: The options immediatedly below are ignored when launching via steam.\n"
+				"Note: The options immediatedly below are ignored when launching via Steam.\n"
 				"Steam will always force the currently logged in user's launch options in "
 				"addition to the ones in the last two fields."
 			),
