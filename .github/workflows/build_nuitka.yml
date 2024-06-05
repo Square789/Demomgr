@@ -21,10 +21,10 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
 
       - name: Setup python
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v5
         with:
           python-version: '3.8'
           architecture: ${{ matrix.architecture }}
@@ -44,7 +44,7 @@ jobs:
         run: python setup_nuitka.py
 
       - name: Create and upload artifact
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         with:
           name: ${{ steps.vars.outputs.BUILD_NAME }}
           path: ${{ steps.vars.outputs.DEMOMGR_DIST_GLOB }}

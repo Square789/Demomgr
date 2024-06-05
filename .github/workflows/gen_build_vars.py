@@ -23,8 +23,11 @@ if __name__ == "__main__":
 	ref = ref.replace(".", "_")
 
 	build_name = f"demomgr-v{ref}-win{arch}"
-	for name, value in (
-		("BUILD_NAME", build_name),
-		("DEMOMGR_DIST_GLOB", "./nuitka_build/demomgr.dist/**"),
-	):
-		print(f"::set-output name={name}::{value}")
+
+	gh_env_file = os.environ["GITHUB_ENV"]
+	with open(gh_env_file, "a") as f:
+		for name, value in (
+			("BUILD_NAME", build_name),
+			("DEMOMGR_DIST_GLOB", "./nuitka_build/demomgr.dist/**"),
+		):
+			f.write(f"{name}={value}\n")
