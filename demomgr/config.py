@@ -10,47 +10,6 @@ from demomgr.helpers import deepupdate_dict
 from demomgr.platforming import should_use_windows_explorer
 
 
-# Field renames since 2019 me made some really poor, ugly to read
-# naming choices. (Converts <=1.8.4 to >=1.9.0 cfg)
-_RENAMES = {
-	"datagrabmode": "data_grab_mode",
-	"demopaths": "demo_paths",
-	"evtblocksz": "events_blocksize",
-	"__comment": "_comment",
-	"firstrun": "first_run",
-	"hlaepath": "hlae_path",
-	"lastpath": "last_path",
-	"lazyreload": "lazy_reload",
-	"previewdemos": "preview_demos",
-	"steampath": "steam_path",
-}
-
-DEFAULT = {
-	"data_grab_mode": CNST.DATA_GRAB_MODE.JSON.value,
-	"date_format": "%d.%m.%Y %H:%M:%S",
-	"demo_paths": [],
-	"events_blocksize": 65536,
-	"file_manager_launchcmd": [],
-	"file_manager_mode": None,
-	"file_manager_path": None,
-	"_comment": "By messing with the firstrun parameter you acknowledge "
-		"the disclaimer :P",
-	"first_run": True,
-	"hlae_path": None,
-	"last_path": None,
-	"lazy_reload": False,
-	"preview_demos": True,
-	"rcon_port": 27015,
-	"rcon_pwd": None,
-	"steam_path": None,
-	"ui_remember": {
-		"launch_tf2": [],
-		"settings": [],
-		"bulk_operator": [],
-	},
-	"ui_theme": "Dark",
-}
-
 # You can do silly things with some of these values.
 # I do not trust.
 
@@ -144,6 +103,48 @@ class RememberListValidator:
 		out = self.default.copy()
 		out[:len(transformed_values)] = transformed_values
 		return out
+
+
+# Field renames since 2019 me made some really poor, ugly to read
+# naming choices. (Converts <=1.8.4 to >=1.9.0 cfg)
+_RENAMES = {
+	"datagrabmode": "data_grab_mode",
+	"demopaths": "demo_paths",
+	"evtblocksz": "events_blocksize",
+	"__comment": "_comment",
+	"firstrun": "first_run",
+	"hlaepath": "hlae_path",
+	"lastpath": "last_path",
+	"lazyreload": "lazy_reload",
+	"previewdemos": "preview_demos",
+	"steampath": "steam_path",
+}
+
+
+DEFAULT = {
+	"data_grab_mode": CNST.DATA_GRAB_MODE.JSON.value,
+	"date_format": "%d.%m.%Y %H:%M:%S",
+	"demo_paths": [],
+	"events_blocksize": 65536,
+	"file_manager_launchcmd": [],
+	"file_manager_mode": None,
+	"file_manager_path": None,
+	"_comment": "By messing with the firstrun parameter you acknowledge the disclaimer :P",
+	"first_run": True,
+	"hlae_path": None,
+	"last_path": None,
+	"lazy_reload": False,
+	"preview_demos": True,
+	"rcon_port": 27015,
+	"rcon_pwd": None,
+	"steam_path": None,
+	"ui_remember": {
+		"launch_tf2": [],
+		"settings": [],
+		"bulk_operator": [],
+	},
+	"ui_theme": "Dark",
+}
 
 
 _SCHEMA = Schema(
