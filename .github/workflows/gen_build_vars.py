@@ -24,8 +24,8 @@ if __name__ == "__main__":
 
 	build_name = f"demomgr-v{ref}-win{arch}"
 
-	gh_env_file = os.environ["GITHUB_ENV"]
-	with open(gh_env_file, "a") as f:
+	gh_step_output_file = os.environ["GITHUB_OUTPUT"]
+	with open(gh_step_output_file, "a") as f:
 		for name, value in (
 			("BUILD_NAME", build_name),
 			("DEMOMGR_DIST_GLOB", "./nuitka_build/demomgr.dist/**"),
