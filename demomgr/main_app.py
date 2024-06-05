@@ -1,4 +1,5 @@
 import os
+import importlib.resources
 import json
 import shutil
 import subprocess
@@ -126,10 +127,8 @@ class MainApp():
 			return
 
 		try:
-			f = os.path.join(
-				os.path.dirname(__file__), CNST.THEME_SUBDIR, CNST.ICON_FILENAME
-			)
-			icon = tk.PhotoImage(file = f)
+			quieres = importlib.resources.read_binary("demomgr.ui_themes", CNST.ICON_FILENAME)
+			icon = tk.PhotoImage(data = quieres)
 			self.root.tk.call("wm", "iconphoto", self.root._w, "-default", icon)
 		except Exception as e:
 			pass
@@ -619,17 +618,21 @@ class MainApp():
 
 		try:
 			theme_tuple = CNST.THEME_PACKAGES[self.cfg.ui_theme]
-			# Really hacky way of doing this
-			theme_path = os.path.join(os.path.dirname(__file__), CNST.THEME_SUBDIR, theme_tuple[0])
 		except KeyError:
 			tk_msg.showerror("Demomgr - Error", "Cannot find Tcl theme, using default.")
 			return
 
 		try:
 			stylehelper = StyleHelper(self.root)
-			imgdir = os.path.join(os.path.dirname(__file__), CNST.THEME_SUBDIR, theme_tuple[2])
-			stylehelper.load_image_dir(imagedir = imgdir, filetypes = ("png", ), imgvarname = "IMG")
-			stylehelper.load_theme(theme_path, theme_tuple[1])
+			with \
+				importlib.resources.path("demomgr.ui_themes", theme_tuple[0]) as tcl_p, \
+				importlib.resources.path("demomgr.ui_themes", theme_tuple[2]) as dir_p \
+			:
+				theme_path = str(tcl_p.absolute())
+				imgdir = str(dir_p.absolute())
+				stylehelper.load_image_dir(imagedir = imgdir, filetypes = ("png", ), imgvarname = "IMG")
+				stylehelper.load_theme(theme_path, theme_tuple[1])
+
 		except tk.TclError as error:
 			tk_msg.showerror("Demomgr - Error", f"A Tcl error occurred:\n{error}")
 		except OSError as error:
