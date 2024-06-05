@@ -70,14 +70,17 @@ Simple number are also valid ranges, they typically look like this:
 
 ### Examples
 `beststreak:15..`  
-Will filter for all demos with a recorded killstreak of at least 15.  
+Will filter for all demos with a recorded killstreak of at least 15.
+
 `!bookmark_contains: recorded, bookmarks:1..`  
 Filters out demos that don't contain a bookmark named "recorded", but at least one other bookmark.
 Personally, i use this one to find demos with noteworthy moments, adding in the `recorded` bookmark once the content has been extracted from it.
+
 `killstreaks: ..1, bookmarks:0`  
-Filters demos that have no bookmarks and at most 1 killstreak. Good candidates for deletion.  
+Filters demos that have no bookmarks and at most 1 killstreak. Good candidates for deletion.
+
 `!map:(mvm_,plr_,tr_), killstreaks:2.., beststreak:5..`  
 This will select all demos where: The user has gotten at least two killstreaks, at least one of those streaks was 5 or more
-and the game does not take place on maps containing the substrings `mvm_`, `plr_` or `tr_`.  
+and the game does not take place on maps containing the substrings `mvm_`, `plr_` or `tr_`.
 
 Thanks, and have fun.
