@@ -9,15 +9,40 @@ LIKE [, ], {, } ! (but why would they, really.)
 
 2021 update: This file is a mess and I don't think I will be touching it
 	anytime soon.
+2024 update: I had to touch it, ew
 """
 
-import os
 import re
 
 RE_FORBIDDEN = [(re.compile(r"\["), "Attempted command call."),
 	(re.compile(r"(?:(?<=[^\\])|^)(\\(?:\\{2})*)(?=[^\\]|$)"),
 		"Odd amount of backslashes.")
 	]
+
+_TCL_WHITESPACE_CHARS = {"\t", "\v", "\f", "\r", " "}
+_TCL_COMMAND_CHARS = {"[", "]"}
+_TCL_NEED_ESCAPE_CHARS = _TCL_WHITESPACE_CHARS | _TCL_COMMAND_CHARS
+
+def escape_string_for_tcl(s: str) -> str:
+	"""
+	Escapes a string for copy-pasting into a TCL script so it probably won't
+	cause command injections and the like afterwards.
+	"""
+	r = []
+	if len(s) > 0 and s[0] == '{':
+		# Due to Tcl's very special curly brace handling, if the first character of a string is
+		# an opening one, it needs to be escaped to prevent the curly-brace-string
+		# interpretation mode.
+		r.append('\\')
+
+	for c in s:
+		if c in _TCL_NEED_ESCAPE_CHARS:
+			r.append("\\" + c)
+		elif c == "\\":
+			r.append("\\\\")
+
+	return "".join(r)
+
 
 IMGLOADERSCRIPT = """
 variable {imgvarname}
@@ -44,29 +69,21 @@ class StyleHelper():
 		Execute direct tcl calls to get all images ending in filetypes
 		from imagedir and saves them in imgvarname for use in ttk styles.
 		Args:
-		imagedir <Str>: directory to search in (will be extended by cwd)
+		imagedir <Str>: absolute directory to search in
 		filetypes <List|Tuple>: file extensions to get
 		imgvarname <Str>: Name for the Tcl variable to save images in
 		"""
-
-		imagedir = os.path.join(os.path.normpath(os.getcwd()),
-			os.path.normpath(imagedir))
-		imagedir = imagedir.replace("\\", "\\\\")
-
 		_validate(*filetypes)
+		_validate(imgvarname)
 
-		filetypes = [i.strip(".") for i in filetypes]
-		#remove potential file identifier dots
-		filetypes = ["*." + i for i in filetypes]
-		#add tcl glob wildcard limiters
-		globpattern = "{{{{{}}}}}".format(", ".join(filetypes))
+		imagedir_escaped = escape_string_for_tcl(imagedir)
 
-		_validate(imagedir, imgvarname)
+		globpattern = "{{{{{}}}}}".format(", ".join("*." + i.strip(".") for i in filetypes))
 
 		localscript = IMGLOADERSCRIPT.format(
-			imagedir = imagedir,
+			imagedir = imagedir_escaped,
 			imgvarname = imgvarname,
-			globpattern = globpattern
+			globpattern = globpattern,
 		)
 		self.tk.eval(localscript)
 
@@ -305,10 +322,11 @@ def _validate(*tocheck):
 	"""
 	for scriptsegm in tocheck:
 		if isinstance(scriptsegm, list):
-			scriptsegm = [str(i) for i in scriptsegm]
-			scriptsegm = "{{{}}}".format(" ".join(scriptsegm))
+			scriptsegm = "{{{}}}".format(" ".join(str(i) for i in scriptsegm))
+
 		if not isinstance(scriptsegm, str):
 			scriptsegm = str(scriptsegm)
+
 		for elem in RE_FORBIDDEN:
 			if elem[0].search(scriptsegm):
 				raise ValueError(("{}".format(scriptsegm) +
