@@ -130,7 +130,7 @@ def getstreakpeaks(killstreaks: t.Sequence["DemoEvent"]) -> t.List["DemoEvent"]:
 
 def frmd_label(
 		parent: Widget, text: str,
-		styles: t.Tuple[str] = ("Framed.Contained.TFrame", "Labelframe.Contained.TLabel")
+		styles: t.Tuple[str, str] = ("Framed.Contained.TFrame", "Labelframe.Contained.TLabel"),
 	) -> Frame:
 	"""
 	Returns a ttk.Frame object containing a ttk.Label with text specified
