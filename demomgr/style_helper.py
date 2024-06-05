@@ -87,7 +87,6 @@ class StyleHelper():
 			imgvarname = imgvarname,
 			globpattern = globpattern,
 		)
-		print(localscript)
 		self.tk.eval(localscript)
 
 	def load_theme(self, theme_filepath, themename):
