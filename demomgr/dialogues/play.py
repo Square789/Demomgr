@@ -725,7 +725,7 @@ class Play(BaseDialog):
 			launch_args.append(os.path.join(self.cfg.hlae_path, CNST.HLAE_HOOK_DLL))
 			# hl2 exe path required
 			launch_args.extend(CNST.HLAE_LAUNCHARGS1)
-			launch_args.append(os.path.join(self._tf2_head_path, CNST.TF2_EXE_TAIL_PATH))
+			launch_args.append(os.path.join(self._tf2_head_path, self.cfg.hlae_tf2_exe_name))
 			launch_args.extend(CNST.HLAE_LAUNCHARGS2)
 			# Supply all of the hl2.exe launch args as a string.
 			# This thing needs to be escaped properly or else bad things will likely happen.

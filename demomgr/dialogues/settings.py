@@ -104,6 +104,12 @@ class MalformedSetting():
 		self.default = default
 
 
+# def _make_settings_labelframe(m, heading, *args, **kwargs) -> ttk.LabelFrame:
+# 	kwargs.setdefault("padding", 8)
+# 	kwargs.setdefault("labelwidget", frmd_label(m, heading))
+# 	return ttk.LabelFrame(m, *args, **kwargs)
+
+
 class Settings(BaseDialog):
 	"""
 	Settings dialog that offers a bunch of configuration options.
@@ -177,7 +183,7 @@ class Settings(BaseDialog):
 			style = "Contained.TCheckbutton"
 		)
 		lazyreload_txt = DynamicLabel(
-			200, 300, display_labelframe,
+			200, 400, display_labelframe,
 			text = (
 				"Will not reload the entire directory on minor changes such as "
 				"bookmark modification."
@@ -217,29 +223,42 @@ class Settings(BaseDialog):
 		)
 		path_labelframe.grid_columnconfigure(1, weight = 1)
 
+		# Crappy hack cause the text pushes away too much space otherwise
+		tf_exe_frame = ttk.Frame(path_labelframe, style="Contained.TFrame")
+		tf_exe_frame.grid_columnconfigure(1, weight = 1)
+
 		self.path_entry_steam = DmgrEntry(path_labelframe, CNST.PATH_MAX)
 		self.path_entry_hlae = DmgrEntry(path_labelframe, CNST.PATH_MAX)
+		self.path_entry_hlae_tf2_exe_name = DmgrEntry(tf_exe_frame, CNST.FILENAME_MAX)
 		self.path_entry_file_manager = DmgrEntry(path_labelframe, CNST.PATH_MAX)
 
-		for i, (name, path_entry, dir_only) in enumerate((
-			("Steam:", self.path_entry_steam, True),
-			("HLAE:", self.path_entry_hlae, True),
-			("File manager:", self.path_entry_file_manager, False),
+		for i, (name, lframe, path_entry, dir_only) in enumerate((
+			("Steam:", path_labelframe, self.path_entry_steam, True),
+			("HLAE:", path_labelframe, self.path_entry_hlae, True),
+			("HLAE TF2 executable:", tf_exe_frame, self.path_entry_hlae_tf2_exe_name, None),
+			("File manager:", path_labelframe, self.path_entry_file_manager, False),
 		)):
-			desc_label = ttk.Label(path_labelframe, style = "Contained.TLabel", text = name)
-			if dir_only:
-				# ugly parameter binding
-				def _tmp_handler(e = path_entry):
-					return self._sel_dir(e)
+			desc_label = ttk.Label(lframe, style = "Contained.TLabel", text = name)
+
+			if dir_only is not None:
+				change_btn = ttk.Button(
+					lframe,
+					text = "Change...",
+					command = (
+						(lambda e=path_entry: self._sel_dir(e)) if dir_only
+						else (lambda e=path_entry: self._sel_file(e))
+					),
+					style = "Contained.TButton",
+				)
 			else:
-				def _tmp_handler(e = path_entry):
-					return self._sel_file(e)
-			change_btn = ttk.Button(
-				path_labelframe, text = "Change...", command = _tmp_handler, style = "Contained.TButton"
-			)
-			desc_label.grid(row = i, column = 0, sticky = "e")
-			path_entry.grid(row = i, column = 1, padx = (3, 0), sticky = "ew")
-			change_btn.grid(row = i, column = 2, padx = (3, 0))
+				change_btn = None
+
+			desc_label.grid(row = i, column = 0, padx = (0, 3), sticky = "e")
+			path_entry.grid(row = i, column = 1, pady = (0, 3 * (i != 3)), sticky = "ew")
+			if change_btn is not None:
+				change_btn.grid(row = i, column = 2, padx = (3, 0))
+
+		tf_exe_frame.grid(row = 2, columnspan = 2, sticky = "ew")
 
 		# === Data retrieval pane ===
 		datagrab_labelframe = ttk.LabelFrame(
@@ -328,7 +347,7 @@ class Settings(BaseDialog):
 		self._INTERFACE = {
 			"Interface": (display_labelframe, date_format_labelframe),
 			"Information reading": (datagrab_labelframe, eventread_labelframe),
-			"Paths": (path_labelframe, ),
+			"Paths": (path_labelframe,),
 			"RCON": (rcon_pwd_labelframe, rcon_port_labelframe),
 			"File manager": (file_manager_labelframe, custom_file_manager_arg_labelframe),
 		}
@@ -378,6 +397,7 @@ class Settings(BaseDialog):
 		# Set entries
 		self.path_entry_steam.insert(0, self.cfg.steam_path or "")
 		self.path_entry_hlae.insert(0, self.cfg.hlae_path or "")
+		self.path_entry_hlae_tf2_exe_name.insert(0, self.cfg.hlae_tf2_exe_name)
 		self.path_entry_file_manager.insert(0, self.cfg.file_manager_path or "")
 		self.rcon_pwd_entry.insert(0, self.cfg.rcon_pwd or "")
 		self.rcon_port_entry.insert(0, str(self.cfg.rcon_port))
@@ -393,33 +413,40 @@ class Settings(BaseDialog):
 		tmp_inibtn.invoke()
 
 	def done(self, save=False) -> None:
-		config_dict = self._collect_settings_dict()
-		bad_settings = []
-		for k, v in config_dict.items():
-			if isinstance(v, MalformedSetting):
-				config_dict[k] = v.default
-				bad_settings.append(v.info)
-
-		if save and bad_settings:
-			# NOTE: This will (at least on my windowing system) cause a new entry in the task bar
-			# I have no idea how to prevent this, I guess only the first layer of transience
-			# causes no extra entry.
-			reminder = _MalformedSettingsReminder(self, bad_settings)
-			reminder.show()
-			# Extremely important to reacquire grab to self, otherwise
-			# main window becomes responsive again
-			self.grab_set()
-			if reminder.result.state != DIAGSIG.SUCCESS:
-				return
-
-		# Settings dialog closed for sure at this point #
-
-		self.result.remember = [self._selectedpane_var.get()]
 		if save:
+			config_dict = self._collect_settings_dict()
+			bad_settings = []
+			for k, v in config_dict.items():
+				if isinstance(v, MalformedSetting):
+					config_dict[k] = v.default
+					bad_settings.append(v.info)
+
+			if bad_settings:
+				# NOTE: This will (at least on my windowing system) cause a new entry in the task bar
+				# I have no idea how to prevent this, I guess only the first layer of transience
+				# causes no extra entry.
+				reminder = _MalformedSettingsReminder(self, bad_settings)
+				reminder.show()
+				# Extremely important to reacquire grab to self, otherwise main window becomes
+				# responsive again
+				try:
+					# It's possible that the settings dialog/self is actually gone by this point,
+					# in case the settings window was closed through the close button.
+					# `done` and `destroy` have run already; stop immediately.
+					self.grab_set()
+				except tk.TclError as e:
+					return
+
+				if reminder.result.state != DIAGSIG.SUCCESS:
+					return
+
 			self.result.state = DIAGSIG.SUCCESS
 			self.result.data = config_dict
 		else:
 			self.result.state = DIAGSIG.FAILURE
+
+		self.result.remember = [self._selectedpane_var.get()]
+
 		self.destroy()
 
 	def _collect_settings_dict(self) -> t.Dict[str, t.Any]:
@@ -447,6 +474,11 @@ class Settings(BaseDialog):
 				result[key] = MalformedSetting(name + " (Path is not absolute.)", None)
 			else:
 				result[key] = v
+
+		if not (v := self.path_entry_hlae_tf2_exe_name.get()):
+			result["hlae_tf2_exe_name"] = MalformedSetting("HLAE TF2 exe name is empty", "tf.exe")
+		else:
+			result["hlae_tf2_exe_name"] = v
 
 		try:
 			fma = process_file_manager_args(self.file_manager_launchcmd_entry.get())

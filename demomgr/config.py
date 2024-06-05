@@ -132,6 +132,7 @@ DEFAULT = {
 	"_comment": "By messing with the firstrun parameter you acknowledge the disclaimer :P",
 	"first_run": True,
 	"hlae_path": None,
+	"hlae_tf2_exe_name": "tf.exe",
 	"last_path": None,
 	"lazy_reload": False,
 	"preview_demos": True,
@@ -162,6 +163,7 @@ _SCHEMA = Schema(
 		"_comment": str,
 		"first_run": bool,
 		"hlae_path": Or(None, StringClipper(CNST.PATH_MAX)),
+		"hlae_tf2_exe_name": And(StringClipper(CNST.FILENAME_MAX), lambda x: x != ""),
 		"last_path": Or(str, None, int), # str only for pre-1.9.0 comp
 		"lazy_reload": bool,
 		"preview_demos": bool,
