@@ -46,26 +46,38 @@ The filter criteria are entered in pairs: `[keyname]:[parameter]`, seperated by 
 You can currently filter the directory you are in by the following keys:
  * map : _Substring of the map name a demo is playing on._ (String)
  * name : _Substring of a demo's filename._ (String)
- * killstreaks : _Amount of a demo's killstreaks._ (Range/Integer)
- * bookmarks : _Amount of bookmarks recorded._ (Range/Integer)
- * beststreak : _Value of the best streak recorded in a demo._ (Range/Integer)
+ * killstreaks : _Amount of a demo's killstreaks._ (Range)
+ * bookmarks : _Amount of bookmarks recorded._ (Range)
+ * beststreak : _Value of the best streak recorded in a demo._ (Range)
    * May produce erratic results at values out of normal ranges
  * bookmark_contains : _Substring of any of a demo's bookmarks._ (String)
  * hostname : _Substring of the server name a demo took place on._ (String) (Usually a IPv4)
  * clientid : _Substring of the Steam community name of the player._ (String)
- * moddate : _A demo's last modification time._ (Range/Integer) (Direct UNIX Timestamp)
- * filesize : _Filesize in bytes._ (Range/Integer)
+ * moddate : _A demo's last modification time._ (Range) (Direct UNIX Timestamp)
+ * filesize : _Filesize in bytes._ (Range)
 
-Possible parameters are:
+Keys are either strings or numbers. Strings can be:
  * Quoteless string: `foo`
    * Quoteless strings may consist out of `A-Z`, `a-z`, `_`, `-`
  * Quoteless string tuple: `(foo, bar, baz)`
  * String: `"foo"`, `'b\u0061r'`
  * String tuple: `("foo", 'b\u0061r', "b\u0061z", )`
- * Range: `1..2`, `10..`, `..50`  
 
-Example: `!map:(mvm_,plr_,tr_), killstreaks:2.., beststreak:5..`  
-This will display all demos where: The user has gotten at least two killstreaks, at least one of those streaks was 5 or more
+Simple number are also valid ranges, they typically look like this:
+ * Number: `1`, `5`  
+ * Range: `1..2`, `10..`, `..50`  
+   * Ranges are beginning- and end-inclusive
+
+### Examples
+`beststreak:15..`  
+Will filter for all demos with a recorded killstreak of at least 15.  
+`!bookmark_contains: recorded, bookmarks:1..`  
+Filters out demos that don't contain a bookmark named "recorded", but at least one other bookmark.
+Personally, i use this one to find demos with noteworthy moments, adding in the `recorded` bookmark once the content has been extracted from it.
+`killstreaks: ..1, bookmarks:0`  
+Filters demos that have no bookmarks and at most 1 killstreak. Good candidates for deletion.  
+`!map:(mvm_,plr_,tr_), killstreaks:2.., beststreak:5..`  
+This will select all demos where: The user has gotten at least two killstreaks, at least one of those streaks was 5 or more
 and the game does not take place on maps containing the substrings `mvm_`, `plr_` or `tr_`.  
 
 Thanks, and have fun.
