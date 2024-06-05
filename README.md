@@ -56,14 +56,14 @@ You can currently filter the directory you are in by the following keys:
  * moddate : _A demo's last modification time._ (Range) (Direct UNIX Timestamp)
  * filesize : _Filesize in bytes._ (Range)
 
-Keys are either strings or numbers. Strings can be:
+Keys are either strings or integer ranges. Strings can be:
  * Quoteless string: `foo`
    * Quoteless strings may consist out of `A-Z`, `a-z`, `_`, `-`
  * Quoteless string tuple: `(foo, bar, baz)`
  * String: `"foo"`, `'b\u0061r'`
  * String tuple: `("foo", 'b\u0061r', "b\u0061z", )`
 
-Simple number are also valid ranges, they typically look like this:
+Ranges can be:
  * Number: `1`, `5`  
  * Range: `1..2`, `10..`, `..50`  
    * Ranges are beginning- and end-inclusive
