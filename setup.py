@@ -28,12 +28,13 @@ setup(
 	long_description_content_type = "text/markdown",
 	packages = [
 		"demomgr",
-		"demomgr.threads",
 		"demomgr.dialogues",
+		"demomgr.threads",
 		"demomgr.tk_widgets",
+		"demomgr.ui_themes",
 	],
 	package_data = {
-		"demomgr": ["ui_themes/*.tcl", "ui_themes/*/*.png"],
+		"demomgr.ui_themes": ["*.tcl", "icon.gif", "*/*.png"],
 	},
 	install_requires = reqs,
 	classifiers = [
