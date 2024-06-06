@@ -83,4 +83,22 @@ Filters demos that have no bookmarks and at most 1 killstreak. Good candidates f
 This will select all demos where: The user has gotten at least two killstreaks, at least one of those streaks was 5 or more
 and the game does not take place on maps containing the substrings `mvm_`, `plr_` or `tr_`.
 
+## Quirks
+Nothing is perfect, and Demomgr isn't nothing. These could be fixed, but i'm not seeing much feedback and my motivation to work
+on this rather old codebase also isn't too big.
+
+- Demomgr will replace demos that already exist in a target directory when moving/copying without any notification.
+- Demo data can be read from two different sources, the `_events.txt` log file that was probably never meant to have data extracted from it,
+  or a `.json` file associated with each demo. These two get notoriously easy out of sync, and there's no way to transfer info between them.
+  (Apart from the bookmarks only, which can be achieved by manually writing them without any changes for each demo.)
+  This is why it's probably best you keep the information reading mode set to `.json`.
+- The UI may report demo information as `?`, but this has multiple causes for the different modes. Basically, there's no distinction or not
+  even a clear definition of the distinction between "no info" and "info not found".
+  - For mode `None`, it always happens.
+  - For mode `_events.txt`, it may be caused by a missing file, no logchunk existing for the given demo, or other errors while processing the file.
+  - For mode `.json`, the causes may be decoding errors, file processing errors or the file simply not existing.
+- The filtering algorithm considers missing demo information to be 0 killstreaks and 0 bookmarks and might thus select them when not intended.
+  (A demo might contain a bunch of cool frags, but its json file is corrupted, which might select it when filtering for demos to delete.)
+  - There's no toggle for this behavior, the best option is to manually unselect these demos with ctrl+click before continuing.
+
 Thanks, and have fun.
