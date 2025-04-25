@@ -64,7 +64,7 @@ class MainApp():
 		self.RCB = platforming.get_rightclick_btn()
 
 		self.root.protocol("WM_DELETE_WINDOW", self.quit_app)
-		self.root.wm_title(f"Demomgr v{__version__} by {__author__}")
+		self.root.wm_title(f"Demomgr v{__version__}")
 
 		self.demooperations = (
 			DemoOp("Play...", self._playdem, None, lambda s: s == 1),
