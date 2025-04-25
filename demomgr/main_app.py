@@ -26,7 +26,7 @@ from demomgr.threads import THREADSIG, ThreadFilter, ThreadReadFolder, ReadDemoM
 from demomgr.tk_widgets import DmgrEntry, KeyValueDisplay, HeadedFrame, purge_commands
 
 
-__version__ = "1.11.0"
+__version__ = "1.11.1"
 __author__ = "Square789"
 
 

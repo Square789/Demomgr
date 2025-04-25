@@ -700,7 +700,7 @@ class Play(BaseDialog):
 	def _launch(self) -> None:
 		for cond, name in (
 			(self.cfg.steam_path is None, "Steam"),
-			(self.usehlae_var.get() and self.cfg.hlae_path is None, "HLAE")
+			(self.usehlae_var.get() and self.cfg.hlae_path is None, "HLAE"),
 		):
 			if cond:
 				tk_msg.showerror(

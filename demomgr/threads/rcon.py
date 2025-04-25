@@ -77,21 +77,36 @@ class RCONThread(_StoppableBaseThread):
 			self.queue_out_put(THREADSIG.FAILURE)
 			return
 
-		self.queue_out_put(THREADSIG.INFO_IDX_PARAM, 0, f"Connecting to TF2 (port {self.port})...")
-		try:
-			potential_targets = socket.getaddrinfo(socket.getfqdn(), self.port, socket.AF_INET)
-		except OSError as error:
+		self.queue_out_put(THREADSIG.INFO_IDX_PARAM, 0, f"Connecting on port {self.port}...")
+
+		potential_targets = []
+		target_gathering_errors = []
+		for hostname in ("127.0.0.1", "localhost", None):
+			try:
+				rhostname = socket.getfqdn() if hostname is None else hostname
+			except OSError as error:
+				target_gathering_errors.append(error)
+				continue
+
+			try:
+				potential_targets.extend(socket.getaddrinfo(rhostname, self.port, socket.AF_INET))
+			except OSError as error:
+				target_gathering_errors.append(error)
+				continue
+
+		if not potential_targets:
 			self.queue_out_put(
 				THREADSIG.INFO_IDX_PARAM,
 				0,
-				f"Obscure error getting machine address: {error}"
+				f"Failed gathering connection candidates: {target_gathering_errors}",
 			)
 			self.queue_out_put(THREADSIG.FAILURE)
 			return
 
-		for idx, value in enumerate(potential_targets):
-			af, type_, proto, _, addr = value
-			self._socket = error = None
+		error = None
+		for idx, (af, type_, proto, _, addr) in enumerate(potential_targets):
+			error = None
+			self._socket = None
 			self.queue_out_put(
 				THREADSIG.INFO_IDX_PARAM,
 				0,
@@ -116,7 +131,8 @@ class RCONThread(_StoppableBaseThread):
 
 		if error is not None:
 			self.queue_out_put(
-				THREADSIG.INFO_IDX_PARAM, 0,
+				THREADSIG.INFO_IDX_PARAM,
+				0,
 				f"Failure establishing connection. {MAKE_SURE}: {error}"
 			)
 			self.queue_out_put(THREADSIG.FAILURE)
@@ -126,7 +142,7 @@ class RCONThread(_StoppableBaseThread):
 			self.__stopsock(THREADSIG.ABORTED)
 			return
 
-		self.queue_out_put(THREADSIG.INFO_IDX_PARAM, 0, "Connected to TF2")
+		self.queue_out_put(THREADSIG.INFO_IDX_PARAM, 0, "Socket connected")
 		self.queue_out_put(THREADSIG.INFO_IDX_PARAM, 1, "Authenticating...")
 		try:
 			authpacket = RCONPacket(622521, AUTH, encoded_pwd)
@@ -141,7 +157,7 @@ class RCONThread(_StoppableBaseThread):
 			self.queue_out_put(
 				THREADSIG.INFO_IDX_PARAM,
 				1,
-				f"Failure sending auth packet. {MAKE_SURE}: {e}"
+				f"Failure sending auth packet. {MAKE_SURE}: {e}",
 			)
 			self.__stopsock(THREADSIG.FAILURE)
 			return
@@ -167,7 +183,7 @@ class RCONThread(_StoppableBaseThread):
 			self.queue_out_put(
 				THREADSIG.INFO_IDX_PARAM,
 				1,
-				f"Error while authenticating. {MAKE_SURE}: {e}"
+				f"Error while authenticating. {MAKE_SURE}: {e}",
 			)
 			self.__stopsock(THREADSIG.FAILURE)
 			return
