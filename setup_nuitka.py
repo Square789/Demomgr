@@ -9,8 +9,10 @@ import subprocess
 ASSUME_YES = os.getenv("NUITKA_ASSUME_YES") is not None
 
 
-# files that the program still runs without (according
-# to ProcessExplorer) and that are relatively large in size.
+# files that the program still runs without (according to ProcessExplorer) and
+# that are relatively large in size.
+# lzma and bz2 do get imported when included, but no compression is ever performed,
+# so it's probably fine to remove them.
 PROBABLY_UNUSED_FILES = (
 	"_asyncio.pyd",
 	"_bz2.pyd",
@@ -65,6 +67,15 @@ target = cur_path / "demomgr"
 def main():
 	if build_dir.exists():
 		shutil.rmtree(build_dir)
+
+	# Starting from Nuitka 2.6.2 (latest 2.6.9 at time of writing), the
+	# `ui_themes` directory could not be loaded by the build anymore without
+	# the two `--include-package` switches. The package was directly copied
+	# into the build directory before.
+	# It is worth noting that Nuitka does not include the `__init__.py` file,
+	# which makes me uneasy as interpreted Python 3.8 usually fails when
+	# importing such packages via `importlib.resources` functions.
+	# But as long as it works.
 
 	options = [sys.executable, "-m", "nuitka"]
 	if ASSUME_YES:
