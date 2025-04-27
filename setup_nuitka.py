@@ -60,7 +60,7 @@ cur_path = Path.cwd()
 build_dir = cur_path / "nuitka_build"
 dist_dir = build_dir / "demomgr.dist"
 regex_dist_dir = dist_dir / "regex"
-run_py = cur_path / "demomgr"
+target = cur_path / "demomgr"
 
 def main():
 	if build_dir.exists():
@@ -71,26 +71,19 @@ def main():
 		options.append("--assume-yes-for-downloads")
 	options.extend((
 		"--standalone",
-		"--follow-imports",
+		"--include-package=demomgr.ui_themes",
+		"--include-package-data=demomgr.ui_themes",
 		"--plugin-enable=tk-inter",
 		f"--output-dir={build_dir}",
 		"--remove-output",
-		run_py,
+		str(target),
 	))
 
 	nuitka_process = subprocess.run(options)
 	if nuitka_process.returncode != 0:
 		raise RuntimeError("Nuitka failed.")
 
-	# Copy over ui resources, can't figure out the nuitka switch
-	os.makedirs(str(dist_dir / "demomgr" / "ui_themes"))
-	shutil.copytree(
-		cur_path / "demomgr" / "ui_themes",
-		dist_dir / "demomgr" / "ui_themes",
-		dirs_exist_ok = True
-	)
-
-	# Delete unused stuff
+	# Delete probably unused stuff
 	for file in PROBABLY_UNUSED_FILES:
 		if (to_delete := dist_dir / file).exists():
 			to_delete.unlink()
